@@ -22,6 +22,7 @@
 
 package haxe.ds;
 
+import haxe.iterators.VectorKeyValueIterator;
 #if cpp
 using cpp.NativeArray;
 #end
@@ -353,5 +354,9 @@ abstract Vector<T>(VectorData<T>) {
 		#else
 		this.sort(f);
 		#end
+	}
+
+	public inline function keyValueIterator():VectorKeyValueIterator<T> {
+		return new VectorKeyValueIterator(Vector.fromData(this));
 	}
 }
