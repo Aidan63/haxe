@@ -570,6 +570,7 @@ let type_constant basic c p =
 	match c with
 	| Int s ->
 		if String.length s > 10 && String.sub s 0 2 = "0x" then typing_error "Invalid hexadecimal integer" p;
+		if String.length s > 34 && String.sub s 0 2 = "0b" then typing_error "Invalid binary integer" p;
 		(try mk (TConst (TInt (Int32.of_string s))) basic.tint p
 		with _ -> mk (TConst (TFloat s)) basic.tfloat p)
 	| Float f -> mk (TConst (TFloat f)) basic.tfloat p

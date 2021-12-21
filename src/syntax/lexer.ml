@@ -320,6 +320,7 @@ let rec token lexbuf =
 	| "\r\n" -> newline lexbuf; token lexbuf
 	| '\n' | '\r' -> newline lexbuf; token lexbuf
 	| "0x", Plus ('0'..'9'|'a'..'f'|'A'..'F') -> mk lexbuf (Const (Int (lexeme lexbuf)))
+	| "0b", Plus ('0'|'1'), Star ('0'|'1') -> mk lexbuf (Const (Int (lexeme lexbuf)))
 	| integer -> mk lexbuf (Const (Int (lexeme lexbuf)))
 	| integer, '.', Plus '0'..'9' -> mk lexbuf (Const (Float (lexeme lexbuf)))
 	| '.', Plus '0'..'9' -> mk lexbuf (Const (Float (lexeme lexbuf)))
