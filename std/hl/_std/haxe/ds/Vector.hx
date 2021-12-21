@@ -22,6 +22,8 @@
 
 package haxe.ds;
 
+import haxe.iterators.VectorKeyValueIterator;
+
 private typedef VectorData<T> = Array<T>
 
 @:coreApi
@@ -86,5 +88,9 @@ abstract Vector<T>(VectorData<T>) {
 			r.set(i, v);
 		}
 		return r;
+	}
+
+	public inline function keyValueIterator():VectorKeyValueIterator<T> {
+		return new VectorKeyValueIterator(Vector.fromData(this));
 	}
 }
