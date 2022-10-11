@@ -699,5 +699,11 @@
 		"name": "NoTre",
 		"define": "no-tre",
 		"doc": "Disable tail recursion elimination."
+	},
+	{
+		"name": "HxcppNoCpp11",
+		"define": "HXCPP_NO_CPP11",
+		"doc": "Generate code without c++11 features",
+		"platforms": ["cpp"]
 	}
 ]

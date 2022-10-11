@@ -4663,6 +4663,9 @@ let has_field_init field =
    | _ -> false
 ;;
 
+let use_cpp11 ctx =
+   not (Common.defined ctx Define.HxcppNoCpp11)
+;;
 
 let gen_member_def ctx class_def is_static is_interface field =
    let output = ctx.ctx_output in
@@ -4701,6 +4704,7 @@ let gen_member_def ctx class_def is_static is_interface field =
       let has_decl = decl <> "" in
       let nonVirtual = has_meta_key field.cf_meta Meta.NonVirtual in
       let doDynamic =  (nonVirtual || not (is_override field ) ) && (reflective class_def field ) in
+      let isFinal = (has_class_field_flag field CfFinal) && (use_cpp11 ctx.ctx_common) in
       if (has_decl) then
          output ( "      typedef " ^ decl ^ ";\n" );
       output (if is_static then "\t\tstatic " else "\t\t");
@@ -4729,7 +4733,11 @@ let gen_member_def ctx class_def is_static is_interface field =
             let remap_name = native_field_name_remap is_static field in
             output (" " ^ remap_name ^ "(" );
             output (ctx_arg_list ctx function_def.tf_args "" );
-            output ");\n";
+            output ")";
+            if ( isFinal ) then begin
+               output " final"
+            end;
+            output ";\n";
             if ( doDynamic ) then begin
                output (if is_static then "\t\tstatic " else "\t\t");
                output ("::Dynamic " ^ remap_name ^ "_dyn();\n" )
@@ -6719,16 +6727,21 @@ let generate_class_files baseCtx super_deps constructor_deps class_def inScripta
       ) (List.filter  (fun (t,_) -> is_native_gen_class t) class_def.cl_implements);
    in
 
+   let final_suffix = match (has_class_flag class_def CFinal) && (use_cpp11 common_ctx) with
+   | true -> " final"
+   | false -> ""
+   in
+
    if ((has_class_flag class_def CInterface) && not nativeGen) then begin
-      output_h ("class " ^ attribs ^ " " ^ class_name ^ " {\n");
+      output_h ("class " ^ attribs ^ " " ^ class_name ^ final_suffix ^ " {\n");
       output_h "\tpublic:\n";
       output_h ("\t\ttypedef " ^ super ^ " super;\n");
    end else if (super="") then begin
-      output_h ("class " ^ attribs ^ " " ^ class_name);
+      output_h ("class " ^ attribs ^ " " ^ class_name ^ final_suffix);
       dump_native_interfaces();
       output_h "\n{\n\tpublic:\n";
    end else begin
-      output_h ("class " ^ attribs ^ " " ^ class_name ^ " : public " ^ parent );
+      output_h ("class " ^ attribs ^ " " ^ class_name ^ final_suffix ^ " : public " ^ parent );
       dump_native_interfaces();
       output_h "\n{\n\tpublic:\n";
       if not nativeGen then begin
