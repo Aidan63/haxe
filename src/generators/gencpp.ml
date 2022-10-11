@@ -4704,7 +4704,7 @@ let gen_member_def ctx class_def is_static is_interface field =
       let has_decl = decl <> "" in
       let nonVirtual = has_meta_key field.cf_meta Meta.NonVirtual in
       let doDynamic =  (nonVirtual || not (is_override field ) ) && (reflective class_def field ) in
-      let isFinal = (has_class_field_flag field CfFinal) && (use_cpp11 ctx.ctx_common) in
+      let isFinal = (has_class_field_flag field CfFinal) && (use_cpp11 ctx.ctx_common) && (Common.defined ctx.ctx_common Define.Scriptable) in
       if (has_decl) then
          output ( "      typedef " ^ decl ^ ";\n" );
       output (if is_static then "\t\tstatic " else "\t\t");
@@ -6727,7 +6727,7 @@ let generate_class_files baseCtx super_deps constructor_deps class_def inScripta
       ) (List.filter  (fun (t,_) -> is_native_gen_class t) class_def.cl_implements);
    in
 
-   let final_suffix = match (has_class_flag class_def CFinal) && (use_cpp11 common_ctx) with
+   let final_suffix = match (has_class_flag class_def CFinal) && (use_cpp11 common_ctx) && (Common.defined common_ctx Define.Scriptable) with
    | true -> " final"
    | false -> ""
    in
