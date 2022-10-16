@@ -4704,7 +4704,8 @@ let gen_member_def ctx class_def is_static is_interface field =
       let has_decl = decl <> "" in
       let nonVirtual = has_meta_key field.cf_meta Meta.NonVirtual in
       let doDynamic =  (nonVirtual || not (is_override field ) ) && (reflective class_def field ) in
-      let isFinal = (has_class_field_flag field CfFinal) && (use_cpp11 ctx.ctx_common) && (not (Common.defined ctx.ctx_common Define.Scriptable)) in
+      let scriptable = Common.defined ctx.ctx_common Define.Scriptable in
+      let isFinal = (not nonVirtual) && (has_class_field_flag field CfFinal) && (use_cpp11 ctx.ctx_common) && (not scriptable) in
       if (has_decl) then
          output ( "      typedef " ^ decl ^ ";\n" );
       output (if is_static then "\t\tstatic " else "\t\t");
@@ -4721,7 +4722,6 @@ let gen_member_def ctx class_def is_static is_interface field =
          end else begin
             let return_type = (ctx_type_string ctx function_def.tf_type) in
             if ( not is_static && not nonVirtual ) then begin
-               let scriptable = Common.defined ctx.ctx_common Define.Scriptable in
                if (not (is_internal_member field.cf_name) && not scriptable ) then begin
                   let key = (join_class_path class_def.cl_path ".") ^ "." ^ field.cf_name in
                   try output (Hashtbl.find ctx.ctx_class_member_types key) with Not_found -> ()
