@@ -27,6 +27,10 @@ import cpp.NativeSocket;
 
 @:coreApi
 class UdpSocket extends Socket {
+	public function new() {
+		super();
+	}
+
 	private override function init():Void {
 		__s = NativeSocket.socket_new(true);
 		super.init();
