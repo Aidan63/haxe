@@ -645,6 +645,7 @@ let get_config com =
 		{
 			default_config with
 			pf_capture_policy = CPWrapRef;
+			pf_overload = true;
 			pf_pad_nulls = true;
 			pf_add_final_return = true;
 			pf_supports_threads = true;

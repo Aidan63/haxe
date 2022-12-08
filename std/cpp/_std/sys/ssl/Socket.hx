@@ -135,6 +135,10 @@ class Socket extends sys.net.Socket {
 	private var sniCallback:Dynamic;
 	private var handshakeDone:Bool;
 
+	public function new() {
+		super();
+	}
+
 	private override function init():Void {
 		__s = NativeSocket.socket_new(false);
 		input = new SocketInput(this);
