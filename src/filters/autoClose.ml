@@ -7,10 +7,13 @@ open Error
 
 let run ctx e =
 
-    let is_autoclose_var i e =
+    let is_new_autoclose_var lut i e =
         match e.eexpr with
         | TVar (var, _) when has_var_flag var VAutoClose ->
-            true
+            begin match Hashtbl.find_opt lut var.v_id with
+            | Some _ -> false
+            | None -> true
+            end
         | _ ->
             false
         in
@@ -38,14 +41,14 @@ let run ctx e =
         | _ -> raise_typing_error (Printf.sprintf "Unexpected type %s" (s_type_kind var.v_type)) var.v_pos
         in
 
-    let rec run e = match e.eexpr with
+    let rec run lut e = match e.eexpr with
         | TBlock el ->
             begin try
-                let idx, e = ExtList.List.findi is_autoclose_var el in
-                let kept   = List.filteri (fun i _ -> i <= idx) el in
-                let after  = mk (TBlock (List.filteri (fun i _ -> i > idx) el |> List.map run)) ctx.t.tvoid null_pos |> run in
+                let idx, e = ExtList.List.findi (is_new_autoclose_var lut) el in
                 let close  = match e.eexpr with
                     | TVar (var, _) ->
+                        Hashtbl.add lut var.v_id ();
+
                         let func        = TFun ([], ctx.t.tvoid) in
                         let field_type  = find_close_field var in
                         let mk_local    = mk (TLocal var) e.etype e.epos in
@@ -57,6 +60,8 @@ let run ctx e =
                     | _ ->
                         raise_typing_error "Expected type" e.epos
                     in
+                let kept    = List.filteri (fun i _ -> i <= idx) el in
+                let after   = mk (TBlock (List.filteri (fun i _ -> i > idx) el |> List.map (run lut))) ctx.t.tvoid null_pos |> run lut in
                 let exn     = alloc_var VGenerated "_hx_exn" ctx.t.tany null_pos in
                 let throw   = TThrow (mk (TLocal exn) ctx.t.tany null_pos) in
                 let cleanup = mk (TBlock [ close; mk throw ctx.t.tany null_pos ]) ctx.t.tvoid null_pos in
@@ -67,7 +72,7 @@ let run ctx e =
                 e
             end
         | _ ->
-            Type.map_expr run e
+            Type.map_expr (run lut) e
         in
 
-    run e
+    run (Hashtbl.create 0) e
