@@ -36,7 +36,7 @@ let run ctx e =
                 try
                     FInstance (cls, params, (search_for_close_field cls))
                 with Not_found ->
-                    raise_typing_error "Class has no close function" e.epos
+                    raise_typing_error (Printf.sprintf "%s has no close function" (s_class_path cls)) var.v_pos
             end
         | _ -> raise_typing_error (Printf.sprintf "Unexpected type %s" (s_type_kind var.v_type)) var.v_pos
         in
@@ -51,14 +51,14 @@ let run ctx e =
 
                         let func        = TFun ([], ctx.t.tvoid) in
                         let field_type  = find_close_field var in
-                        let mk_local    = mk (TLocal var) e.etype e.epos in
-                        let mk_field    = mk (TField (mk_local, field_type)) func e.epos in
-                        let mk_call     = mk (TCall (mk_field, [])) ctx.t.tvoid e.epos in
-                        let mk_not_null = mk (TBinop (OpNotEq, mk_local, null var.v_type var.v_pos)) ctx.t.tbool e.epos in
+                        let mk_local    = mk (TLocal var) e.etype null_pos in
+                        let mk_field    = mk (TField (mk_local, field_type)) func null_pos in
+                        let mk_call     = mk (TCall (mk_field, [])) ctx.t.tvoid null_pos in
+                        let mk_not_null = mk (TBinop (OpNotEq, mk_local, null var.v_type var.v_pos)) ctx.t.tbool null_pos in
                         
-                        mk (TIf (mk_not_null, mk_call, None)) ctx.t.tvoid e.epos
+                        mk (TIf (mk_not_null, mk_call, None)) ctx.t.tvoid null_pos
                     | _ ->
-                        raise_typing_error "Expected type" e.epos
+                        raise_typing_error (Printf.sprintf "Unxpected type %s" (s_type_kind e.etype)) e.epos
                     in
                 let kept    = List.filteri (fun i _ -> i <= idx) el in
                 let after   = mk (TBlock (List.filteri (fun i _ -> i > idx) el |> List.map (run lut))) ctx.t.tvoid null_pos |> run lut in
