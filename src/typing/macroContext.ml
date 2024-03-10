@@ -597,6 +597,7 @@ and flush_macro_context mint mctx =
 	(* we should maybe ensure that all filters in Main are applied. Not urgent atm *)
 	let expr_filters = [
 		"handle_abstract_casts",AbstractCast.handle_abstract_casts mctx;
+		"auto_close",AutoClose.run mctx;
 		"local_statics",LocalStatic.run mctx;
 		"Exceptions",Exceptions.filter mctx;
 		"captured_vars",CapturedVars.captured_vars mctx.com;
