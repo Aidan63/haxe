@@ -63,6 +63,7 @@ type keyword =
 	| Abstract
 	| Macro
 	| Final
+	| AutoClose
 	| Operator
 	| Overload
 
@@ -325,6 +326,7 @@ and class_field = {
 and evar = {
 	ev_name : placed_name;
 	ev_final : bool;
+	ev_autoclose : bool;
 	ev_static : bool;
 	ev_type : type_hint option;
 	ev_expr : expr option;
@@ -400,10 +402,11 @@ let mk_type_path ?(params=[]) ?sub (pack,name) =
 		raise (Invalid_argument "Empty module name is not allowed");
 	{ tpackage = pack; tname = name; tsub = sub; tparams = params; }
 
-let mk_evar ?(final=false) ?(static=false) ?(t:type_hint option) ?eo ?(meta=[]) name =
+let mk_evar ?(final=false) ?(static=false) ?(autoclose=false) ?(t:type_hint option) ?eo ?(meta=[]) name =
 	{
 		ev_name = name;
 		ev_final = final;
+		ev_autoclose = autoclose;
 		ev_static = static;
 		ev_type = t;
 		ev_expr = eo;
@@ -565,6 +568,7 @@ let s_keyword = function
 	| Abstract -> "abstract"
 	| Macro -> "macro"
 	| Final -> "final"
+	| AutoClose -> "autoclose"
 	| Operator -> "operator"
 	| Overload -> "overload"
 

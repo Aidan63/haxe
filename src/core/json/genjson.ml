@@ -303,6 +303,7 @@ and generate_tvar ctx v =
 		"meta",generate_metadata ctx v.v_meta;
 		"pos",generate_pos ctx v.v_pos;
 		"isFinal",jbool (has_var_flag v VFinal);
+		"isAutoClose",jbool (has_var_flag v VAutoClose);
 		"isInline",jbool (match v.v_extra with Some {v_expr = Some _} -> true | _ -> false);
 	] in
 	let origin_to_int = function

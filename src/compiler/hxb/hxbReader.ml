@@ -582,6 +582,7 @@ class hxb_reader
 			let vl = self#read_list (fun () ->
 				let name = self#read_placed_name in
 				let final = self#read_bool in
+				let autoclose = self#read_bool in
 				let static = self#read_bool in
 				let t = self#read_option (fun () -> self#read_type_hint) in
 				let expr = self#read_option (fun () -> self#read_expr) in
@@ -589,6 +590,7 @@ class hxb_reader
 				{
 					ev_name = name;
 					ev_final = final;
+					ev_autoclose = autoclose;
 					ev_static = static;
 					ev_type = t;
 					ev_expr = expr;

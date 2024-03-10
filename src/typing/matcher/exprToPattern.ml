@@ -78,7 +78,7 @@ let rec make pctx toplevel t e =
 	let verror name p =
 		raise_typing_error (Printf.sprintf "Variable %s must appear exactly once in each sub-pattern" name) p
 	in
-	let add_local final name p =
+	let add_local final autoclose name p =
 		let is_wildcard_local = name = "_" in
 		if not is_wildcard_local && pctx.is_postfix_match then raise_typing_error "Pattern variables are not allowed in .match patterns" p;
 		if not is_wildcard_local && PMap.mem name pctx.current_locals then raise_typing_error (Printf.sprintf "Variable %s is bound multiple times" name) p;
@@ -87,11 +87,13 @@ let rec make pctx toplevel t e =
 			let v,p = try PMap.find name map with Not_found -> verror name p in
 			unify ctx t v.v_type p;
 			if final then add_var_flag v VFinal;
+			if autoclose then add_var_flag v VAutoClose;
 			pctx.current_locals <- PMap.add name (v,p) pctx.current_locals;
 			v
 		| _ ->
 			let v = alloc_var (VUser TVOPatternVariable) name t p in
 			if final then add_var_flag v VFinal;
+			if autoclose then add_var_flag v VAutoClose;
 			pctx.current_locals <- PMap.add name (v,p) pctx.current_locals;
 			ctx.f.locals <- PMap.add name v ctx.f.locals;
 			v
@@ -209,7 +211,7 @@ let rec make pctx toplevel t e =
 							warning pctx.ctx (Printf.sprintf "`case %s` has been deprecated, use `case var %s` instead" s s) p *)
 					| l -> warning pctx.ctx WTyper ("Potential typo detected (expected similar values are " ^ (String.concat ", " l) ^ "). Consider using `var " ^ s ^ "` instead") p
 				end;
-				let v = add_local false s p in
+				let v = add_local false false s p in
 				PatBind(v, (PatAny,null_pos))
 			end
 	in
@@ -246,8 +248,8 @@ let rec make pctx toplevel t e =
 					if i = "_" then PatAny
 					else handle_ident i (pos e)
 			end
-		| EVars([{ ev_name = (s,p); ev_final = final; ev_type = None; ev_expr = None; }]) ->
-			let v = add_local final s p in
+		| EVars([{ ev_name = (s,p); ev_final = final; ev_autoclose = autoclose; ev_type = None; ev_expr = None; }]) ->
+			let v = add_local final autoclose s p in
 			PatBind(v,(PatAny,null_pos))
 		| ECall(e1,el) ->
 			let e1 = type_expr ctx e1 (WithType.with_type t) in
@@ -391,7 +393,7 @@ let rec make pctx toplevel t e =
 		| EBinop(OpAssign,e1,e2) ->
 			let rec loop dko e = match e with
 				| (EConst (Ident s),p) ->
-					let v = add_local false s p in
+					let v = add_local false false s p in
 					begin match dko with
 					| None -> ()
 					| Some dk -> ignore(TyperDisplay.display_expr ctx e (mk (TLocal v) v.v_type p) dk (MSet None) (WithType.with_type t) p);
@@ -406,7 +408,7 @@ let rec make pctx toplevel t e =
 		| EBinop(OpArrow,e1,e2) ->
 			let restore = save_locals ctx in
 			ctx.f.locals <- pctx.ctx_locals;
-			let v = add_local false "_" null_pos in
+			let v = add_local false false "_" null_pos in
 			(* Tricky stuff: Extractor expressions are like normal expressions, so we don't want to deal with GADT-applied types here.
 			   Let's unapply, then reapply after we're done with the extractor (#5952). *)
 			let unapplied = pctx.unapply_type_parameters () in

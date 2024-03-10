@@ -337,6 +337,11 @@ typedef Var = {
 	var ?isFinal:Bool;
 
 	/**
+		Whether or not the variable will have close called when execution of the block its in ends.
+	**/
+	var ?isAutoClose:Bool;
+
+	/**
 		Whether or not the variable is static.
 	**/
 	var ?isStatic:Bool;

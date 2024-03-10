@@ -766,6 +766,7 @@ module HxbWriter = struct
 			let write_var v =
 				write_placed_name writer v.ev_name;
 				Chunk.write_bool writer.chunk v.ev_final;
+				Chunk.write_bool writer.chunk v.ev_autoclose;
 				Chunk.write_bool writer.chunk v.ev_static;
 				Chunk.write_option writer.chunk v.ev_type (write_type_hint writer);
 				Chunk.write_option writer.chunk v.ev_expr (write_expr writer);

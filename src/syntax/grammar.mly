@@ -1147,12 +1147,26 @@ and block_with_pos acc p s =
 	block_with_pos' acc parse_block_elt p s
 
 and parse_block_var = parser
-	| [< '(Kwd Var,p1); vl = parse_var_decls false p1; p2 = semicolon >] ->
+	| [< '(Kwd AutoClose,p); s >] ->
+		begin match s with parser
+		| [< '(Kwd Var,p1); vl = parse_var_decls false true p1; p2 = semicolon >] ->
+			(vl,punion p1 p2)
+		| [< '(Kwd Final,p1); s >] ->
+			check_redundant_var p1 s;
+			match s with parser
+			| [< vl = parse_var_decls true true p1; p2 = semicolon >] ->
+				(vl,punion p1 p2)
+			| [< >] ->
+				serror();
+		| [<>] ->
+			syntax_error (Expected ["var";"final"]) s (mk_null_expr p)
+		end
+	| [< '(Kwd Var,p1); vl = parse_var_decls false false p1; p2 = semicolon >] ->
 		(vl,punion p1 p2)
 	| [< '(Kwd Final,p1); s >] ->
 		check_redundant_var p1 s;
 		match s with parser
-		| [< vl = parse_var_decls true p1; p2 = semicolon >] ->
+		| [< vl = parse_var_decls true false p1; p2 = semicolon >] ->
 			(vl,punion p1 p2)
 		| [< >] ->
 			serror();
@@ -1237,16 +1251,16 @@ and parse_array_decl p1 s =
 	in
 	EArrayDecl (List.rev el),punion p1 p2
 
-and parse_var_decl_head final s =
+and parse_var_decl_head final autoclose s =
 	let meta = parse_meta s in
 	match s with parser
 	| [< name, p = dollar_ident; '(POpen,p1); _ = property_ident; '(Comma,_); _ = property_ident; '(PClose,p2); t = popt parse_type_hint >] ->
-		syntax_error (Custom "Cannot define property accessors for local vars") ~pos:(Some (punion p1 p2)) s (meta,name,final,t,p)
-	| [< name, p = dollar_ident; t = popt parse_type_hint >] -> (meta,name,final,t,p)
+		syntax_error (Custom "Cannot define property accessors for local vars") ~pos:(Some (punion p1 p2)) s (meta,name,final,autoclose,t,p)
+	| [< name, p = dollar_ident; t = popt parse_type_hint >] -> (meta,name,final,autoclose,t,p)
 	| [< >] ->
 		(* This nonsense is here for the var @ case in issue #9639 *)
 		let rec loop meta = match meta with
-			| (Meta.HxCompletion,_,p) :: _ -> (meta,"",false,None,null_pos)
+			| (Meta.HxCompletion,_,p) :: _ -> (meta,"",false,false,None,null_pos)
 			| _ :: meta -> loop meta
 			| [] -> no_keyword "variable name" s
 		in
@@ -1257,25 +1271,25 @@ and parse_var_assignment = parser
 		Some (secure_expr s)
 	| [< >] -> None
 
-and parse_var_assignment_resume final vl name pn t meta s =
+and parse_var_assignment_resume final autoclose vl name pn t meta s =
 	let eo = parse_var_assignment s in
-	mk_evar ~final ?t ?eo ~meta (name,pn)
+	mk_evar ~final ~autoclose ?t ?eo ~meta (name,pn)
 
-and parse_var_decls_next final vl = parser
-	| [< '(Comma,p1); meta,name,final,t,pn = parse_var_decl_head final; s >] ->
-		let v_decl = parse_var_assignment_resume final vl name pn t meta s in
-		parse_var_decls_next final (v_decl :: vl) s
+and parse_var_decls_next final autoclose vl = parser
+	| [< '(Comma,p1); meta,name,final,autoclose,t,pn = parse_var_decl_head final autoclose; s >] ->
+		let v_decl = parse_var_assignment_resume final autoclose vl name pn t meta s in
+		parse_var_decls_next final autoclose (v_decl :: vl) s
 	| [< >] ->
 		vl
 
-and parse_var_decls final p1 = parser
-	| [< meta,name,final,t,pn = parse_var_decl_head final; s >] ->
-		let v_decl = parse_var_assignment_resume final [] name pn t meta s in
-		List.rev (parse_var_decls_next final [v_decl] s)
+and parse_var_decls final autoclose p1 = parser
+	| [< meta,name,final,autoclose,t,pn = parse_var_decl_head final autoclose; s >] ->
+		let v_decl = parse_var_assignment_resume final autoclose [] name pn t meta s in
+		List.rev (parse_var_decls_next final autoclose [v_decl] s)
 	| [< >] -> error (Custom "Missing variable identifier") p1
 
-and parse_var_decl final = parser
-	| [< meta,name,final,t,pn = parse_var_decl_head final; v_decl = parse_var_assignment_resume final [] name pn t meta >] -> v_decl
+and parse_var_decl final autoclose = parser
+	| [< meta,name,final,autoclose,t,pn = parse_var_decl_head final autoclose; v_decl = parse_var_assignment_resume final autoclose [] name pn t meta >] -> v_decl
 
 and inline_function = parser
 	| [< '(Kwd Inline,_); '(Kwd Function,p1) >] -> true, p1
@@ -1287,12 +1301,12 @@ and parse_macro_expr p = parser
 		let t = to_type t p in
 		let ct = make_ptp_ct_null (mk_type_path ~sub:"ComplexType" (["haxe";"macro"],"Expr")) in
 		(ECheckType (t,(ct,p)),p)
-	| [< '(Kwd Var,p1); vl = psep Comma (parse_var_decl false) >] ->
+	| [< '(Kwd Var,p1); vl = psep Comma (parse_var_decl false false) >] ->
 		reify_expr (EVars vl,p1) !in_macro
 	| [< '(Kwd Final,p1); s >] ->
 		check_redundant_var p1 s;
 		begin match s with parser
-		| [< vl = psep Comma (parse_var_decl true) >] ->
+		| [< vl = psep Comma (parse_var_decl true false) >] ->
 			reify_expr (EVars vl,p1) !in_macro
 		| [< >] ->
 			serror()
@@ -1411,11 +1425,11 @@ and expr = parser
 		| [< e = parse_macro_expr p >] -> e
 		| [< >] -> serror()
 		end
-	| [< '(Kwd Var,p1); v = parse_var_decl false >] -> (EVars [v],p1)
+	| [< '(Kwd Var,p1); v = parse_var_decl false false >] -> (EVars [v],p1)
 	| [< '(Kwd Final,p1); s >] ->
 		check_redundant_var p1 s;
 		begin match s with parser
-			| [< v = parse_var_decl true >] ->
+			| [< v = parse_var_decl true false >] ->
 				(EVars [v],p1)
 			| [< >] ->
 				serror()

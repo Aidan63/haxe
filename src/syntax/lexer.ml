@@ -103,7 +103,7 @@ let keywords =
 		Switch;Case;Default;Public;Private;Try;Untyped;
 		Catch;New;This;Throw;Extern;Enum;In;Interface;
 		Cast;Override;Dynamic;Typedef;Package;
-		Inline;Using;Null;True;False;Abstract;Macro;Final;
+		Inline;Using;Null;True;False;Abstract;Macro;Final;AutoClose;
 		Operator;Overload];
 	h
 
@@ -507,6 +507,7 @@ let rec token lexbuf =
 	| "inline" -> mk_keyword lexbuf Inline
 	| "macro" -> mk_keyword lexbuf Macro
 	| "final" -> mk_keyword lexbuf Final
+	| "autoclose" -> mk_keyword lexbuf AutoClose
 	| "operator" -> mk_keyword lexbuf Operator
 	| "overload" -> mk_keyword lexbuf Overload
 	(* fields *)

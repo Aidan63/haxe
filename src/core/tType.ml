@@ -501,6 +501,7 @@ let flag_tclass_field_names = [
 type flag_tvar =
 	| VCaptured
 	| VFinal
+	| VAutoClose
 	| VAnalyzed
 	| VAssigned
 	| VCaught
@@ -509,5 +510,5 @@ type flag_tvar =
 	| VHxb (* Flag used by hxb *)
 
 let flag_tvar_names = [
-	"VCaptured";"VFinal";"VAnalyzed";"VAssigned";"VCaught";"VStatic";"VUsedByTyper"
+	"VCaptured";"VFinal";"VAutoClose";"VAnalyzed";"VAssigned";"VCaught";"VStatic";"VUsedByTyper"
 ]
