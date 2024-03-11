@@ -16,30 +16,44 @@ let run ctx e =
             end
         | _ ->
             false
-        in
+    in
+
+    let is_void_void_close t =
+        match follow t with
+        | TFun ([], ret) when ExtType.is_void (follow ret) ->
+            true
+        | _ ->
+            false
+    in
 
     let rec search_for_close_field cls =
-        try
-            PMap.find "close" cls.cl_fields
-        with Not_found ->
-            match cls.cl_super with
-            | Some (cls, _) ->
-                search_for_close_field cls
-            | None ->
-                raise Not_found
-        in
+        let field = try
+                PMap.find "close" cls.cl_fields
+            with Not_found ->
+                match cls.cl_super with
+                | Some (cls, _) ->
+                    search_for_close_field cls
+                | None ->
+                    raise Not_found
+            in
+        match field.cf_kind with
+        | Method m when m <> MethMacro && has_class_field_flag field CfPublic && is_void_void_close field.cf_type ->
+            field
+        | _ ->
+            raise Not_found
+    in
 
-    let find_close_field var =
+    let find_close_field ctx var =
         match follow_lazy_and_mono var.v_type with
         | TInst (cls, params) ->
             begin
                 try
                     FInstance (cls, params, (search_for_close_field cls))
                 with Not_found ->
-                    raise_typing_error (Printf.sprintf "%s has no close function" (s_class_path cls)) var.v_pos
+                    raise_typing_error (Printf.sprintf "%s has no valid close function" (s_class_path cls)) var.v_pos
             end
         | _ -> raise_typing_error (Printf.sprintf "Unexpected type %s" (s_type_kind var.v_type)) var.v_pos
-        in
+    in
 
     let rec run lut e = match e.eexpr with
         | TBlock el ->
@@ -50,7 +64,7 @@ let run ctx e =
                         Hashtbl.add lut var.v_id ();
 
                         let func        = TFun ([], ctx.t.tvoid) in
-                        let field_type  = find_close_field var in
+                        let field_type  = find_close_field ctx var in
                         let mk_local    = mk (TLocal var) e.etype null_pos in
                         let mk_field    = mk (TField (mk_local, field_type)) func null_pos in
                         let mk_call     = mk (TCall (mk_field, [])) ctx.t.tvoid null_pos in
@@ -73,6 +87,6 @@ let run ctx e =
             end
         | _ ->
             Type.map_expr (run lut) e
-        in
+    in
 
     run (Hashtbl.create 0) e
