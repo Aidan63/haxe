@@ -7,15 +7,16 @@ open Error
 
 let run ctx e =
 
-    let is_new_autoclose_var lut i e =
-        match e.eexpr with
-        | TVar (var, _) when has_var_flag var VAutoClose ->
-            begin match Hashtbl.find_opt lut var.v_id with
-            | Some _ -> false
-            | None -> true
-            end
-        | _ ->
-            false
+    let rec find_new_autoclose_var lut idx el =
+        match el with
+        | [] ->
+            raise Not_found
+        | h::t ->
+            match h.eexpr with
+            | TVar(var, _) when has_var_flag var VAutoClose && Hashtbl.mem lut var.v_id = false ->
+                (idx, var)
+            | _ ->
+                find_new_autoclose_var lut (idx + 1) t
     in
 
     let is_void_void_close t =
@@ -58,22 +59,19 @@ let run ctx e =
     let rec run lut e = match e.eexpr with
         | TBlock el ->
             begin try
-                let idx, e = ExtList.List.findi (is_new_autoclose_var lut) el in
-                let close  = match e.eexpr with
-                    | TVar (var, _) ->
-                        Hashtbl.add lut var.v_id ();
+                let idx, var = find_new_autoclose_var lut 0 el in
+                let close =
+                    Hashtbl.add lut var.v_id ();
 
-                        let func        = TFun ([], ctx.t.tvoid) in
-                        let field_type  = find_close_field ctx var in
-                        let mk_local    = mk (TLocal var) e.etype null_pos in
-                        let mk_field    = mk (TField (mk_local, field_type)) func null_pos in
-                        let mk_call     = mk (TCall (mk_field, [])) ctx.t.tvoid null_pos in
-                        let mk_not_null = mk (TBinop (OpNotEq, mk_local, null var.v_type var.v_pos)) ctx.t.tbool null_pos in
-                        
-                        mk (TIf (mk_not_null, mk_call, None)) ctx.t.tvoid null_pos
-                    | _ ->
-                        raise_typing_error (Printf.sprintf "Unxpected type %s" (s_type_kind e.etype)) e.epos
-                    in
+                    let func        = TFun ([], ctx.t.tvoid) in
+                    let field_type  = find_close_field ctx var in
+                    let mk_local    = mk (TLocal var) var.v_type null_pos in
+                    let mk_field    = mk (TField (mk_local, field_type)) func null_pos in
+                    let mk_call     = mk (TCall (mk_field, [])) ctx.t.tvoid null_pos in
+                    let mk_not_null = mk (TBinop (OpNotEq, mk_local, null var.v_type var.v_pos)) ctx.t.tbool null_pos in
+                
+                    mk (TIf (mk_not_null, mk_call, None)) ctx.t.tvoid null_pos
+                in
                 let kept    = List.filteri (fun i _ -> i <= idx) el in
                 let after   = mk (TBlock (List.filteri (fun i _ -> i > idx) el |> List.map (run lut))) ctx.t.tvoid null_pos |> run lut in
                 let exn     = alloc_var VGenerated "_hx_exn" ctx.t.tany null_pos in
