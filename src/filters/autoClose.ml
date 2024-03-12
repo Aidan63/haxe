@@ -4,6 +4,7 @@ open Type
 open Typecore
 open Texpr
 open Error
+open Ast
 
 let run ctx e =
 
@@ -35,51 +36,45 @@ let run ctx e =
             false
     in
 
-    let rec search_for_close_field cls fetch validator =
-        let field = try
-                PMap.find "close" (fetch cls)
-            with Not_found ->
-                match cls.cl_super with
-                | Some (cls, _) ->
-                    search_for_close_field cls fetch validator
-                | None ->
-                    raise Not_found
-            in
-        match field.cf_kind with
-        | Method m when m <> MethMacro && has_class_field_flag field CfPublic && validator field.cf_type ->
-            field
-        | _ ->
-            raise Not_found
-    in
-
     let find_close_field ctx var =
-        match follow_lazy_and_mono var.v_type with
-        | TInst (cls, params) ->
-            begin
-                try
-                    let field = FInstance (cls, params, (search_for_close_field cls (fun c -> c.cl_fields) is_inst_close)) in
-                    let expr  = mk (TLocal var) var.v_type null_pos in
+        let rec loop t = 
+            match follow t with
+            | TInst (cls, params) ->
+                begin
+                    try
+                        let found = match TClass.get_all_fields cls params |> PMap.find "close" with
+                        | (_, field) when has_class_field_flag field CfPublic && is_inst_close field.cf_type -> field
+                        | _ -> raise Not_found in
+                        let field = FInstance (cls, params, found) in
+                        let expr  = mk (TLocal var) var.v_type null_pos in
 
-                    (expr, field, [])
-                with Not_found ->
-                    raise_typing_error (Printf.sprintf "autoclose cannot be used on a variable of type %s as it has no valid close function" (s_class_path cls)) var.v_pos
-            end
-        | TAbstract (abs, params) ->
-            begin match abs.a_impl with
-            | Some cls ->
-                begin try
-                    let field = FStatic (cls, (search_for_close_field cls (fun c -> c.cl_statics) (is_abstract_close abs.a_this))) in
-                    let expr  = mk (TIdent (s_type_path cls.cl_path)) (TInst (cls, params)) null_pos in
-
-                    (expr, field, [ mk (TLocal var) var.v_type null_pos ])
-                with Not_found ->
-                    raise_typing_error (Printf.sprintf "autoclose cannot be used on a variable of type %s as it has no valid close function" (s_type_path abs.a_path)) var.v_pos
+                        (expr, field, [])
+                    with Not_found ->
+                        raise_typing_error (Printf.sprintf "autoclose cannot be used on a variable of type %s as it has no valid close function" (s_class_path cls)) var.v_pos
                 end
-            | None ->
-                raise_typing_error "autoclose cannot be used on an abstract with no implementation" var.v_pos
-            end
-        | other ->
-            raise_typing_error (Printf.sprintf "Unexpected type %s" (s_type_kind other)) var.v_pos
+            | TAbstract ({ a_impl = Some cls; a_enum = false } as a, params) ->
+                begin try
+                    match find_field cls "close" CfrStatic with
+                    | found when has_class_field_flag found CfPublic && has_class_field_flag found CfImpl && is_abstract_close a.a_this found.cf_type ->
+                        let field = FStatic (cls, found) in
+                        let expr  = mk (TIdent (s_type_path cls.cl_path)) (TInst (cls, params)) null_pos in
+
+                        (expr, field, [ mk (TLocal var) var.v_type null_pos ])
+                    | _ ->
+                        raise Not_found
+                with Not_found ->
+                    try
+                        let _,el,_ = Meta.get Meta.Forward a.a_meta in
+                        match ExtList.List.exists (fun e -> match fst e with EConst(Ident "close") -> true | _ -> false) el with
+                        | true -> loop a.a_this
+                        | false -> raise Not_found
+                    with Not_found ->
+                        raise_typing_error (Printf.sprintf "autoclose cannot be used on a variable of type %s as it has no valid close function" (s_class_path cls)) var.v_pos
+                end
+            | other ->
+                raise_typing_error (Printf.sprintf "autoclose cannot be used on a variable of type %s" (s_type_kind other)) var.v_pos
+        in
+        loop var.v_type
     in
 
     let rec run lut e = match e.eexpr with
