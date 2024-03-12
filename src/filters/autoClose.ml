@@ -92,8 +92,8 @@ let run ctx e =
                 
                     mk (TIf (mk_not_null, mk_call, None)) ctx.t.tvoid null_pos
                 in
-                let kept    = List.filteri (fun i _ -> i <= idx) el in
-                let after   = mk (TBlock (List.filteri (fun i _ -> i > idx) el |> List.map (run lut))) ctx.t.tvoid null_pos |> run lut in
+                let kept    = ExtList.List.filteri (fun i _ -> i <= idx) el in
+                let after   = mk (TBlock (ExtList.List.filteri (fun i _ -> i > idx) el |> List.map (run lut))) ctx.t.tvoid null_pos |> run lut in
                 let exn     = alloc_var VGenerated "_hx_exn" ctx.t.tany null_pos in
                 let throw   = TThrow (mk (TLocal exn) ctx.t.tany null_pos) in
                 let cleanup = mk (TBlock [ close; mk throw ctx.t.tany null_pos ]) ctx.t.tvoid null_pos in
