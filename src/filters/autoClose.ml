@@ -101,7 +101,7 @@ let run ctx e =
 
                 mk (TBlock (kept @ [ etry ] @ [ close ]) ) ctx.t.tvoid null_pos
             with Not_found ->
-                e
+                { e with eexpr = TBlock( el |> List.map (run lut) ) }
             end
         | _ ->
             Type.map_expr (run lut) e
