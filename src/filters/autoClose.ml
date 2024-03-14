@@ -7,7 +7,8 @@ open Error
 open Ast
 
 type ac_ctx = {
-    stack : texpr Stack.t;
+    blocks : texpr Stack.t;
+    loops : texpr Stack.t Stack.t;
     lut : (int, unit) Hashtbl.t;
     typer : typer;
 }
@@ -94,7 +95,10 @@ let run tctx e =
             in
 
             Hashtbl.add ctx.lut var.v_id ();
-            Stack.push close ctx.stack;
+            Stack.push close ctx.blocks;
+
+            if Stack.is_empty ctx.loops = false then
+                Stack.push close (Stack.top ctx.loops);
 
             let after   = ExtList.List.filteri (fun i _ -> i > idx) els |> block_scope ctx p in
             let exn     = alloc_var VGenerated "_hx_exn" ctx.typer.t.tany null_pos in
@@ -102,7 +106,7 @@ let run tctx e =
             let cleanup = mk (TBlock [ close; mk throw ctx.typer.t.tany null_pos ]) ctx.typer.t.tvoid null_pos in
             let etry    = mk (TTry (after, [ (exn, cleanup) ])) ctx.typer.t.tvoid null_pos in
 
-            Stack.pop ctx.stack |> ignore;
+            Stack.pop ctx.blocks |> ignore;
 
             mk (TBlock (kept @ [ List.nth els idx ] @ [ etry ] @ [ close ]) ) ctx.typer.t.tvoid null_pos
         with Not_found ->
@@ -112,23 +116,45 @@ let run tctx e =
     and map ctx e = match e.eexpr with
         | TBlock els ->
             block_scope ctx e.epos els
-        | TReturn None when Stack.is_empty ctx.stack = false ->
+        | TReturn None when Stack.is_empty ctx.blocks = false ->
             let func acc cur = acc @ [ cur ] in
-            let exprs = Stack.fold func [] ctx.stack in
+            let exprs = Stack.fold func [] ctx.blocks in
 
             mk (TBlock (exprs @ [ e ])) e.etype null_pos
-        | TReturn Some inner when Stack.is_empty ctx.stack = false ->
+        | TReturn Some inner when Stack.is_empty ctx.blocks = false ->
             let tmp          = alloc_var VGenerated "_hx_tmp" inner.etype null_pos in
             let assignment   = mk (TVar (tmp, Some inner)) inner.etype null_pos in
             let func acc cur = acc @ [ cur ] in
-            let exprs        = Stack.fold func [] ctx.stack in
+            let exprs        = Stack.fold func [] ctx.blocks in
             let return       = mk (TReturn (Some (mk (TLocal tmp) tmp.v_type null_pos))) e.etype null_pos in
 
             mk (TBlock ( [ assignment ] @ exprs @ [ return ])) e.etype null_pos
+        | TFor (v,e1,e2) ->
+            Stack.push (Stack.create()) ctx.loops;
+            let mapped = { e with eexpr = TFor (v,map ctx e1,map ctx e2) } in
+            Stack.pop ctx.loops |> ignore;
+
+            mapped
+        | TWhile (e1,e2,flag) ->
+            Stack.push (Stack.create()) ctx.loops;
+            let mapped = { e with eexpr = TWhile (map ctx e1,map ctx e2,flag) } in
+            Stack.pop ctx.loops |> ignore;
+
+            mapped
+        | TContinue when Stack.is_empty ctx.loops = false -> 
+            let func acc cur = acc @ [ cur ] in
+            let exprs  = Stack.fold func [] (Stack.top ctx.loops) in
+
+            mk (TBlock (exprs @ [ e ])) e.etype null_pos
+        | TBreak when Stack.is_empty ctx.loops = false ->
+            let func acc cur = acc @ [ cur ] in
+            let exprs  = Stack.fold func [] (Stack.top ctx.loops) in
+
+            mk (TBlock (exprs @ [ e ])) e.etype null_pos
         | TFunction fu ->
-            { e with eexpr = TFunction { fu with tf_expr = map { typer = tctx; stack = Stack.create(); lut = Hashtbl.create 0; } fu.tf_expr } }
+            { e with eexpr = TFunction { fu with tf_expr = map { typer = tctx; blocks = Stack.create(); loops = Stack.create(); lut = Hashtbl.create 0; } fu.tf_expr } }
         | _ ->
             Type.map_expr (map ctx) e
     in
 
-    map { typer = tctx; stack = Stack.create(); lut = Hashtbl.create 0; } e
+    map { typer = tctx; blocks = Stack.create(); loops = Stack.create(); lut = Hashtbl.create 0; } e
