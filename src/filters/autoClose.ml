@@ -125,14 +125,10 @@ let run tctx e =
             let return       = mk (TReturn (Some (mk (TLocal tmp) tmp.v_type null_pos))) e.etype null_pos in
 
             mk (TBlock ( [ assignment ] @ exprs @ [ return ])) e.etype null_pos
+        | TFunction fu ->
+            { e with eexpr = TFunction { fu with tf_expr = map { typer = tctx; stack = Stack.create(); lut = Hashtbl.create 0; } fu.tf_expr } }
         | _ ->
             Type.map_expr (map ctx) e
     in
 
-    let new_ctx = {
-        typer = tctx;
-        stack = Stack.create();
-        lut   = Hashtbl.create 0;
-    } in
-
-    map new_ctx e
+    map { typer = tctx; stack = Stack.create(); lut = Hashtbl.create 0; } e
