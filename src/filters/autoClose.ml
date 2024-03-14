@@ -102,7 +102,7 @@ let run tctx e =
             let cleanup = mk (TBlock [ close; mk throw ctx.typer.t.tany null_pos ]) ctx.typer.t.tvoid null_pos in
             let etry    = mk (TTry (after, [ (exn, cleanup) ])) ctx.typer.t.tvoid null_pos in
 
-            Stack.pop |> ignore;
+            Stack.pop ctx.stack |> ignore;
 
             mk (TBlock (kept @ [ List.nth els idx ] @ [ etry ] @ [ close ]) ) ctx.typer.t.tvoid null_pos
         with Not_found ->
@@ -112,6 +112,19 @@ let run tctx e =
     and map ctx e = match e.eexpr with
         | TBlock els ->
             block_scope ctx e.epos els
+        | TReturn None when Stack.is_empty ctx.stack = false ->
+            let func acc cur = acc @ [ cur ] in
+            let exprs = Stack.fold func [] ctx.stack in
+
+            mk (TBlock (exprs @ [ e ])) e.etype null_pos
+        | TReturn Some inner when Stack.is_empty ctx.stack = false ->
+            let tmp          = alloc_var VGenerated "_hx_tmp" inner.etype null_pos in
+            let assignment   = mk (TVar (tmp, Some inner)) inner.etype null_pos in
+            let func acc cur = acc @ [ cur ] in
+            let exprs        = Stack.fold func [] ctx.stack in
+            let return       = mk (TReturn (Some (mk (TLocal tmp) tmp.v_type null_pos))) e.etype null_pos in
+
+            mk (TBlock ( [ assignment ] @ exprs @ [ return ])) e.etype null_pos
         | _ ->
             Type.map_expr (map ctx) e
     in
