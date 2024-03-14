@@ -6,7 +6,13 @@ open Texpr
 open Error
 open Ast
 
-let run ctx e =
+type ac_ctx = {
+    stack : texpr Stack.t;
+    lut : (int, unit) Hashtbl.t;
+    typer : typer;
+}
+
+let run tctx e =
 
     let rec find_new_autoclose_var lut idx el =
         match el with
@@ -18,25 +24,22 @@ let run ctx e =
                 (idx, var)
             | _ ->
                 find_new_autoclose_var lut (idx + 1) t
-    in
 
-    let is_inst_close t =
+    and is_inst_close t =
         match follow t with
         | TFun ([], ret) when ExtType.is_void (follow ret) ->
             true
         | _ ->
             false
-    in
-
-    let is_abstract_close a_this t =
+    
+    and is_abstract_close a_this t =
         match follow t with
         | TFun ([ (_, false, arg) ], ret) when ExtType.is_void (follow ret) && fast_eq arg a_this ->
             true
         | _ ->
             false
-    in
-
-    let find_close_field ctx var =
+    
+    and find_close_field var =
         let rec loop t = 
             match follow t with
             | TInst (cls, params) ->
@@ -75,36 +78,48 @@ let run ctx e =
                 raise_typing_error (Printf.sprintf "autoclose cannot be used on a variable of type %s" (s_type_kind other)) var.v_pos
         in
         loop var.v_type
-    in
 
-    let rec run lut e = match e.eexpr with
-        | TBlock el ->
-            begin try
-                let idx, var = find_new_autoclose_var lut 0 el in
-                let close =
-                    Hashtbl.add lut var.v_id ();
+    and block_scope ctx p els =
+        begin try
+            let idx, var = find_new_autoclose_var ctx.lut 0 els in
+            let kept     = ExtList.List.filteri (fun i _ -> i < idx) els |> List.map (map ctx) in
+            let close    =
+                let f_expr, f_type, f_args = find_close_field var in
+                let mk_local    = mk (TLocal var) var.v_type null_pos in
+                let mk_field    = mk (TField (f_expr, f_type)) var.v_type null_pos in
+                let mk_call     = mk (TCall (mk_field, f_args)) ctx.typer.t.tvoid null_pos in
+                let mk_not_null = mk (TBinop (OpNotEq, mk_local, null var.v_type var.v_pos)) ctx.typer.t.tbool null_pos in
+            
+                mk (TIf (mk_not_null, mk_call, None)) ctx.typer.t.tvoid null_pos
+            in
 
-                    let f_expr, f_type, f_args = find_close_field ctx var in
-                    let mk_local    = mk (TLocal var) var.v_type null_pos in
-                    let mk_field    = mk (TField (f_expr, f_type)) var.v_type null_pos in
-                    let mk_call     = mk (TCall (mk_field, f_args)) ctx.t.tvoid null_pos in
-                    let mk_not_null = mk (TBinop (OpNotEq, mk_local, null var.v_type var.v_pos)) ctx.t.tbool null_pos in
-                
-                    mk (TIf (mk_not_null, mk_call, None)) ctx.t.tvoid null_pos
-                in
-                let kept    = ExtList.List.filteri (fun i _ -> i <= idx) el in
-                let after   = mk (TBlock (ExtList.List.filteri (fun i _ -> i > idx) el |> List.map (run lut))) ctx.t.tvoid null_pos |> run lut in
-                let exn     = alloc_var VGenerated "_hx_exn" ctx.t.tany null_pos in
-                let throw   = TThrow (mk (TLocal exn) ctx.t.tany null_pos) in
-                let cleanup = mk (TBlock [ close; mk throw ctx.t.tany null_pos ]) ctx.t.tvoid null_pos in
-                let etry    = mk (TTry (after, [ (exn, cleanup) ])) ctx.t.tvoid null_pos in
+            Hashtbl.add ctx.lut var.v_id ();
+            Stack.push close ctx.stack;
 
-                mk (TBlock (kept @ [ etry ] @ [ close ]) ) ctx.t.tvoid null_pos
-            with Not_found ->
-                { e with eexpr = TBlock( el |> List.map (run lut) ) }
-            end
+            let after   = ExtList.List.filteri (fun i _ -> i > idx) els |> block_scope ctx p in
+            let exn     = alloc_var VGenerated "_hx_exn" ctx.typer.t.tany null_pos in
+            let throw   = TThrow (mk (TLocal exn) ctx.typer.t.tany null_pos) in
+            let cleanup = mk (TBlock [ close; mk throw ctx.typer.t.tany null_pos ]) ctx.typer.t.tvoid null_pos in
+            let etry    = mk (TTry (after, [ (exn, cleanup) ])) ctx.typer.t.tvoid null_pos in
+
+            Stack.pop |> ignore;
+
+            mk (TBlock (kept @ [ List.nth els idx ] @ [ etry ] @ [ close ]) ) ctx.typer.t.tvoid null_pos
+        with Not_found ->
+            { e with eexpr = TBlock(els |> List.map (map ctx)) }
+        end
+
+    and map ctx e = match e.eexpr with
+        | TBlock els ->
+            block_scope ctx e.epos els
         | _ ->
-            Type.map_expr (run lut) e
+            Type.map_expr (map ctx) e
     in
 
-    run (Hashtbl.create 0) e
+    let new_ctx = {
+        typer = tctx;
+        stack = Stack.create();
+        lut   = Hashtbl.create 0;
+    } in
+
+    map new_ctx e
