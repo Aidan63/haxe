@@ -80,7 +80,7 @@ let run tctx e =
         in
         loop var.v_type
 
-    and block_scope ctx p els =
+    and block_scope ctx p e els =
         begin try
             let idx, var = find_new_autoclose_var ctx.lut 0 els in
             let kept     = ExtList.List.filteri (fun i _ -> i < idx) els |> List.map (map ctx) in
@@ -100,11 +100,12 @@ let run tctx e =
             if Stack.is_empty ctx.loops = false then
                 Stack.push close (Stack.top ctx.loops);
 
-            let after   = ExtList.List.filteri (fun i _ -> i > idx) els |> block_scope ctx p in
+            let after   = ExtList.List.filteri (fun i _ -> i > idx) els in
+            let trying  = after |> block_scope ctx p (mk (TBlock after) ctx.typer.t.tvoid null_pos) in
             let exn     = alloc_var VGenerated "_hx_exn" ctx.typer.t.tany null_pos in
             let throw   = TThrow (mk (TLocal exn) ctx.typer.t.tany null_pos) in
             let cleanup = mk (TBlock [ close; mk throw ctx.typer.t.tany null_pos ]) ctx.typer.t.tvoid null_pos in
-            let etry    = mk (TTry (after, [ (exn, cleanup) ])) ctx.typer.t.tvoid null_pos in
+            let etry    = mk (TTry (trying, [ (exn, cleanup) ])) ctx.typer.t.tvoid null_pos in
 
             Stack.pop ctx.blocks |> ignore;
 
@@ -115,7 +116,7 @@ let run tctx e =
 
     and map ctx e = match e.eexpr with
         | TBlock els ->
-            block_scope ctx e.epos els
+            block_scope ctx e.epos e els
         | TReturn None when Stack.is_empty ctx.blocks = false ->
             let func acc cur = acc @ [ cur ] in
             let exprs = Stack.fold func [] ctx.blocks in
