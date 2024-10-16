@@ -156,3 +156,10 @@ and tcpp_expr_expr =
   | CppCastObjCBlock of tcppexpr * tcpp list * tcpp
   | CppCastProtocol of tcppexpr * tclass
   | CppCastNative of tcppexpr
+
+and tcpp_decl =
+  | ManagedClass of tclass
+  | NativeClass of tclass
+  | ManagedInterface of tclass
+  | NativeInterface of tclass
+  | Enum of tenum

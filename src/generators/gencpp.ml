@@ -223,12 +223,21 @@ let generate_source ctx =
    let constructor_deps = CppGen.create_constructor_dependencies common_ctx in
    let main_deps = ref [] in
    let extern_src = ref [] in
-   let jobs = ref [] in
    let build_xml = ref "" in
    let scriptable = (Common.defined common_ctx Define.Scriptable) in
    let existingIds = Hashtbl.create 0 in
 
-   List.iter (fun object_def ->
+   (* let checker object_def =
+      match object_def with
+      | TClassDecl class_def when is_extern_class class_def ->
+         None
+      | TClassDecl class_def when is_internal_class class_def.cl_path ->
+         None
+      | TClassDecl class_def ->
+         None
+      | o -> None in *)
+
+   let mapped = List.filter_map (fun object_def ->
       (* check if any @:objc class is referenced while '-D objc' is not defined
          This will guard all code changes to this flag *)
       (if not (Common.defined common_ctx Define.Objc) then match object_def with
@@ -241,12 +250,15 @@ let generate_source ctx =
          let source = get_meta_string_path class_def.cl_meta Meta.SourceFile in
          if (source<>"") then
             extern_src := source :: !extern_src;
+
+         None
       | TClassDecl class_def ->
          let name =  class_text class_def.cl_path in
          let is_internal = is_internal_class class_def.cl_path in
-         if (is_internal || (Meta.has Meta.Macro class_def.cl_meta)) then
-            ( if (debug>=4) then print_endline (" internal class " ^ name ))
-         else begin
+         if (is_internal || (Meta.has Meta.Macro class_def.cl_meta)) then begin
+            ( if (debug>=4) then print_endline (" internal class " ^ name ));
+            None
+         end else begin
             let rec makeId class_name seed =
                let id = gen_hash32 seed class_name in
                (* reserve first 100 ids for runtime *)
@@ -265,18 +277,20 @@ let generate_source ctx =
                boot_classes := class_def.cl_path ::  !boot_classes
             else if not (Meta.has Meta.NativeGen class_def.cl_meta) then
                nonboot_classes := class_def.cl_path ::  !nonboot_classes;
-            jobs := (fun () -> generate_class_files ctx class_def) :: !jobs;
             let deps = CppReferences.find_referenced_types ctx (TClassDecl class_def) super_deps constructor_deps false true scriptable in
             if not ((has_class_flag class_def CInterface) && (is_native_gen_class class_def)) then
                exe_classes := (class_def.cl_path, deps, object_def)  ::  !exe_classes;
+
+            Some (ManagedClass class_def)
          end
-      | TEnumDecl enum_def when has_enum_flag enum_def EnExtern -> ()
+      | TEnumDecl enum_def when has_enum_flag enum_def EnExtern -> None
       | TEnumDecl enum_def ->
          let name =  class_text enum_def.e_path in
          let is_internal = is_internal_class enum_def.e_path in
-         if (is_internal) then
-            (if (debug>1) then print_endline (" internal enum " ^ name ))
-         else begin
+         if (is_internal) then begin
+            (if (debug>1) then print_endline (" internal enum " ^ name ));
+            None
+         end else begin
             let rec makeId enum_name seed =
                let id = gen_hash32 seed enum_name in
                (* reserve first 100 ids for runtime *)
@@ -291,16 +305,25 @@ let generate_source ctx =
             if (has_enum_flag enum_def EnExtern) then
                (if (debug>1) then print_endline ("external enum " ^ name ));
             boot_enums := enum_def.e_path :: !boot_enums;
-            jobs := (fun () -> CppGenEnum.generate ctx enum_def) :: !jobs;
             let deps = CppReferences.find_referenced_types ctx (TEnumDecl enum_def) super_deps (Hashtbl.create 0) false true false in
             exe_classes := (enum_def.e_path, deps, object_def) :: !exe_classes;
+
+            Some (Enum enum_def)
          end
-      | TTypeDecl _ | TAbstractDecl _ -> (* already done *) ()
+      | TTypeDecl _ | TAbstractDecl _ -> (* already done *) None
       );
-   ) common_ctx.types;
+   ) common_ctx.types in
 
-   List.iter (fun job -> job () ) !jobs;
+   let jobs = List.map (fun tcpp_type -> match tcpp_type with
+      | ManagedClass class_def
+      | NativeClass class_def
+      | ManagedInterface class_def
+      | NativeInterface class_def ->
+         (fun () -> generate_class_files ctx class_def)
+      | Enum enum_def ->
+         (fun () -> CppGenEnum.generate ctx enum_def)) mapped in
 
+   List.iter (fun job -> job () ) jobs;
 
    (match common_ctx.main.main_expr with
    | None -> CppGen.generate_dummy_main common_ctx
