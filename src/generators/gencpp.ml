@@ -199,14 +199,6 @@ let is_assign_op op =
    | OpAssign
    | OpAssignOp _ -> true
    | _ -> false
-
-let generate_class_files ctx class_def =
-   (* create header and cpp files *)
-   let nativeGen = Meta.has Meta.NativeGen class_def.cl_meta in
-   if not (nativeGen && (has_class_flag class_def CInterface)) then
-      CppGenClassImplementation.generate ctx class_def;
-   CppGenClassHeader.generate ctx class_def
-
 (*
  The common_ctx contains the haxe AST in the "types" field and the resources
 *)
@@ -274,7 +266,13 @@ let generate_source ctx =
       | TClassDecl class_def ->
          make_id (class_text class_def.cl_path) 0;
 
-         let acc_decls           = (ManagedClass class_def) :: acc.decls in
+         let native_gen = Meta.has Meta.NativeGen class_def.cl_meta in
+         let decl =
+            match has_class_flag class_def CInterface with
+            | true -> if native_gen then (NativeInterface class_def) else (ManagedInterface class_def)
+            | false -> if native_gen then (NativeClass class_def) else (ManagedClass class_def) in
+
+         let acc_decls           = decl :: acc.decls in
          let acc_build_xml       = acc.build_xml ^ (CppGen.get_class_code class_def Meta.BuildXml) in
          let acc_init_classes    = if has_init_field class_def then class_def.cl_path :: acc.init_classes else acc.init_classes in
          let acc_boot_classes    = if has_boot_field class_def then class_def.cl_path :: acc.boot_classes else acc.boot_classes in
@@ -308,11 +306,17 @@ let generate_source ctx =
 
    List.iter (fun tcpp_type ->
       match tcpp_type with
-      | ManagedClass class_def
-      | NativeClass class_def
-      | ManagedInterface class_def
-      | NativeInterface class_def ->
-         generate_class_files ctx class_def
+      | ManagedClass class_def ->
+         CppGenClassHeader.generate ctx class_def;
+         CppGenClassImplementation.generate ctx class_def;
+      | NativeClass class_def ->
+         CppGenClassHeader.generate ctx class_def;
+         CppGenClassImplementation.generate ctx class_def;
+      | ManagedInterface interface_def ->
+         CppGenInterfaceHeader.generate_managed_interface ctx interface_def;
+         CppGenClassImplementation.generate ctx interface_def;
+      | NativeInterface interface_def ->
+         CppGenInterfaceHeader.generate_native_interface ctx interface_def
       | Enum enum_def ->
          CppGenEnum.generate ctx enum_def) srcctx.decls;
 
