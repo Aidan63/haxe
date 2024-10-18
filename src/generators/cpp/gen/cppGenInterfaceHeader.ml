@@ -91,9 +91,8 @@ let gen_includes h_file interface_def =
 let gen_forward_decls h_file interface_def ctx common_ctx =
   (* Only need to forward-declare classes that are mentioned in the header file (ie, not the implementation) *)
   let scriptable = Common.defined common_ctx Define.Scriptable && not interface_def.cl_private in
-  let super_deps = create_super_dependencies common_ctx in
   let header_referenced, header_flags =
-    CppReferences.find_referenced_types_flags ctx (TClassDecl interface_def) "*" super_deps (Hashtbl.create 0) true false scriptable
+    CppReferences.find_referenced_types_flags ctx (TClassDecl interface_def) "*" ctx.ctx_super_deps (Hashtbl.create 0) true false scriptable
   in
 
   List.iter2

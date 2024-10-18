@@ -30,12 +30,14 @@ type context = {
   ctx_is_header : bool;
   ctx_interface_slot : (string, int) Hashtbl.t ref;
   ctx_interface_slot_count : int ref;
+  ctx_super_deps : (path, path list) Hashtbl.t;
+  ctx_constructor_deps : (path, tclass_field) Hashtbl.t;
   (* This is for returning from the child nodes of TSwitch && TTry *)
   mutable ctx_real_this_ptr : bool;
   mutable ctx_class_member_types : (string, string) Hashtbl.t;
 }
 
-let new_context common_ctx debug file_info member_types =
+let new_context common_ctx debug file_info member_types super_deps constructor_deps =
   let null_file =
     new CppSourceWriter.source_writer common_ctx ignore ignore (fun () -> ())
   in
@@ -57,6 +59,8 @@ let new_context common_ctx debug file_info member_types =
       ctx_real_this_ptr = true;
       ctx_class_member_types = member_types;
       ctx_file_info = file_info;
+      ctx_super_deps = super_deps;
+      ctx_constructor_deps = constructor_deps;
     }
   in
   result

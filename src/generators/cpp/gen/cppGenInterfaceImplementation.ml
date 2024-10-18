@@ -125,11 +125,9 @@ let generate_managed_interface baseCtx class_def =
 
   cpp_file#write_h "#include <hxcpp.h>\n\n";
 
-  let constructor_deps = create_constructor_dependencies common_ctx in
-  let super_deps = create_super_dependencies common_ctx in
   let all_referenced =
-    CppReferences.find_referenced_types ctx (TClassDecl class_def) super_deps
-      constructor_deps false false scriptable
+    CppReferences.find_referenced_types ctx (TClassDecl class_def) ctx.ctx_super_deps
+    ctx.ctx_constructor_deps false false scriptable
   in
   List.iter (add_include cpp_file) all_referenced;
 

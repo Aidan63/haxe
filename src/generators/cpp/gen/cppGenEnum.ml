@@ -33,8 +33,7 @@ let generate baseCtx enum_def =
 
   cpp_file#write_h "#include <hxcpp.h>\n\n";
 
-  let super_deps       = create_super_dependencies common_ctx in
-  let referenced,flags = CppReferences.find_referenced_types_flags ctx (TEnumDecl enum_def) "*" super_deps (Hashtbl.create 0) false false false in
+  let referenced,flags = CppReferences.find_referenced_types_flags ctx (TEnumDecl enum_def) "*" ctx.ctx_super_deps (Hashtbl.create 0) false false false in
   List.iter (add_include cpp_file) referenced;
 
   begin_namespace output_cpp class_path;

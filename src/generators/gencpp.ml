@@ -217,8 +217,6 @@ type gensrc_ctx = {
 let generate_source ctx =
    let common_ctx = ctx.ctx_common in
    make_base_directory common_ctx.file;
-   let super_deps = CppGen.create_super_dependencies common_ctx in
-   let constructor_deps = CppGen.create_constructor_dependencies common_ctx in
    let main_deps = ref [] in
    let scriptable = (Common.defined common_ctx Define.Scriptable) in
    let existingIds = Hashtbl.create 0 in
@@ -281,7 +279,7 @@ let generate_source ctx =
             if (has_class_flag class_def CInterface) && (is_native_gen_class class_def) then
                acc.exe_classes
             else
-               let deps = CppReferences.find_referenced_types ctx (TClassDecl class_def) super_deps constructor_deps false true scriptable in
+               let deps = CppReferences.find_referenced_types ctx (TClassDecl class_def) ctx.ctx_super_deps ctx.ctx_constructor_deps false true scriptable in
 
                (class_def.cl_path, deps, cur) :: acc.exe_classes in
 
@@ -293,7 +291,7 @@ let generate_source ctx =
       | TEnumDecl enum_def ->
          make_id (class_text enum_def.e_path) 0;
 
-         let deps            = CppReferences.find_referenced_types ctx (TEnumDecl enum_def) super_deps (Hashtbl.create 0) false true false in
+         let deps            = CppReferences.find_referenced_types ctx (TEnumDecl enum_def) ctx.ctx_super_deps (Hashtbl.create 0) false true false in
          let acc_decls       = (Enum enum_def) :: acc.decls in
          let acc_boot_enums  = enum_def.e_path :: acc.boot_enums in
          let acc_exe_classes = (enum_def.e_path, deps, cur) :: acc.exe_classes in
@@ -327,8 +325,8 @@ let generate_source ctx =
          cf_expr = Some e;
 	  } in
       let class_def = { null_class with cl_path = ([],"@Main"); cl_ordered_statics = [main_field] } in
-      main_deps := CppReferences.find_referenced_types ctx (TClassDecl class_def) super_deps constructor_deps false true false;
-      CppGen.generate_main ctx super_deps class_def
+      main_deps := CppReferences.find_referenced_types ctx (TClassDecl class_def) ctx.ctx_super_deps ctx.ctx_constructor_deps false true false;
+      CppGen.generate_main ctx ctx.ctx_super_deps class_def
    );
 
    CppGen.generate_boot ctx srcctx.boot_enums srcctx.boot_classes srcctx.nonboot_classes srcctx.init_classes;
@@ -411,10 +409,12 @@ let generate_source ctx =
 
 let generate common_ctx =
    let debug_level = if (Common.defined common_ctx Define.NoDebug) then 0 else 1 in
+   let super_deps = CppGen.create_super_dependencies common_ctx in
+   let constructor_deps = CppGen.create_constructor_dependencies common_ctx in
    if (Common.defined common_ctx Define.Cppia) then begin
-      let ctx = new_context common_ctx debug_level (ref PMap.empty) (Hashtbl.create 0)  in
+      let ctx = new_context common_ctx debug_level (ref PMap.empty) (Hashtbl.create 0) super_deps constructor_deps in
       CppCppia.generate_cppia ctx
-   end else begin
-      let ctx = new_context common_ctx debug_level (ref PMap.empty) (create_member_types common_ctx) in
+   end else begin   
+      let ctx = new_context common_ctx debug_level (ref PMap.empty) (create_member_types common_ctx) super_deps constructor_deps in
       generate_source ctx
    end

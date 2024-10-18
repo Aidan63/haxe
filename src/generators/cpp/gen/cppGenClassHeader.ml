@@ -278,10 +278,9 @@ let generate baseCtx class_def =
 
   (* Only need to forward-declare classes that are mentioned in the header file
      (ie, not the implementation) *)
-  let super_deps = create_super_dependencies common_ctx in
   let header_referenced, header_flags =
     CppReferences.find_referenced_types_flags ctx (TClassDecl class_def) "*"
-      super_deps (Hashtbl.create 0) true false scriptable
+    ctx.ctx_super_deps (Hashtbl.create 0) true false scriptable
   in
   List.iter2
     (fun r f -> gen_forward_decl h_file r f)
@@ -351,8 +350,7 @@ let generate baseCtx class_def =
      ^ "," ^ gcName ^ "); }\n");
     if has_class_flag class_def CAbstract then output_h "\n"
     else if
-      can_inline_constructor baseCtx class_def super_deps
-        (create_constructor_dependencies common_ctx)
+      can_inline_constructor baseCtx class_def ctx.ctx_super_deps ctx.ctx_constructor_deps
     then (
       output_h "\n";
       CppGen.generate_constructor ctx
