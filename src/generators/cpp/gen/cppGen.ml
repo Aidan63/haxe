@@ -432,7 +432,7 @@ let can_inline_constructor base_ctx class_def =
       (* This is quite restrictive, since most classes are forward-declared *)
       let deps, _ =
         CppReferences.find_referenced_types_flags base_ctx (TClassDecl class_def)
-          "new" base_ctx.ctx_super_deps base_ctx.ctx_constructor_deps false false true
+          (Some "new") base_ctx.ctx_super_deps base_ctx.ctx_constructor_deps false false true
       in
       List.for_all (fun dep -> List.mem dep allowed) deps
   | _ -> true

@@ -210,7 +210,7 @@ let generate baseCtx class_def =
   (* Only need to forward-declare classes that are mentioned in the header file
      (ie, not the implementation) *)
   let header_referenced, header_flags =
-    CppReferences.find_referenced_types_flags ctx (TClassDecl class_def) "*"
+    CppReferences.find_referenced_types_flags ctx (TClassDecl class_def) None
     ctx.ctx_super_deps (Hashtbl.create 0) true false scriptable
   in
   List.iter2

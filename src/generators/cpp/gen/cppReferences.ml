@@ -16,7 +16,7 @@ open CppContext
    These are used for "#include"ing the appropriate header files,
    or for building the dependencies in the Build.xml file
 *)
-let find_referenced_types_flags ctx obj field_name super_deps constructor_deps header_only for_depends include_super_args =
+let find_referenced_types_flags ctx obj filter super_deps constructor_deps header_only for_depends include_super_args =
   let types = ref PMap.empty in
   (if for_depends then
      let include_files =
@@ -171,8 +171,11 @@ let find_referenced_types_flags ctx obj field_name super_deps constructor_deps h
         (match class_def.cl_constructor with Some expr -> [ expr ] | _ -> [])
     in
     let fields_and_constructor =
-      if field_name = "*" then fields_and_constructor
-      else List.filter (fun f -> f.cf_name = field_name) fields_and_constructor
+      match filter with
+      | Some field_name ->
+        List.filter (fun f -> f.cf_name = field_name) fields_and_constructor
+      | None ->
+        fields_and_constructor
     in
     List.iter visit_field fields_and_constructor;
     if include_super_args then
@@ -230,7 +233,7 @@ let find_referenced_types_flags ctx obj field_name super_deps constructor_deps h
 
 let find_referenced_types ctx obj super_deps constructor_deps header_only for_depends include_super_args =
   let deps, _ =
-    find_referenced_types_flags ctx obj "*" super_deps constructor_deps
+    find_referenced_types_flags ctx obj None super_deps constructor_deps
       header_only for_depends include_super_args
   in
   deps
