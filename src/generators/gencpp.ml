@@ -194,6 +194,50 @@ let create_member_types common_ctx =
          ) ) common_ctx.types;
    result
 
+(* Builds inheritance tree, so header files can include parents defs.  *)
+let create_super_dependencies common_ctx =
+   let result = Hashtbl.create 0 in
+   let real_non_native_interfaces =
+     List.filter (function t, pl ->
+         (match (t, pl) with
+         | { cl_path = [ "cpp"; "rtti" ], _ }, [] -> false
+         | _ -> not (is_native_gen_class t)))
+   in
+   let iterator object_def =
+     match object_def with
+     | TClassDecl class_def when not (has_class_flag class_def CExtern) ->
+         let deps = ref [] in
+         (match class_def.cl_super with
+         | Some super ->
+             if not (has_class_flag (fst super) CExtern) then
+               deps := (fst super).cl_path :: !deps
+         | _ -> ());
+         List.iter
+           (fun imp ->
+             if not (has_class_flag (fst imp) CExtern) then
+               deps := (fst imp).cl_path :: !deps)
+           (real_non_native_interfaces class_def.cl_implements);
+         Hashtbl.add result class_def.cl_path !deps
+     | TEnumDecl enum_def when not (has_enum_flag enum_def EnExtern) ->
+         Hashtbl.add result enum_def.e_path []
+     | _ -> ()
+   in
+   List.iter iterator common_ctx.types;
+   result
+
+let create_constructor_dependencies common_ctx =
+  let result = Hashtbl.create 0 in
+  List.iter
+    (fun object_def ->
+      match object_def with
+      | TClassDecl class_def when not (has_class_flag class_def CExtern) -> (
+          match class_def.cl_constructor with
+          | Some func_def -> Hashtbl.add result class_def.cl_path func_def
+          | _ -> ())
+      | _ -> ())
+    common_ctx.types;
+  result
+
 let is_assign_op op =
    match op with
    | OpAssign
@@ -409,8 +453,8 @@ let generate_source ctx =
 
 let generate common_ctx =
    let debug_level = if (Common.defined common_ctx Define.NoDebug) then 0 else 1 in
-   let super_deps = CppGen.create_super_dependencies common_ctx in
-   let constructor_deps = CppGen.create_constructor_dependencies common_ctx in
+   let super_deps = create_super_dependencies common_ctx in
+   let constructor_deps = create_constructor_dependencies common_ctx in
    if (Common.defined common_ctx Define.Cppia) then begin
       let ctx = new_context common_ctx debug_level (ref PMap.empty) (Hashtbl.create 0) super_deps constructor_deps in
       CppCppia.generate_cppia ctx

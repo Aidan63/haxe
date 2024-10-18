@@ -583,7 +583,7 @@ let generate baseCtx class_def =
     output_cpp "}\n");
 
   let inline_constructor =
-    can_inline_constructor baseCtx class_def ctx.ctx_super_deps ctx.ctx_constructor_deps
+    can_inline_constructor baseCtx class_def
   in
   if
     (not (has_class_flag class_def CInterface))

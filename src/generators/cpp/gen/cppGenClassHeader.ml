@@ -350,7 +350,7 @@ let generate baseCtx class_def =
      ^ "," ^ gcName ^ "); }\n");
     if has_class_flag class_def CAbstract then output_h "\n"
     else if
-      can_inline_constructor baseCtx class_def ctx.ctx_super_deps ctx.ctx_constructor_deps
+      can_inline_constructor baseCtx class_def
     then (
       output_h "\n";
       CppGen.generate_constructor ctx
