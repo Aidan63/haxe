@@ -349,7 +349,7 @@ let generate baseCtx class_def =
     implementations class_def
   in
 
-  if (not (has_class_flag class_def CInterface)) && not nativeGen then (
+  if (not nativeGen) then (
     output_cpp
       ("void " ^ class_name ^ "::__construct(" ^ constructor_type_args ^ ")");
     (match class_def.cl_constructor with
@@ -585,11 +585,8 @@ let generate baseCtx class_def =
   let inline_constructor =
     can_inline_constructor baseCtx class_def
   in
-  if
-    (not (has_class_flag class_def CInterface))
-    && (not nativeGen) && (not inline_constructor)
-    && not (has_class_flag class_def CAbstract)
-  then generate_constructor ctx output_cpp class_def false
+  if (not nativeGen) && (not inline_constructor)&& not (has_class_flag class_def CAbstract) then
+    generate_constructor ctx output_cpp class_def false
   else if nativeGen then
     generate_native_constructor ctx output_cpp class_def false;
 
@@ -601,7 +598,7 @@ let generate baseCtx class_def =
   in
 
   (* Initialise non-static variables *)
-  if (not (has_class_flag class_def CInterface)) && not nativeGen then (
+  if (not nativeGen) then (
     output_cpp (class_name ^ "::" ^ class_name ^ "()\n{\n");
     List.iter
       (fun name ->
@@ -986,9 +983,7 @@ let generate baseCtx class_def =
   let generate_script_function isStatic field scriptName callName =
     match follow field.cf_type with
     | TFun (args, return_type) when not (is_data_member field) ->
-        let isTemplated =
-          (not isStatic) && not (has_class_flag class_def CInterface)
-        in
+        let isTemplated = not isStatic in
         if isTemplated then output_cpp "\ntemplate<bool _HX_SUPER=false>";
         output_cpp
           ("\nstatic void CPPIA_CALL " ^ scriptName
@@ -1003,11 +998,8 @@ let generate baseCtx class_def =
             ("ctx->return" ^ CppCppia.script_type return_type false ^ "(");
 
         let dump_call cast =
-          if has_class_flag class_def CInterface then
-            output_cpp
-              (class_name ^ "::" ^ callName ^ "(ctx->getThis()"
-              ^ if List.length args > 0 then "," else "")
-          else if isStatic then output_cpp (class_name ^ "::" ^ callName ^ "(")
+          if isStatic then
+            output_cpp (class_name ^ "::" ^ callName ^ "(")
           else
             output_cpp
               ("((" ^ class_name ^ "*)ctx->getThis())->" ^ cast ^ callName ^ "(");
@@ -1041,10 +1033,7 @@ let generate baseCtx class_def =
     | _ -> ""
   in
 
-  let newInteface = has_class_flag class_def CInterface in
-
   if scriptable && not nativeGen then (
-    let delegate = "this->" in
     let dump_script_field idx (field, f_args, return_t) =
       let args = print_tfun_arg_list true f_args in
       let names = List.map (fun (n, _, _) -> keyword_remap n) f_args in
@@ -1054,112 +1043,60 @@ let generate baseCtx class_def =
       in
       let name = keyword_remap field.cf_name in
       let vtable = "__scriptVTable[" ^ string_of_int (idx + 1) ^ "] " in
-      let args_varray =
-        List.fold_left
-          (fun l n -> l ^ ".Add(" ^ n ^ ")")
-          "Array<Dynamic>()" names
-      in
 
       output_cpp ("\t" ^ return_type ^ " " ^ name ^ "( " ^ args ^ " ) {\n");
-      if newInteface then (
-        output_cpp "\t\t::hx::CppiaCtx *__ctx = ::hx::CppiaCtx::getCurrent();\n";
-        output_cpp "\t\t::hx::AutoStack __as(__ctx);\n";
-        output_cpp "\t\t__ctx->pushObject(this);\n";
-        List.iter
-          (fun (name, opt, t) ->
-            output_cpp
-              ("\t\t__ctx->push" ^ CppCppia.script_type t opt ^ "("
-             ^ keyword_remap name ^ ");\n"))
-          f_args;
-        let interfaceSlot = string_of_int (-cpp_get_interface_slot ctx name) in
-        output_cpp
-          ("\t\t" ^ ret ^ "__ctx->run"
-          ^ CppCppia.script_type return_t false
-          ^ "(__GetScriptVTable()[" ^ interfaceSlot ^ "]);\n");
-        output_cpp "\t}\n")
-      else (
-        output_cpp ("\tif (" ^ vtable ^ ") {\n");
-        output_cpp "\t\t::hx::CppiaCtx *__ctx = ::hx::CppiaCtx::getCurrent();\n";
-        output_cpp "\t\t::hx::AutoStack __as(__ctx);\n";
-        output_cpp
-          ("\t\t__ctx->pushObject("
-          ^ (if has_class_flag class_def CInterface then "mDelegate.mPtr"
-             else "this")
-          ^ ");\n");
-        List.iter
-          (fun (name, opt, t) ->
-            output_cpp
-              ("\t\t__ctx->push" ^ CppCppia.script_type t opt ^ "("
-             ^ keyword_remap name ^ ");\n"))
-          f_args;
-        output_cpp
-          ("\t\t" ^ ret ^ "__ctx->run"
-          ^ CppCppia.script_type return_t false
-          ^ "(" ^ vtable ^ ");\n");
-        output_cpp ("\t}  else " ^ ret);
+      output_cpp ("\tif (" ^ vtable ^ ") {\n");
+      output_cpp "\t\t::hx::CppiaCtx *__ctx = ::hx::CppiaCtx::getCurrent();\n";
+      output_cpp "\t\t::hx::AutoStack __as(__ctx);\n";
+      output_cpp
+        ("\t\t__ctx->pushObject( this );\n");
+      List.iter
+        (fun (name, opt, t) ->
+          output_cpp
+            ("\t\t__ctx->push" ^ CppCppia.script_type t opt ^ "("
+            ^ keyword_remap name ^ ");\n"))
+        f_args;
+      output_cpp
+        ("\t\t" ^ ret ^ "__ctx->run"
+        ^ CppCppia.script_type return_t false
+        ^ "(" ^ vtable ^ ");\n");
+      output_cpp ("\t}  else " ^ ret);
 
-        if has_class_flag class_def CInterface then (
-          output_cpp
-            (" " ^ delegate ^ "__Field(HX_CSTRING(\"" ^ field.cf_name
-           ^ "\"), ::hx::paccNever)");
-          if List.length names <= 5 then
-            output_cpp ("->__run(" ^ String.concat "," names ^ ");")
-          else output_cpp ("->__Run(" ^ args_varray ^ ");"))
-        else
-          output_cpp
-            (class_name ^ "::" ^ name ^ "(" ^ String.concat "," names ^ ");");
-        if return_type <> "void" then output_cpp "return null();";
-        output_cpp "}\n";
-        let dynamic_interface_closures =
-          Common.defined baseCtx.ctx_common Define.DynamicInterfaceClosures
-        in
-        if has_class_flag class_def CInterface && not dynamic_interface_closures
-        then
-          output_cpp
-            ("\tDynamic " ^ name
-           ^ "_dyn() { return mDelegate->__Field(HX_CSTRING(\"" ^ field.cf_name
-           ^ "\"), ::hx::paccNever); }\n\n"))
+      output_cpp
+        (class_name ^ "::" ^ name ^ "(" ^ String.concat "," names ^ ");");
+      if return_type <> "void" then output_cpp "return null();";
+      output_cpp "}\n";
     in
 
-    let new_sctipt_functions =
-      if newInteface then all_virtual_functions class_def
-      else List.rev (current_virtual_functions_rev class_def [])
-    in
+    let new_sctipt_functions = List.rev (current_virtual_functions_rev class_def []) in
     let sctipt_name = class_name ^ "__scriptable" in
 
-    if newInteface then (
-      output_cpp ("class " ^ sctipt_name ^ " : public ::hx::Object {\n");
-      output_cpp "public:\n")
-    else (
-      output_cpp ("class " ^ sctipt_name ^ " : public " ^ class_name ^ " {\n");
-      output_cpp ("   typedef " ^ sctipt_name ^ " __ME;\n");
-      output_cpp ("   typedef " ^ class_name ^ " super;\n");
-      let field_arg_count field =
-        match (follow field.cf_type, field.cf_kind) with
-        | _, Method MethDynamic -> -1
-        | TFun (args, return_type), Method _ -> List.length args
-        | _, _ -> -1
-      in
-      let has_funky_toString =
-        List.exists
-          (fun f -> f.cf_name = "toString")
-          class_def.cl_ordered_statics
-        || List.exists
-             (fun f -> f.cf_name = "toString" && field_arg_count f <> 0)
-             class_def.cl_ordered_fields
-      in
-      let super_string =
-        if has_funky_toString then class_name ^ "::super" else class_name
-      in
-      output_cpp ("   typedef " ^ super_string ^ " __superString;\n");
-      if has_class_flag class_def CInterface then
-        output_cpp "   HX_DEFINE_SCRIPTABLE_INTERFACE\n"
-      else (
-        output_cpp
-          ("   HX_DEFINE_SCRIPTABLE(HX_ARR_LIST"
-          ^ string_of_int (List.length constructor_var_list)
-          ^ ")\n");
-        output_cpp "\tHX_DEFINE_SCRIPTABLE_DYNAMIC;\n"));
+    output_cpp ("class " ^ sctipt_name ^ " : public " ^ class_name ^ " {\n");
+    output_cpp ("   typedef " ^ sctipt_name ^ " __ME;\n");
+    output_cpp ("   typedef " ^ class_name ^ " super;\n");
+    let field_arg_count field =
+      match (follow field.cf_type, field.cf_kind) with
+      | _, Method MethDynamic -> -1
+      | TFun (args, return_type), Method _ -> List.length args
+      | _, _ -> -1
+    in
+    let has_funky_toString =
+      List.exists
+        (fun f -> f.cf_name = "toString")
+        class_def.cl_ordered_statics
+      || List.exists
+            (fun f -> f.cf_name = "toString" && field_arg_count f <> 0)
+            class_def.cl_ordered_fields
+    in
+    let super_string =
+      if has_funky_toString then class_name ^ "::super" else class_name
+    in
+    output_cpp ("   typedef " ^ super_string ^ " __superString;\n");
+    output_cpp
+      ("   HX_DEFINE_SCRIPTABLE(HX_ARR_LIST"
+      ^ string_of_int (List.length constructor_var_list)
+      ^ ")\n");
+    output_cpp "\tHX_DEFINE_SCRIPTABLE_DYNAMIC;\n";
 
     let list_iteri func in_list =
       let idx = ref 0 in
@@ -1170,12 +1107,8 @@ let generate baseCtx class_def =
         in_list
     in
 
-    let not_toString (field, args, _) =
-      field.cf_name <> "toString" || has_class_flag class_def CInterface
-    in
-    let functions =
-      List.filter not_toString (all_virtual_functions class_def)
-    in
+    let not_toString (field, args, _) = field.cf_name <> "toString" in
+    let functions = List.filter not_toString (all_virtual_functions class_def) in
     list_iteri dump_script_field functions;
     output_cpp "};\n\n";
 
@@ -1218,9 +1151,10 @@ let generate baseCtx class_def =
           ("  ::hx::ScriptNamedFunction(\"" ^ f.cf_name ^ "\",__s_" ^ f.cf_name
          ^ ",\"" ^ s ^ "\", " ^ isStaticFlag ^ " ");
         let superCall =
-          if isStaticFlag = "true" || has_class_flag class_def CInterface then
+          if isStaticFlag = "true" then
             "0"
-          else "__s_" ^ f.cf_name ^ "<true>"
+          else
+            "__s_" ^ f.cf_name ^ "<true>"
         in
         output_cpp ("HXCPP_CPPIA_SUPER_ARG(" ^ superCall ^ ")");
         output_cpp " ),\n"
@@ -1231,23 +1165,12 @@ let generate baseCtx class_def =
         "  ::hx::ScriptNamedFunction(0,0,0 HXCPP_CPPIA_SUPER_ARG(0) ) };\n")
     else
       output_cpp
-        "static ::hx::ScriptNamedFunction *__scriptableFunctions = 0;\n";
-
-    if newInteface then (
-      output_cpp ("\n\n" ^ class_name ^ " " ^ class_name ^ "_scriptable = {\n");
-      List.iter
-        (fun (f, args, return_type) ->
-          let cast = cpp_tfun_signature true args return_type in
-          output_cpp
-            ("\t" ^ cast ^ "&" ^ sctipt_name ^ "::" ^ keyword_remap f.cf_name
-           ^ ",\n"))
-        new_sctipt_functions;
-      output_cpp "};\n"));
+        "static ::hx::ScriptNamedFunction *__scriptableFunctions = 0;\n";);
 
   let class_name_text = join_class_path class_path "." in
 
   (* Initialise static in boot function ... *)
-  if (not (has_class_flag class_def CInterface)) && not nativeGen then (
+  if (not nativeGen) then (
     (* Remap the specialised "extern" classes back to the generic names *)
     output_cpp ("::hx::Class " ^ class_name ^ "::__mClass;\n\n");
     (if scriptable then
@@ -1367,24 +1290,5 @@ let generate baseCtx class_def =
     output_cpp "}\n\n");
 
   end_namespace output_cpp class_path;
-
-  if
-    has_class_flag class_def CInterface
-    && Meta.has Meta.ObjcProtocol class_def.cl_meta
-  then (
-    let full_class_name =
-      ("::" ^ join_class_path_remap class_path "::") ^ "_obj"
-    in
-    let protocol =
-      get_meta_string class_def.cl_meta Meta.ObjcProtocol |> Option.default ""
-    in
-    generate_protocol_delegate ctx class_def output_cpp;
-    output_cpp
-      ("id<" ^ protocol ^ "> " ^ full_class_name
-     ^ "::_hx_toProtocol(Dynamic inImplementation) {\n");
-    output_cpp
-      ("\treturn [ [_hx_" ^ protocol
-     ^ "_delegate alloc] initWithImplementation:inImplementation.mPtr];\n");
-    output_cpp "}\n\n");
 
   cpp_file#close
