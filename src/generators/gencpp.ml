@@ -263,11 +263,6 @@ let generate_source ctx =
    let scriptable = (Common.defined common_ctx Define.Scriptable) in
    let existingIds = Hashtbl.create 0 in
 
-   (* (if not (Common.defined common_ctx Define.Objc) then match object_def with
-      | TClassDecl class_def when Meta.has Meta.Objc class_def.cl_meta ->
-         abort "In order to compile '@:objc' classes, please define '-D objc'" class_def.cl_pos
-      | _ -> ()); *)
-
    let initial = {
       extern_src = [];
       build_xml = "";
@@ -290,6 +285,12 @@ let generate_source ctx =
       end in
 
    let folder acc cur =
+      (if not (Common.defined common_ctx Define.Objc) then
+         match cur with
+         | TClassDecl class_def when Meta.has Meta.Objc class_def.cl_meta ->
+            abort "In order to compile '@:objc' classes, please define '-D objc'" class_def.cl_pos
+         | _ -> ());
+
       match cur with
       | TClassDecl class_def when is_extern_class class_def ->
          let acc_build_xml  = acc.build_xml ^ (CppGen.get_class_code class_def Meta.BuildXml) in
