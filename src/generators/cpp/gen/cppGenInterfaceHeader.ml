@@ -12,6 +12,16 @@ open CppSourceWriter
 open CppContext
 open CppGen
 
+let calculate_debug_level interface_def base_ctx =
+  if Meta.has Meta.NoDebug interface_def.cl_meta || Common.defined base_ctx.ctx_common Define.NoDebug then
+    0
+  else
+    1
+
+let attribs common_ctx = match Common.defined common_ctx Define.DllExport with
+  | true -> "HXCPP_EXTERN_CLASS_ATTRIBUTES"
+  | false -> "HXCPP_CLASS_ATTRIBUTES"
+
 let gen_member_def ctx class_def is_static field =
   match (follow field.cf_type, field.cf_kind) with
   | _, Method MethDynamic -> ()
@@ -54,24 +64,76 @@ let gen_member_def ctx class_def is_static field =
       output "\t\t\t#endif\n";
       output "\t\t\t#endif\n";
       output
-          ("\t\t\t" ^ returnStr ^ "(_hx_.mPtr->*( " ^ cast
-          ^ "(_hx_.mPtr->_hx_getInterface(" ^ cpp_class_hash class_def
-          ^ ")))->_hx_" ^ remap_name ^ ")(" ^ print_arg_names args
-          ^ ");\n\t\t}\n")
+        ("\t\t\t" ^ returnStr ^ "(_hx_.mPtr->*( " ^ cast
+        ^ "(_hx_.mPtr->_hx_getInterface(" ^ cpp_class_hash class_def
+        ^ ")))->_hx_" ^ remap_name ^ ")(" ^ print_arg_names args
+        ^ ");\n\t\t}\n")
   | _ -> ()
+
+let gen_includes h_file interface_def =
+  let add_class_includes cls =
+    match get_all_meta_string_path cls.cl_meta Meta.Include with
+    | [] ->
+      h_file#add_include cls.cl_path
+    | includes ->
+      List.iter (fun inc -> h_file#add_include (path_of_string inc)) includes in
+
+  (* Include the real header file for the super class *)
+  match interface_def.cl_super with
+  | Some (cls, _) -> add_class_includes cls
+  | _ -> ();
+
+  (* And any interfaces ... *)
+  interface_def.cl_implements
+    |> real_interfaces
+    |> List.iter (fun (cls, _) -> add_class_includes cls)
+
+let gen_forward_decls h_file interface_def ctx common_ctx =
+  (* Only need to forward-declare classes that are mentioned in the header file (ie, not the implementation) *)
+  let scriptable = Common.defined common_ctx Define.Scriptable && not interface_def.cl_private in
+  let super_deps = create_super_dependencies common_ctx in
+  let header_referenced, header_flags =
+    CppReferences.find_referenced_types_flags ctx (TClassDecl interface_def) "*" super_deps (Hashtbl.create 0) true false scriptable
+  in
+
+  List.iter2
+    (fun r f -> gen_forward_decl h_file r f)
+    header_referenced header_flags
+
+let gen_header_includes interface_def output_h =
+  output_h "\n";
+  output_h (get_class_code interface_def Meta.HeaderCode);
+  let includes = get_all_meta_string_path interface_def.cl_meta Meta.HeaderInclude in
+  let printer inc = output_h ("#include \"" ^ inc ^ "\"\n") in
+  List.iter printer includes
+
+let gen_body interface_def ctx output_h =
+  if has_boot_field interface_def then output_h "\t\tstatic void __boot();\n";
+
+  match interface_def.cl_array_access with
+  | Some t -> output_h ("\t\ttypedef " ^ type_string t ^ " __array_access;\n")
+  | _ -> ();
+
+  interface_def.cl_ordered_statics
+    |> List.filter should_implement_field
+    |> List.iter (gen_member_def ctx interface_def true);
+
+  interface_def
+    |> all_virtual_functions
+    |> List.iter (fun (field, _, _) -> gen_member_def ctx interface_def false field);
+
+  match get_meta_string interface_def.cl_meta Meta.ObjcProtocol with
+  | Some protocol ->
+    output_h ("\t\tstatic id<" ^ protocol ^ "> _hx_toProtocol(Dynamic inImplementation);\n")
+  | None ->
+    ();
+
+  output_h (get_class_code interface_def Meta.HeaderClassCode)
 
 let generate_native_interface base_ctx interface_def =
   let common_ctx = base_ctx.ctx_common in
   let class_path = interface_def.cl_path in
-  let scriptable = Common.defined common_ctx Define.Scriptable && not interface_def.cl_private in
   let class_name = class_name interface_def in
-
-  let debug =
-    if Meta.has Meta.NoDebug interface_def.cl_meta || Common.defined base_ctx.ctx_common Define.NoDebug then
-      0
-    else
-      1
-  in
 
   let parent, super =
     match interface_def.cl_super with
@@ -83,54 +145,22 @@ let generate_native_interface base_ctx interface_def =
   in
 
   let h_file     = new_header_file common_ctx common_ctx.file class_path in
+  let debug      = calculate_debug_level interface_def base_ctx in
   let ctx        = file_context base_ctx h_file debug true in
   let output_h   = h_file#write in
   let def_string = join_class_path class_path "_" in
 
   begin_header_file h_file#write_h def_string true;
 
-  let add_class_includes cls =
-    match get_all_meta_string_path cls.cl_meta Meta.Include with
-    | [] ->
-      h_file#add_include cls.cl_path
-    | includes ->
-      List.iter (fun inc -> h_file#add_include (path_of_string inc)) includes in
-
-  (* Include the real header file for the super class *)
-  match interface_def.cl_super with
-  | Some (cls, _) -> add_class_includes cls
-  | _ -> ();
-
-  (* And any interfaces ... *)
-  interface_def.cl_implements
-    |> real_interfaces
-    |> List.iter (fun (cls, _) -> add_class_includes cls);
-
-  (* Only need to forward-declare classes that are mentioned in the header file (ie, not the implementation) *)
-  let super_deps = create_super_dependencies common_ctx in
-  let header_referenced, header_flags =
-    CppReferences.find_referenced_types_flags ctx (TClassDecl interface_def) "*" super_deps (Hashtbl.create 0) true false scriptable
-  in
-
-  List.iter2
-    (fun r f -> gen_forward_decl h_file r f)
-    header_referenced header_flags;
-  output_h "\n";
-
-  output_h (get_class_code interface_def Meta.HeaderCode);
-  let includes = get_all_meta_string_path interface_def.cl_meta Meta.HeaderInclude in
-  let printer inc = output_h ("#include \"" ^ inc ^ "\"\n") in
-  List.iter printer includes;
+  gen_includes h_file interface_def;
+  gen_forward_decls h_file interface_def ctx common_ctx;
+  gen_header_includes interface_def output_h;
 
   begin_namespace output_h class_path;
   output_h "\n\n";
   output_h (get_class_code interface_def Meta.HeaderNamespaceCode);
 
-  let attribs = match Common.defined common_ctx Define.DllExport with
-  | true -> "HXCPP_EXTERN_CLASS_ATTRIBUTES"
-  | false -> "HXCPP_CLASS_ATTRIBUTES" in
-
-  output_h ("class " ^ attribs ^ " " ^ class_name ^ " : public " ^ parent);
+  output_h ("class " ^ (attribs common_ctx) ^ " " ^ class_name ^ " : public " ^ parent);
   
   interface_def.cl_implements
     |> List.filter (fun (t, _) -> is_native_gen_class t)
@@ -142,31 +172,11 @@ let generate_native_interface base_ctx interface_def =
 
   CppGen.generate_native_constructor ctx output_h interface_def true;
 
-  if has_boot_field interface_def then output_h "\t\tstatic void __boot();\n";
-
-  match interface_def.cl_array_access with
-  | Some t -> output_h ("\t\ttypedef " ^ type_string t ^ " __array_access;\n")
-  | _ -> ();
-
-  interface_def.cl_ordered_statics
-    |> List.filter should_implement_field
-    |> List.iter (gen_member_def ctx interface_def true);
-
-  interface_def
-    |> all_virtual_functions
-    |> List.iter (fun (field, _, _) -> gen_member_def ctx interface_def false field);
-
-  match get_meta_string interface_def.cl_meta Meta.ObjcProtocol with
-  | Some protocol ->
-    output_h ("\t\tstatic id<" ^ protocol ^ "> _hx_toProtocol(Dynamic inImplementation);\n")
-  | None ->
-    ();
-
-  output_h (get_class_code interface_def Meta.HeaderClassCode);
+  gen_body interface_def ctx output_h;
+  
   output_h "};\n\n";
 
   end_namespace output_h class_path;
-
   end_header_file output_h def_string;
 
   h_file#close
@@ -174,16 +184,7 @@ let generate_native_interface base_ctx interface_def =
 let generate_managed_interface base_ctx interface_def =
   let common_ctx = base_ctx.ctx_common in
   let class_path = interface_def.cl_path in
-  let scriptable = Common.defined common_ctx Define.Scriptable && not interface_def.cl_private in
   let class_name = class_name interface_def in
-
-  (*let cpp_file = new_cpp_file common_ctx.file class_path in*)
-  let debug =
-    if Meta.has Meta.NoDebug interface_def.cl_meta || Common.defined base_ctx.ctx_common Define.NoDebug then
-      0
-    else
-      1
-  in
 
   let parent, super =
     match interface_def.cl_super with
@@ -194,82 +195,31 @@ let generate_managed_interface base_ctx interface_def =
       ("", "::hx::Object")
   in
   let h_file     = new_header_file common_ctx common_ctx.file class_path in
+  let debug      = calculate_debug_level interface_def base_ctx in
   let ctx        = file_context base_ctx h_file debug true in
   let output_h   = h_file#write in
   let def_string = join_class_path class_path "_" in
 
   begin_header_file h_file#write_h def_string false;
 
-  let add_class_includes cls =
-    match get_all_meta_string_path cls.cl_meta Meta.Include with
-    | [] ->
-      h_file#add_include cls.cl_path
-    | includes ->
-      List.iter (fun inc -> h_file#add_include (path_of_string inc)) includes in
-
-  (* Include the real header file for the super class *)
-  match interface_def.cl_super with
-  | Some (cls, _) -> add_class_includes cls
-  | _ -> ();
-
-  (* And any interfaces ... *)
-  interface_def.cl_implements
-    |> real_interfaces
-    |> List.iter (fun (cls, _) -> add_class_includes cls);
-
-  (* Only need to forward-declare classes that are mentioned in the header file (ie, not the implementation) *)
-  let super_deps = create_super_dependencies common_ctx in
-  let header_referenced, header_flags =
-    CppReferences.find_referenced_types_flags ctx (TClassDecl interface_def) "*" super_deps (Hashtbl.create 0) true false scriptable
-  in
-
-  List.iter2
-    (fun r f -> gen_forward_decl h_file r f)
-    header_referenced header_flags;
-  output_h "\n";
-
-  output_h (get_class_code interface_def Meta.HeaderCode);
-  let includes = get_all_meta_string_path interface_def.cl_meta Meta.HeaderInclude in
-  let printer inc = output_h ("#include \"" ^ inc ^ "\"\n") in
-  List.iter printer includes;
+  gen_includes h_file interface_def;
+  gen_forward_decls h_file interface_def ctx common_ctx;
+  gen_header_includes interface_def output_h;
 
   begin_namespace output_h class_path;
   output_h "\n\n";
   output_h (get_class_code interface_def Meta.HeaderNamespaceCode);
 
-  let extern_class = Common.defined common_ctx Define.DllExport in
-  let attribs      = "HXCPP_" ^ (if extern_class then "EXTERN_" else "") ^ "CLASS_ATTRIBUTES" in
-
-  output_h ("class " ^ attribs ^ " " ^ class_name ^ " {\n");
+  output_h ("class " ^ (attribs common_ctx) ^ " " ^ class_name ^ " {\n");
   output_h "\tpublic:\n";
   output_h ("\t\ttypedef " ^ super ^ " super;\n");
   output_h "\t\tHX_DO_INTERFACE_RTTI;\n\n";
 
-  if has_boot_field interface_def then output_h "\t\tstatic void __boot();\n";
-
-  match interface_def.cl_array_access with
-  | Some t -> output_h ("\t\ttypedef " ^ type_string t ^ " __array_access;\n")
-  | _ -> ();
-
-  interface_def.cl_ordered_statics
-    |> List.filter should_implement_field
-    |> List.iter (gen_member_def ctx interface_def true);
-
-  interface_def
-    |> all_virtual_functions
-    |> List.iter (fun (field, _, _) -> gen_member_def ctx interface_def false field);
-
-  match get_meta_string interface_def.cl_meta Meta.ObjcProtocol with
-  | Some protocol ->
-    output_h ("\t\tstatic id<" ^ protocol ^ "> _hx_toProtocol(Dynamic inImplementation);\n")
-  | None ->
-    ();
-
-  output_h (get_class_code interface_def Meta.HeaderClassCode);
+  gen_body interface_def ctx output_h;
+  
   output_h "};\n\n";
 
   end_namespace output_h class_path;
-
   end_header_file output_h def_string;
 
   h_file#close
