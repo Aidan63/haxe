@@ -6,6 +6,8 @@ open Common
 open Globals
 open CppAstTools
 
+module PathMap = Map.Make(struct type t = path let compare i1 i2 = String.compare (s_type_path i2) (s_type_path i1) end)
+
 (* CPP code generation context *)
 (*
   ctx_debug_level
@@ -30,11 +32,11 @@ type context = {
   ctx_is_header : bool;
   ctx_interface_slot : (string, int) Hashtbl.t ref;
   ctx_interface_slot_count : int ref;
-  ctx_super_deps : (path, path list) Hashtbl.t;
-  ctx_constructor_deps : (path, tclass_field) Hashtbl.t;
+  ctx_super_deps : path list PathMap.t;
+  ctx_constructor_deps : tclass_field PathMap.t;
+  ctx_class_member_types : string StringMap.t;
   (* This is for returning from the child nodes of TSwitch && TTry *)
   mutable ctx_real_this_ptr : bool;
-  mutable ctx_class_member_types : (string, string) Hashtbl.t;
 }
 
 let new_context common_ctx debug file_info member_types super_deps constructor_deps =

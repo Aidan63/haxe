@@ -1654,11 +1654,11 @@ let generate_main ctx super_deps class_def =
     | _ -> die "" __LOC__
   in
   CppReferences.find_referenced_types ctx (TClassDecl class_def) super_deps
-    (Hashtbl.create 0) false false false
+    CppContext.PathMap.empty false false false
   |> ignore;
   let depend_referenced =
     CppReferences.find_referenced_types ctx (TClassDecl class_def) super_deps
-      (Hashtbl.create 0) false true false
+    CppContext.PathMap.empty false true false
   in
   let generate_startup filename is_main =
     (*make_class_directories base_dir ( "src" :: []);*)

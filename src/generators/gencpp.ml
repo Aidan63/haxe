@@ -178,65 +178,63 @@ let write_build_options common_ctx filename defines =
    writer#close
 
 let create_member_types common_ctx =
-   let result = Hashtbl.create 0 in
-      List.iter (fun object_def ->
-         (match object_def with
-         | TClassDecl class_def when not (has_class_flag class_def CInterface) ->
-            let rec add_override to_super =
-               let class_name = (join_class_path to_super.cl_path ".") in
-               List.iter (fun member -> Hashtbl.add result (class_name ^ "." ^ member.cf_name) "virtual " ) class_def.cl_ordered_fields;
-               match to_super.cl_super with
-               | Some super -> add_override (fst super)
-               | _ -> ()
-             in
-             (match  class_def.cl_super with Some super -> add_override (fst super) | _->())
-         | _ -> ()
-         ) ) common_ctx.types;
-   result
+   List.fold_left (fun acc object_def ->
+      match object_def with
+      | TClassDecl class_def when not (has_class_flag class_def CInterface) ->
+         let rec add_override acc to_super =
+            let class_name = (join_class_path to_super.cl_path ".") in
+            let folder acc member = StringMap.add (class_name ^ "." ^ member.cf_name) "virtual " acc in
+            let acc = List.fold_left folder acc class_def.cl_ordered_fields in
+            match to_super.cl_super with
+            | Some (super, _) -> add_override acc super
+            | _ -> acc
+         in
+         (match class_def.cl_super with Some (super, _) -> add_override acc super | _ -> acc)
+      | _ -> acc) StringMap.empty common_ctx.types
 
 (* Builds inheritance tree, so header files can include parents defs.  *)
 let create_super_dependencies common_ctx =
-   let result = Hashtbl.create 0 in
    let real_non_native_interfaces =
      List.filter (function t, pl ->
-         (match (t, pl) with
-         | { cl_path = [ "cpp"; "rtti" ], _ }, [] -> false
-         | _ -> not (is_native_gen_class t)))
+      (match (t, pl) with
+      | { cl_path = [ "cpp"; "rtti" ], _ }, [] -> false
+      | _ -> not (is_native_gen_class t)))
    in
-   let iterator object_def =
+   let folder acc object_def =
      match object_def with
      | TClassDecl class_def when not (has_class_flag class_def CExtern) ->
-         let deps = ref [] in
-         (match class_def.cl_super with
-         | Some super ->
-             if not (has_class_flag (fst super) CExtern) then
-               deps := (fst super).cl_path :: !deps
-         | _ -> ());
-         List.iter
-           (fun imp ->
-             if not (has_class_flag (fst imp) CExtern) then
-               deps := (fst imp).cl_path :: !deps)
-           (real_non_native_interfaces class_def.cl_implements);
-         Hashtbl.add result class_def.cl_path !deps
+         let initial = match class_def.cl_super with
+         | Some (cls, _) when not (has_class_flag cls CExtern) ->
+            [ cls.cl_path ]
+         | _ ->
+            [] in
+
+         let deps =
+            class_def.cl_implements
+            |> real_non_native_interfaces
+            |> List.fold_left
+               (fun acc (cls, _) -> if has_class_flag cls CExtern then acc else cls.cl_path :: acc)
+               initial in
+
+         CppContext.PathMap.add class_def.cl_path deps acc
      | TEnumDecl enum_def when not (has_enum_flag enum_def EnExtern) ->
-         Hashtbl.add result enum_def.e_path []
-     | _ -> ()
+         CppContext.PathMap.add enum_def.e_path [] acc
+     | _ ->
+         acc
    in
-   List.iter iterator common_ctx.types;
-   result
+   List.fold_left folder CppContext.PathMap.empty common_ctx.types
 
 let create_constructor_dependencies common_ctx =
-  let result = Hashtbl.create 0 in
-  List.iter
-    (fun object_def ->
-      match object_def with
-      | TClassDecl class_def when not (has_class_flag class_def CExtern) -> (
-          match class_def.cl_constructor with
-          | Some func_def -> Hashtbl.add result class_def.cl_path func_def
-          | _ -> ())
-      | _ -> ())
-    common_ctx.types;
-  result
+   List.fold_left
+      (fun acc object_def ->
+         match object_def with
+         | TClassDecl class_def when not (has_class_flag class_def CExtern) ->
+            (match class_def.cl_constructor with
+            | Some func -> CppContext.PathMap.add class_def.cl_path func acc
+            | None -> acc)
+         | _ -> acc)
+      CppContext.PathMap.empty
+      common_ctx.types
 
 let is_assign_op op =
    match op with
@@ -335,7 +333,7 @@ let generate_source ctx =
       | TEnumDecl enum_def ->
          make_id (class_text enum_def.e_path) 0;
 
-         let deps            = CppReferences.find_referenced_types ctx (TEnumDecl enum_def) ctx.ctx_super_deps (Hashtbl.create 0) false true false in
+         let deps            = CppReferences.find_referenced_types ctx (TEnumDecl enum_def) ctx.ctx_super_deps CppContext.PathMap.empty false true false in
          let acc_decls       = (Enum enum_def) :: acc.decls in
          let acc_boot_enums  = enum_def.e_path :: acc.boot_enums in
          let acc_exe_classes = (enum_def.e_path, deps, cur) :: acc.exe_classes in
@@ -456,7 +454,7 @@ let generate common_ctx =
    let super_deps = create_super_dependencies common_ctx in
    let constructor_deps = create_constructor_dependencies common_ctx in
    if (Common.defined common_ctx Define.Cppia) then begin
-      let ctx = new_context common_ctx debug_level (ref PMap.empty) (Hashtbl.create 0) super_deps constructor_deps in
+      let ctx = new_context common_ctx debug_level (ref PMap.empty) StringMap.empty super_deps constructor_deps in
       CppCppia.generate_cppia ctx
    end else begin   
       let ctx = new_context common_ctx debug_level (ref PMap.empty) (create_member_types common_ctx) super_deps constructor_deps in

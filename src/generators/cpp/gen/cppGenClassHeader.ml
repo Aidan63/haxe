@@ -45,7 +45,7 @@ let gen_member_def ctx class_def is_static field =
             let key =
               join_class_path class_def.cl_path "." ^ "." ^ field.cf_name
             in
-            try output (Hashtbl.find ctx.ctx_class_member_types key)
+            try output (StringMap.find key ctx.ctx_class_member_types)
             with Not_found -> ()
           else output "virtual ");
         output (if return_type = "Void" then "void" else return_type);
@@ -211,7 +211,7 @@ let generate baseCtx class_def =
      (ie, not the implementation) *)
   let header_referenced, header_flags =
     CppReferences.find_referenced_types_flags ctx (TClassDecl class_def) None
-    ctx.ctx_super_deps (Hashtbl.create 0) true false scriptable
+    ctx.ctx_super_deps CppContext.PathMap.empty true false scriptable
   in
   List.iter2
     (fun r f -> gen_forward_decl h_file r f)
