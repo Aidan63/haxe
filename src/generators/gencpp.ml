@@ -314,7 +314,7 @@ let generate_source ctx =
          CppGenClassImplementation.generate ctx class_def;
       | ManagedInterface interface_def ->
          CppGenInterfaceHeader.generate_managed_interface ctx interface_def;
-         CppGenClassImplementation.generate ctx interface_def;
+         CppGenInterfaceImplementation.generate_managed_interface ctx interface_def;
       | NativeInterface interface_def ->
          CppGenInterfaceHeader.generate_native_interface ctx interface_def
       | Enum enum_def ->
