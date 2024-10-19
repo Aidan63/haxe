@@ -245,6 +245,21 @@ let is_assign_op op =
  The common_ctx contains the haxe AST in the "types" field and the resources
 *)
 
+module ObjectIds = struct
+   type t = (int32 CppContext.PathMap.t * unit Int32Map.t)
+
+   let empty = (CppContext.PathMap.empty, Int32Map.empty)
+
+   let add path id ((ids, cache):t) =
+      (CppContext.PathMap.add path id ids, Int32Map.add id () cache)
+
+   let find_opt path ((ids, _):t) =
+      CppContext.PathMap.find_opt path ids
+
+   let collision id ((_, cache):t) =
+      Int32Map.mem id cache
+end
+
 type gensrc_ctx = {
    extern_src : string list;
    build_xml : string;
@@ -255,18 +270,15 @@ type gensrc_ctx = {
    exe_classes : (path * path list * module_type) list;
    decls : tcpp_decl list;
 
-   ids : int32 CppContext.PathMap.t;
-   (* Keep a separate map with the IDs as the keys *)
-   (* Prevents us having to iterate through the path map to see if we've got a collision *)
-   ids_lookup : unit Int32Map.t;
+   ids : ObjectIds.t;
 }
 
-let rec get_id path ids ids_lookup =
+let rec get_id path ids =
    let class_name = class_text path in
    let needs_new_id id =
       (* IDs less than 100 are reserved for hxcpp internal classes *)
       (* If the map already contains this ID we also need a new one *)
-      id < Int32.of_int 100 || Int32Map.mem id ids_lookup
+      id < Int32.of_int 100 || ObjectIds.collision id ids
    in
 
    let rec make_id seed =
@@ -277,27 +289,27 @@ let rec get_id path ids ids_lookup =
          id
    in
 
-   match CppContext.PathMap.find_opt path ids with
+   match ObjectIds.find_opt path ids with
    | Some existing ->
-      (existing, ids, ids_lookup)
+      (existing, ids)
    | None ->
       let new_id = make_id 0 in
-      (new_id, CppContext.PathMap.add path new_id ids, Int32Map.add new_id () ids_lookup)
+      (new_id, ObjectIds.add path new_id ids)
 
-let get_class_ids class_def ids ids_lookup =
-   let self_id, all_ids, all_ids_lookup = get_id class_def.cl_path ids ids_lookup in
+let get_class_ids class_def ids =
+   let self_id, all_ids = get_id class_def.cl_path ids in
 
-   let folder (parents, (all_ids, all_ids_lookup)) class_def =
-      let new_id, all_ids, all_ids_lookup = get_id class_def.cl_path all_ids all_ids_lookup in
-      (new_id :: parents, (all_ids, all_ids_lookup))     
+   let folder (parents, all_ids) class_def =
+      let new_id, all_ids = get_id class_def.cl_path all_ids in
+      (new_id :: parents, all_ids)     
    in
    let rec parents acc class_def =
       match class_def.cl_super with
       | Some (super, _) -> parents (super :: acc) super
       | None -> acc in
-   let parent_ids, (all_ids, all_ids_lookup) = parents [] class_def |> List.fold_left folder ([], (all_ids, all_ids_lookup)) in
+   let parent_ids, all_ids = parents [] class_def |> List.fold_left folder ([], all_ids) in
 
-   (self_id, parent_ids, all_ids, all_ids_lookup)
+   (self_id, parent_ids, all_ids)
 
 let generate_source ctx =
    let common_ctx = ctx.ctx_common in
@@ -314,8 +326,7 @@ let generate_source ctx =
       boot_enums = [];
       exe_classes = [];
       decls = [];
-      ids = CppContext.PathMap.empty;
-      ids_lookup = Int32Map.empty;
+      ids = ObjectIds.empty;
    } in
 
    let folder acc cur =
@@ -339,7 +350,7 @@ let generate_source ctx =
          acc
 
       | TClassDecl class_def ->
-         let self_id, parent_ids, all_ids, ids_lookup = get_class_ids class_def acc.ids acc.ids_lookup in
+         let self_id, parent_ids, all_ids = get_class_ids class_def acc.ids in
          let native_gen = Meta.has Meta.NativeGen class_def.cl_meta in
          let decl =
             match has_class_flag class_def CInterface with
@@ -359,19 +370,19 @@ let generate_source ctx =
 
                (class_def.cl_path, deps, cur) :: acc.exe_classes in
 
-         { acc with build_xml = acc_build_xml; decls = acc_decls; init_classes = acc_init_classes; boot_classes = acc_boot_classes; nonboot_classes = acc_nonboot_classes; exe_classes = acc_exe_classes; ids = all_ids; ids_lookup = ids_lookup }
+         { acc with build_xml = acc_build_xml; decls = acc_decls; init_classes = acc_init_classes; boot_classes = acc_boot_classes; nonboot_classes = acc_nonboot_classes; exe_classes = acc_exe_classes; ids = all_ids }
 
       | TEnumDecl enum_def when is_extern_enum enum_def || is_internal_class enum_def.e_path ->
          acc
 
       | TEnumDecl enum_def ->
-         let self_id, all_ids, ids_lookup = get_id enum_def.e_path acc.ids acc.ids_lookup in
-         let deps            = CppReferences.find_referenced_types ctx (TEnumDecl enum_def) ctx.ctx_super_deps CppContext.PathMap.empty false true false in
-         let acc_decls       = (Enum { e_enum = enum_def; e_id = self_id }) :: acc.decls in
-         let acc_boot_enums  = enum_def.e_path :: acc.boot_enums in
-         let acc_exe_classes = (enum_def.e_path, deps, cur) :: acc.exe_classes in
+         let self_id, all_ids = get_id enum_def.e_path acc.ids in
+         let deps             = CppReferences.find_referenced_types ctx (TEnumDecl enum_def) ctx.ctx_super_deps CppContext.PathMap.empty false true false in
+         let acc_decls        = (Enum { e_enum = enum_def; e_id = self_id }) :: acc.decls in
+         let acc_boot_enums   = enum_def.e_path :: acc.boot_enums in
+         let acc_exe_classes  = (enum_def.e_path, deps, cur) :: acc.exe_classes in
          
-         { acc with decls = acc_decls; boot_enums = acc_boot_enums; exe_classes = acc_exe_classes; ids = all_ids; ids_lookup = ids_lookup }
+         { acc with decls = acc_decls; boot_enums = acc_boot_enums; exe_classes = acc_exe_classes; ids = all_ids }
       | _ ->
          acc
    in
