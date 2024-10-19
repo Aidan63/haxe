@@ -163,9 +163,16 @@ and tcpp_class = {
   cl_parent_ids : int32 list;
 }
 
+and tcpp_enum_field = {
+  ef_field : tenum_field;
+  ef_remapped_name : string;
+  ef_hashed_name : string;
+}
+
 and tcpp_enum = {
   e_enum : tenum;
   e_id : int32;
+  e_constructors : tcpp_enum_field list;
 }
 
 and tcpp_decl =
