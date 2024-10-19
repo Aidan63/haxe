@@ -22,7 +22,7 @@ let attribs common_ctx = match Common.defined common_ctx Define.DllExport with
   | true -> "HXCPP_EXTERN_CLASS_ATTRIBUTES"
   | false -> "HXCPP_CLASS_ATTRIBUTES"
 
-let gen_member_def ctx class_def is_static field =
+let gen_member_def ctx class_def field =
   match (follow field.cf_type, field.cf_kind) with
   | _, Method MethDynamic -> ()
   | TFun (args, return_type), Method _ ->
@@ -31,11 +31,11 @@ let gen_member_def ctx class_def is_static field =
     let nativeGen  = Meta.has Meta.NativeGen class_def.cl_meta in
     let gen_args   = print_tfun_arg_list true in
 
-    if is_static || nativeGen then (
-      output ((if is_static then "\t\t" else "\t\tvirtual ") ^ type_to_string return_type);
+    if nativeGen then (
+      output ("\t\tvirtual " ^ type_to_string return_type);
       output (" " ^ remap_name ^ "( ");
       output (gen_args args);
-      output (if is_static then ");\n" else ")=0;\n");
+      output ")=0;\n";
       if reflective class_def field then
         if Common.defined ctx.ctx_common Define.DynamicInterfaceClosures then
           output
@@ -113,13 +113,9 @@ let gen_body interface_def ctx output_h =
   | Some t -> output_h ("\t\ttypedef " ^ type_string t ^ " __array_access;\n")
   | _ -> ();
 
-  interface_def.cl_ordered_statics
-    |> List.filter should_implement_field
-    |> List.iter (gen_member_def ctx interface_def true);
-
   interface_def
     |> all_virtual_functions
-    |> List.iter (fun (field, _, _) -> gen_member_def ctx interface_def false field);
+    |> List.iter (fun (field, _, _) -> gen_member_def ctx interface_def field);
 
   match get_meta_string interface_def.cl_meta Meta.ObjcProtocol with
   | Some protocol ->

@@ -380,7 +380,7 @@ let generate_source ctx =
          let deps             = CppReferences.find_referenced_types ctx (TEnumDecl enum_def) ctx.ctx_super_deps CppContext.PathMap.empty false true false in
          let strq             = strq ctx.ctx_common in
          let sort_constructors f1 f2 =
-            f2.ef_index - f1.ef_index in
+            f1.ef_index - f2.ef_index in
          let constructors     = enum_def.e_constrs |> pmap_values |> List.sort sort_constructors |> List.map (fun f -> { ef_field = f; ef_remapped_name = keyword_remap f.ef_name; ef_hashed_name = strq f.ef_name}) in
          let acc_decls        = (Enum { e_enum = enum_def; e_id = self_id; e_constructors = constructors }) :: acc.decls in
          let acc_boot_enums   = enum_def.e_path :: acc.boot_enums in
