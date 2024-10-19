@@ -157,9 +157,20 @@ and tcpp_expr_expr =
   | CppCastProtocol of tcppexpr * tclass
   | CppCastNative of tcppexpr
 
+and tcpp_class = {
+  cl_class : tclass;
+  cl_id : int32;
+  cl_parent_ids : int32 list;
+}
+
+and tcpp_enum = {
+  e_enum : tenum;
+  e_id : int32;
+}
+
 and tcpp_decl =
-  | ManagedClass of tclass
-  | NativeClass of tclass
+  | ManagedClass of tcpp_class
+  | NativeClass of tcpp_class
   | ManagedInterface of tclass
   | NativeInterface of tclass
-  | Enum of tenum
+  | Enum of tcpp_enum

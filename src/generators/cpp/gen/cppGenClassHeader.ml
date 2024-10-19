@@ -135,8 +135,9 @@ let gen_member_def ctx class_def is_static field =
             output ("\t\tDynamic set_" ^ field.cf_name ^ ";\n")
         | _ -> ()))
 
-let generate baseCtx class_def =
-  let common_ctx = baseCtx.ctx_common in
+let generate base_ctx tcpp_class =
+  let common_ctx = base_ctx.ctx_common in
+  let class_def = tcpp_class.cl_class in
   let class_path = class_def.cl_path in
   let nativeGen = Meta.has Meta.NativeGen class_def.cl_meta in
   let smart_class_name = snd class_path in
@@ -157,13 +158,13 @@ let generate baseCtx class_def =
   let debug =
     if
       Meta.has Meta.NoDebug class_def.cl_meta
-      || Common.defined baseCtx.ctx_common Define.NoDebug
+      || Common.defined base_ctx.ctx_common Define.NoDebug
     then 0
     else 1
   in
 
   let h_file = new_header_file common_ctx common_ctx.file class_path in
-  let ctx = file_context baseCtx h_file debug true in
+  let ctx = file_context base_ctx h_file debug true in
   let strq = strq ctx.ctx_common in
 
   let parent, super =
@@ -259,11 +260,7 @@ let generate baseCtx class_def =
     (* native interface *)
     CppGen.generate_native_constructor ctx output_h class_def true
   else (
-    let classId =
-      try Hashtbl.find baseCtx.ctx_type_ids (class_text class_def.cl_path)
-      with Not_found -> Int32.zero
-    in
-    let classIdTxt = Printf.sprintf "0x%08lx" classId in
+    let classIdTxt = Printf.sprintf "0x%08lx" tcpp_class.cl_id in
 
     output_h ("\t\t" ^ class_name ^ "();\n");
     output_h "\n\tpublic:\n";
@@ -280,7 +277,7 @@ let generate baseCtx class_def =
      ^ "," ^ gcName ^ "); }\n");
     if has_class_flag class_def CAbstract then output_h "\n"
     else if
-      can_inline_constructor baseCtx class_def
+      can_inline_constructor base_ctx class_def
     then (
       output_h "\n";
       CppGen.generate_constructor ctx

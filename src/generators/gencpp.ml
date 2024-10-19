@@ -253,15 +253,54 @@ type gensrc_ctx = {
    nonboot_classes : path list;
    boot_enums : path list;
    exe_classes : (path * path list * module_type) list;
+   ids : int32 CppContext.PathMap.t;
    decls : tcpp_decl list;
 }
+
+let rec get_id path ids =
+   let class_name = class_text path in
+   let needs_new_id id =
+      (* IDs less than 100 are reserved for hxcpp internal classes *)
+      (* If the map already contains this ID we also need a new one *)
+      (* || CppContext.PathMap.to_list ids |> List.exists (fun (_, v) -> v = id) *)
+      id < Int32.of_int 100
+   in
+
+   let rec make_id seed =
+      let id = gen_hash32 seed class_name in
+      if needs_new_id id then
+         make_id (seed + 100)
+      else
+         id
+   in
+
+   match CppContext.PathMap.find_opt path ids with
+   | Some existing ->
+      (existing, ids)
+   | None ->
+      let new_id = make_id 0 in
+      (new_id, CppContext.PathMap.add path new_id ids)
+
+let get_class_ids class_def ids =
+   let self_id, all_ids = get_id class_def.cl_path ids in
+   let rec parents acc class_def =
+      match class_def.cl_super with
+      | Some (super, _) -> parents (super :: acc) super
+      | None -> acc in
+
+   let folder (parents, all_ids) class_def =
+      let new_id, all_ids = get_id class_def.cl_path all_ids in
+      (new_id :: parents, all_ids)     
+   in
+   let parent_ids, all_ids = parents [] class_def |> List.fold_left folder ([], all_ids) in
+
+   (self_id, parent_ids, all_ids)
 
 let generate_source ctx =
    let common_ctx = ctx.ctx_common in
    make_base_directory common_ctx.file;
    let main_deps = ref [] in
    let scriptable = (Common.defined common_ctx Define.Scriptable) in
-   let existingIds = Hashtbl.create 0 in
 
    let initial = {
       extern_src = [];
@@ -271,18 +310,9 @@ let generate_source ctx =
       nonboot_classes = [];
       boot_enums = [];
       exe_classes = [];
+      ids = CppContext.PathMap.empty;
       decls = [];
    } in
-
-   let rec make_id class_name seed =
-      let id = gen_hash32 seed class_name in
-      (* reserve first 100 ids for runtime *)
-      if id < Int32.of_int 100 || Hashtbl.mem existingIds id then
-         make_id class_name (seed+100)
-      else begin
-         Hashtbl.add existingIds id true;
-         Hashtbl.add ctx.ctx_type_ids class_name id;
-      end in
 
    let folder acc cur =
       (if not (Common.defined common_ctx Define.Objc) then
@@ -305,13 +335,12 @@ let generate_source ctx =
          acc
 
       | TClassDecl class_def ->
-         make_id (class_text class_def.cl_path) 0;
-
+         let self_id, parent_ids, all_ids = get_class_ids class_def acc.ids in
          let native_gen = Meta.has Meta.NativeGen class_def.cl_meta in
          let decl =
             match has_class_flag class_def CInterface with
             | true -> if native_gen then (NativeInterface class_def) else (ManagedInterface class_def)
-            | false -> if native_gen then (NativeClass class_def) else (ManagedClass class_def) in
+            | false -> if native_gen then (NativeClass { cl_class = class_def; cl_id = self_id; cl_parent_ids = parent_ids }) else (ManagedClass { cl_class = class_def; cl_id = self_id; cl_parent_ids = parent_ids }) in
 
          let acc_decls           = decl :: acc.decls in
          let acc_build_xml       = acc.build_xml ^ (CppGen.get_class_code class_def Meta.BuildXml) in
@@ -326,20 +355,19 @@ let generate_source ctx =
 
                (class_def.cl_path, deps, cur) :: acc.exe_classes in
 
-         { acc with build_xml = acc_build_xml; decls = acc_decls; init_classes = acc_init_classes; boot_classes = acc_boot_classes; nonboot_classes = acc_nonboot_classes; exe_classes = acc_exe_classes }
+         { acc with build_xml = acc_build_xml; decls = acc_decls; init_classes = acc_init_classes; boot_classes = acc_boot_classes; nonboot_classes = acc_nonboot_classes; exe_classes = acc_exe_classes; ids = all_ids }
 
       | TEnumDecl enum_def when is_extern_enum enum_def || is_internal_class enum_def.e_path ->
          acc
 
       | TEnumDecl enum_def ->
-         make_id (class_text enum_def.e_path) 0;
-
-         let deps            = CppReferences.find_referenced_types ctx (TEnumDecl enum_def) ctx.ctx_super_deps CppContext.PathMap.empty false true false in
-         let acc_decls       = (Enum enum_def) :: acc.decls in
-         let acc_boot_enums  = enum_def.e_path :: acc.boot_enums in
-         let acc_exe_classes = (enum_def.e_path, deps, cur) :: acc.exe_classes in
+         let self_id, all_ids = get_id enum_def.e_path acc.ids in
+         let deps             = CppReferences.find_referenced_types ctx (TEnumDecl enum_def) ctx.ctx_super_deps CppContext.PathMap.empty false true false in
+         let acc_decls        = (Enum { e_enum = enum_def; e_id = self_id }) :: acc.decls in
+         let acc_boot_enums   = enum_def.e_path :: acc.boot_enums in
+         let acc_exe_classes  = (enum_def.e_path, deps, cur) :: acc.exe_classes in
          
-         { acc with decls = acc_decls; boot_enums = acc_boot_enums; exe_classes = acc_exe_classes }
+         { acc with decls = acc_decls; boot_enums = acc_boot_enums; exe_classes = acc_exe_classes; ids = all_ids }
       | _ ->
          acc
    in
@@ -347,19 +375,19 @@ let generate_source ctx =
 
    List.iter (fun tcpp_type ->
       match tcpp_type with
-      | ManagedClass class_def ->
-         CppGenClassHeader.generate ctx class_def;
-         CppGenClassImplementation.generate ctx class_def;
-      | NativeClass class_def ->
-         CppGenClassHeader.generate ctx class_def;
-         CppGenClassImplementation.generate ctx class_def;
+      | ManagedClass tcpp_class ->
+         CppGenClassHeader.generate ctx tcpp_class;
+         CppGenClassImplementation.generate ctx tcpp_class;
+      | NativeClass tcpp_class ->
+         CppGenClassHeader.generate ctx tcpp_class;
+         CppGenClassImplementation.generate ctx tcpp_class;
       | ManagedInterface interface_def ->
          CppGenInterfaceHeader.generate_managed_interface ctx interface_def;
          CppGenInterfaceImplementation.generate_managed_interface ctx interface_def;
       | NativeInterface interface_def ->
          CppGenInterfaceHeader.generate_native_interface ctx interface_def
-      | Enum enum_def ->
-         CppGenEnum.generate ctx enum_def) srcctx.decls;
+      | Enum tcpp_enum ->
+         CppGenEnum.generate ctx tcpp_enum) srcctx.decls;
 
    (match common_ctx.main.main_expr with
    | None -> CppGen.generate_dummy_main common_ctx

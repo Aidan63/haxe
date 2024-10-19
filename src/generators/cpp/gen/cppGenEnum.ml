@@ -12,8 +12,9 @@ open CppSourceWriter
 open CppContext
 open CppGen
 
-let generate baseCtx enum_def =
-  let common_ctx       = baseCtx.ctx_common in
+let generate base_ctx tcpp_enum =
+  let common_ctx       = base_ctx.ctx_common in
+  let enum_def         = tcpp_enum.e_enum in
   let class_path       = enum_def.e_path in
   let just_class_name  = (snd class_path) in
   let class_name       = just_class_name ^ "_obj" in
@@ -22,14 +23,12 @@ let generate baseCtx enum_def =
   let output_cpp       = (cpp_file#write) in
   let debug            = if (Meta.has Meta.NoDebug enum_def.e_meta) || ( Common.defined common_ctx Define.NoDebug) then 0 else 1 in
 
-  let ctx = file_context baseCtx cpp_file debug false in
+  let ctx = file_context base_ctx cpp_file debug false in
   let strq = strq ctx.ctx_common in
-
-  let classId = try Hashtbl.find baseCtx.ctx_type_ids (class_text enum_def.e_path) with Not_found -> Int32.zero in
-  let classIdTxt = Printf.sprintf "0x%08lx" classId in
+  let classIdTxt = Printf.sprintf "0x%08lx" tcpp_enum.e_id in
 
   if (debug>1) then
-      print_endline ("Found enum definition:" ^ (join_class_path  class_path "::" ));
+    print_endline ("Found enum definition:" ^ (join_class_path  class_path "::" ));
 
   cpp_file#write_h "#include <hxcpp.h>\n\n";
 

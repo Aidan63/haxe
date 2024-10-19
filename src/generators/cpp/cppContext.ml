@@ -24,7 +24,6 @@ type context = {
   mutable ctx_debug_level : int;
   (* cached as required *)
   mutable ctx_file_info : (string, string) PMap.t ref;
-  ctx_type_ids : (string, Int32.t) Hashtbl.t;
   (* Per file *)
   ctx_output : string -> unit;
   ctx_writer : CppSourceWriter.source_writer;
@@ -49,7 +48,6 @@ let new_context common_ctx debug file_info member_types super_deps constructor_d
       ctx_common = common_ctx;
       ctx_writer = null_file;
       ctx_file_id = ref (-1);
-      ctx_type_ids = Hashtbl.create 0;
       ctx_is_header = false;
       ctx_output = null_file#write;
       ctx_interface_slot = ref (Hashtbl.create 0);

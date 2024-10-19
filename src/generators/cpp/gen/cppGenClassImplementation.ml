@@ -207,12 +207,13 @@ let gen_field_init ctx class_def field =
       gen_cpp_init ctx dot_name "boot" (var_name ^ " = ") expr
   | _ -> ()
 
-let generate baseCtx class_def =
-  let common_ctx = baseCtx.ctx_common in
+let generate base_ctx tcpp_class =
+  let common_ctx = base_ctx.ctx_common in
+  let class_def = tcpp_class.cl_class in
   let class_path = class_def.cl_path in
-  let debug = baseCtx.ctx_debug_level in
-  let cpp_file = new_placed_cpp_file baseCtx.ctx_common class_path in
-  let cpp_ctx = file_context baseCtx cpp_file debug false in
+  let debug = base_ctx.ctx_debug_level in
+  let cpp_file = new_placed_cpp_file base_ctx.ctx_common class_path in
+  let cpp_ctx = file_context base_ctx cpp_file debug false in
   let ctx = cpp_ctx in
   let output_cpp = cpp_file#write in
   let strq = strq ctx.ctx_common in
@@ -305,25 +306,9 @@ let generate baseCtx class_def =
         ^ array_arg_list constructor_var_list
         ^ ");\n");
       output_cpp "\treturn _hx_result;\n}\n\n");
-    let rec addParent cls others =
-      match cls.cl_super with
-      | Some (super, _) -> (
-          try
-            let parentId =
-              Hashtbl.find ctx.ctx_type_ids (class_text super.cl_path)
-            in
-            addParent super (parentId :: others)
-          with Not_found -> others)
-      | _ -> others
-    in
-    let classId =
-      try Hashtbl.find baseCtx.ctx_type_ids (class_text class_def.cl_path)
-      with Not_found -> Int32.zero
-    in
-    let implemented_classes = addParent class_def [ classId; Int32.of_int 1 ] in
-    let implemented_classes = List.sort compare implemented_classes in
 
     output_cpp ("bool " ^ class_name ^ "::_hx_isInstanceOf(int inClassId) {\n");
+    let implemented_classes = List.sort compare ((Int32.of_int 1) :: tcpp_class.cl_id :: tcpp_class.cl_parent_ids) in
     let txt cId = Printf.sprintf "0x%08lx" cId in
     let rec dump_classes indent classes =
       match classes with
@@ -331,8 +316,7 @@ let generate baseCtx class_def =
       | [ c ] -> output_cpp (indent ^ "return inClassId==(int)" ^ txt c ^ ";\n")
       | [ c; c1 ] ->
           output_cpp
-            (indent ^ "return inClassId==(int)" ^ txt c ^ " || inClassId==(int)"
-           ^ txt c1 ^ ";\n")
+            (indent ^ "return inClassId==(int)" ^ txt c ^ " || inClassId==(int)" ^ txt c1 ^ ";\n")
       | _ ->
           let len = List.length classes in
           let mid = List.nth classes (len / 2) in
@@ -449,7 +433,7 @@ let generate baseCtx class_def =
 
   (match TClass.get_cl_init class_def with
   | Some expression ->
-      let ctx = file_context baseCtx cpp_file debug false in
+      let ctx = file_context base_ctx cpp_file debug false in
       output_cpp ("void " ^ class_name ^ "::__init__()");
       gen_cpp_init ctx (cpp_class_name class_def) "__init__" ""
         (mk_block expression);
@@ -499,7 +483,7 @@ let generate baseCtx class_def =
     output_cpp "}\n");
 
   let inline_constructor =
-    can_inline_constructor baseCtx class_def
+    can_inline_constructor base_ctx class_def
   in
   if (not nativeGen) && (not inline_constructor)&& not (has_class_flag class_def CAbstract) then
     generate_constructor ctx output_cpp class_def false
