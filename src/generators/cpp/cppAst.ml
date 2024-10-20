@@ -157,10 +157,18 @@ and tcpp_expr_expr =
   | CppCastProtocol of tcppexpr * tclass
   | CppCastNative of tcppexpr
 
+and tcpp_class_flags =
+  | QuickAlloc
+  | Container
+  | Scriptable
+
 and tcpp_class = {
   cl_class : tclass;
+  cl_name : string;
   cl_id : int32;
   cl_parent_ids : int32 list;
+  cl_flags : int;
+  cl_debug_level : int;
 }
 
 and tcpp_interface = {

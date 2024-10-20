@@ -728,3 +728,9 @@ let enum_getter_type t =
   | TCppScalar "bool"  -> "Bool"
   | TCppScalar x  -> x
   | _  -> "Object"
+
+let int_of_tcpp_class_flag (flag:tcpp_class_flags) =
+   Obj.magic flag
+
+let has_tcpp_class_flag c flag =
+   has_flag c.cl_flags (int_of_tcpp_class_flag flag)

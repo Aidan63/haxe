@@ -364,7 +364,33 @@ let generate_source ctx =
                } in
                if native_gen then (NativeInterface iface) else (ManagedInterface iface)
             | false ->
-               let cls = { cl_class = class_def; cl_id = self_id; cl_parent_ids = parent_ids } in
+               let flags =
+                  if Common.defined common_ctx Define.Scriptable && not class_def.cl_private then
+                     set_flag 0 (int_of_tcpp_class_flag Scriptable)
+                  else
+                     0
+                  in
+               let flags =
+                  if CppGen.can_quick_alloc class_def then
+                     set_flag flags (int_of_tcpp_class_flag QuickAlloc)
+                  else
+                     flags
+                  in
+               let flags =
+                  if CppGen.has_gc_references class_def then
+                     set_flag flags (int_of_tcpp_class_flag Container)
+                  else
+                     flags
+                  in
+
+               let cls = {
+                  cl_class = class_def;
+                  cl_id = self_id;
+                  cl_name = class_name class_def;
+                  cl_flags = flags;
+                  cl_parent_ids = parent_ids;
+                  cl_debug_level = debug_level;
+               } in
                if native_gen then (NativeClass cls) else (ManagedClass cls) in
 
          let acc_decls           = decl :: acc.decls in

@@ -211,15 +211,13 @@ let generate base_ctx tcpp_class =
   let common_ctx = base_ctx.ctx_common in
   let class_def = tcpp_class.cl_class in
   let class_path = class_def.cl_path in
-  let debug = base_ctx.ctx_debug_level in
+  let debug = tcpp_class.cl_debug_level in
   let cpp_file = new_placed_cpp_file base_ctx.ctx_common class_path in
   let cpp_ctx = file_context base_ctx cpp_file debug false in
   let ctx = cpp_ctx in
   let output_cpp = cpp_file#write in
   let strq = strq ctx.ctx_common in
-  let scriptable =
-    Common.defined common_ctx Define.Scriptable && not class_def.cl_private
-  in
+  let scriptable = has_tcpp_class_flag tcpp_class Scriptable in
 
   let class_super_name =
     match class_def.cl_super with
@@ -254,7 +252,7 @@ let generate base_ctx tcpp_class =
   output_cpp (get_class_code class_def Meta.CppNamespaceCode);
 
   let nativeGen = Meta.has Meta.NativeGen class_def.cl_meta in
-  let class_name = class_name class_def in
+  let class_name = tcpp_class.cl_name in
   let cargs = constructor_arg_var_list class_def in
   let constructor_type_var_list = List.map snd cargs in
   let constructor_var_list = List.map snd constructor_type_var_list in
