@@ -147,24 +147,15 @@ let generate base_ctx tcpp_class =
   let can_quick_alloc = has_tcpp_class_flag tcpp_class QuickAlloc in
   let gcName = gen_gc_name class_def.cl_path in
   let isContainer = if has_tcpp_class_flag tcpp_class Container then "true" else "false" in
-  let cargs = constructor_arg_var_list class_def in
-  let constructor_type_var_list = List.map snd cargs in
-  let constructor_type_args =
-    String.concat ","
-      (List.map (fun (t, a) -> t ^ " " ^ a) constructor_type_var_list)
-  in
 
-  (*let cpp_file = new_cpp_file common_ctx.file class_path in*)
-  let debug =
-    if
-      Meta.has Meta.NoDebug class_def.cl_meta
-      || Common.defined base_ctx.ctx_common Define.NoDebug
-    then 0
-    else 1
-  in
+  let constructor_type_args =
+    tcpp_class.cl_class
+      |> constructor_arg_var_list
+      |> List.map (fun (t, a) -> Printf.sprintf "%s %s" t a)
+      |> String.concat "," in
 
   let h_file = new_header_file common_ctx common_ctx.file class_path in
-  let ctx = file_context base_ctx h_file debug true in
+  let ctx = file_context base_ctx h_file tcpp_class.cl_debug_level true in
   let strq = strq ctx.ctx_common in
 
   let parent, super =
@@ -282,7 +273,7 @@ let generate base_ctx tcpp_class =
       output_h "\n";
       CppGen.generate_constructor ctx
         (fun str -> output_h ("\t\t" ^ str))
-        class_def true)
+        tcpp_class true)
     else (
       output_h
         ("\t\tstatic " ^ ptr_name ^ " __new(" ^ constructor_type_args ^ ");\n");

@@ -1862,33 +1862,28 @@ let gen_cpp_function_body ctx clazz is_static func_name function_def head_code
 
 let constructor_arg_var_list class_def =
   match class_def.cl_constructor with
-  | Some definition -> (
-      match definition.cf_expr with
-      | Some { eexpr = TFunction function_def } ->
-          List.map
-            (fun (v, o) ->
-              (v.v_name, type_arg_to_string v.v_name o v.v_type "__o_"))
-            function_def.tf_args
-      | _ -> (
-          match follow definition.cf_type with
-          | TFun (args, _) ->
-              List.map (fun (a, _, t) -> (a, (type_to_string t, a))) args
-          | _ -> []))
+  | Some { cf_expr = Some { eexpr = TFunction function_def } } ->
+    List.map
+      (fun (v, o) -> type_arg_to_string v.v_name o v.v_type "__o_")
+      function_def.tf_args
+  | Some definition ->
+    (match follow definition.cf_type with
+    | TFun (args, _) -> List.map (fun (a, _, t) -> type_to_string t, a) args
+    | _ -> [])
   | _ -> []
 
-let generate_constructor ctx out class_def isHeader =
-  let class_name = class_name class_def in
-  let ptr_name = class_pointer class_def in
-  let can_quick_alloc = can_quick_alloc class_def in
-  let gcName = gen_gc_name class_def.cl_path in
-  let isContainer = if has_gc_references class_def then "true" else "false" in
-  let cargs = constructor_arg_var_list class_def in
-  let constructor_type_var_list = List.map snd cargs in
+let generate_constructor ctx out tcpp_class isHeader =
+  let class_name = tcpp_class.cl_name in
+  let ptr_name = class_pointer tcpp_class.cl_class in
+  let can_quick_alloc = has_tcpp_class_flag tcpp_class QuickAlloc in
+  let gcName = gen_gc_name tcpp_class.cl_class.cl_path in
+  let isContainer = if has_tcpp_class_flag tcpp_class Container then "true" else "false" in
+  let cargs = constructor_arg_var_list tcpp_class.cl_class in
   let constructor_type_args =
     String.concat ","
-      (List.map (fun (t, a) -> t ^ " " ^ a) constructor_type_var_list)
+      (List.map (fun (t, a) -> t ^ " " ^ a) cargs)
   in
-  let constructor_var_list = List.map snd constructor_type_var_list in
+  let constructor_var_list = List.map snd cargs in
   let constructor_args = String.concat "," constructor_var_list in
 
   let classScope = if isHeader then "" else class_name ^ "::" in
@@ -1922,16 +1917,16 @@ let generate_constructor ctx out class_def isHeader =
         | Some super -> dump_dynamic (fst super)
         | _ -> ()
     in
-    dump_dynamic class_def;
+    dump_dynamic tcpp_class.cl_class;
 
     if isHeader then
-      match class_def.cl_constructor with
+      match tcpp_class.cl_class.cl_constructor with
       | Some
           ({ cf_expr = Some { eexpr = TFunction function_def } } as definition)
         ->
           with_debug ctx definition.cf_meta (fun no_debug ->
               ctx.ctx_real_this_ptr <- false;
-              gen_cpp_function_body ctx class_def false "new" function_def "" ""
+              gen_cpp_function_body ctx tcpp_class.cl_class false "new" function_def "" ""
                 no_debug;
               out "\n")
       | _ -> ()
@@ -1941,12 +1936,12 @@ let generate_constructor ctx out class_def isHeader =
     out "}\n\n")
 
 let generate_native_constructor ctx out class_def isHeader =
-  let cargs = constructor_arg_var_list class_def in
-  let constructor_type_var_list = List.map snd cargs in
   let constructor_type_args =
-    String.concat ","
-      (List.map (fun (t, a) -> t ^ " " ^ a) constructor_type_var_list)
-  in
+    class_def
+      |> constructor_arg_var_list
+      |> List.map (fun (t, a) -> Printf.sprintf "%s %s" t a)
+      |> String.concat "," in
+
   let class_name = class_name class_def in
 
   match class_def.cl_constructor with

@@ -254,12 +254,12 @@ let generate base_ctx tcpp_class =
   let nativeGen = Meta.has Meta.NativeGen class_def.cl_meta in
   let class_name = tcpp_class.cl_name in
   let cargs = constructor_arg_var_list class_def in
-  let constructor_type_var_list = List.map snd cargs in
-  let constructor_var_list = List.map snd constructor_type_var_list in
+  let constructor_var_list = List.map snd cargs in
   let constructor_type_args =
-    String.concat ","
-      (List.map (fun (t, a) -> t ^ " " ^ a) constructor_type_var_list)
-  in
+    cargs
+      |> List.map (fun (t, a) -> Printf.sprintf "%s %s" t a)
+      |> String.concat "," in
+
   let haxe_implementations, native_implementations =
     implementations class_def
   in
@@ -484,7 +484,7 @@ let generate base_ctx tcpp_class =
     can_inline_constructor base_ctx class_def
   in
   if (not nativeGen) && (not inline_constructor)&& not (has_class_flag class_def CAbstract) then
-    generate_constructor ctx output_cpp class_def false
+    generate_constructor ctx output_cpp tcpp_class false
   else if nativeGen then
     generate_native_constructor ctx output_cpp class_def false;
 
