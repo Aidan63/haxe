@@ -108,25 +108,24 @@ let generate_protocol_delegate ctx class_def output =
 
   output "@end\n\n"
 
-let generate_managed_interface baseCtx class_def =
-  let common_ctx = baseCtx.ctx_common in
-  let class_path = class_def.cl_path in
-  let debug = baseCtx.ctx_debug_level in
-  let cpp_file = new_placed_cpp_file baseCtx.ctx_common class_path in
-  let cpp_ctx = file_context baseCtx cpp_file debug false in
+let generate_managed_interface base_ctx tcpp_interface =
+  let common_ctx = base_ctx.ctx_common in
+  let class_path = tcpp_interface.if_class.cl_path in
+  let cpp_file = new_placed_cpp_file base_ctx.ctx_common class_path in
+  let cpp_ctx = file_context base_ctx cpp_file tcpp_interface.if_debug_level false in
   let ctx = cpp_ctx in
   let output_cpp = cpp_file#write in
   let strq = strq ctx.ctx_common in
-  let scriptable = Common.defined common_ctx Define.Scriptable && not class_def.cl_private in
+  let scriptable = Common.defined common_ctx Define.Scriptable && not tcpp_interface.if_class.cl_private in
 
-  if debug > 1 then
+  if tcpp_interface.if_debug_level > 1 then
     print_endline
-      ("Found class definition:" ^ join_class_path class_def.cl_path "::");
+      ("Found interface definition:" ^ join_class_path tcpp_interface.if_class.cl_path "::");
 
   cpp_file#write_h "#include <hxcpp.h>\n\n";
 
   let all_referenced =
-    CppReferences.find_referenced_types ctx (TClassDecl class_def) ctx.ctx_super_deps
+    CppReferences.find_referenced_types ctx (TClassDecl tcpp_interface.if_class) ctx.ctx_super_deps
     ctx.ctx_constructor_deps false false scriptable
   in
   List.iter (add_include cpp_file) all_referenced;
@@ -135,28 +134,26 @@ let generate_managed_interface baseCtx class_def =
 
   cpp_file#write_h "\n";
 
-  output_cpp (get_class_code class_def Meta.CppFileCode);
-  let includes = get_all_meta_string_path class_def.cl_meta Meta.CppInclude in
+  output_cpp (get_class_code tcpp_interface.if_class Meta.CppFileCode);
+  let includes = get_all_meta_string_path tcpp_interface.if_class.cl_meta Meta.CppInclude in
   let printer inc = output_cpp ("#include \"" ^ inc ^ "\"\n") in
   List.iter printer includes;
 
   begin_namespace output_cpp class_path;
   output_cpp "\n";
 
-  output_cpp (get_class_code class_def Meta.CppNamespaceCode);
-
-  let class_name = class_name class_def in
+  output_cpp (get_class_code tcpp_interface.if_class Meta.CppNamespaceCode);
 
   output_cpp "\n";
 
   (* cl_interface *)
-  let implemented_instance_fields = List.filter should_implement_field class_def.cl_ordered_fields in
-  let reflective_members = List.filter (reflective class_def) implemented_instance_fields in
+  let implemented_instance_fields = List.filter should_implement_field tcpp_interface.if_class.cl_ordered_fields in
+  let reflective_members = List.filter (reflective tcpp_interface.if_class) implemented_instance_fields in
   let sMemberFields =
     match reflective_members with
     | [] -> "0 /* sMemberFields */"
     | _ ->
-      let memberFields = class_name ^ "_sMemberFields" in
+      let memberFields = tcpp_interface.if_name ^ "_sMemberFields" in
       let dump_field_name field = output_cpp ("\t" ^ strq field.cf_name ^ ",\n") in
       output_cpp ("static ::String " ^ memberFields ^ "[] = {\n");
       List.iter dump_field_name reflective_members;
@@ -189,7 +186,7 @@ let generate_managed_interface baseCtx class_def =
       output_cpp "\t}\n";
     in
 
-    let sctipt_name = class_name ^ "__scriptable" in
+    let sctipt_name = tcpp_interface.if_name ^ "__scriptable" in
 
     output_cpp ("class " ^ sctipt_name ^ " : public ::hx::Object {\n");
     output_cpp "public:\n";
@@ -203,7 +200,7 @@ let generate_managed_interface baseCtx class_def =
         in_list
     in
 
-    list_iteri dump_script_field (all_virtual_functions class_def);
+    list_iteri dump_script_field tcpp_interface.if_virtual_functions;
     output_cpp "};\n\n";
 
     let generate_script_function field scriptName callName =
@@ -218,7 +215,7 @@ let generate_managed_interface baseCtx class_def =
           output_cpp ("ctx->return" ^ CppCppia.script_type return_type false ^ "(");
 
         let signature =
-          output_cpp (class_name ^ "::" ^ callName ^ "(ctx->getThis()" ^ if List.length args > 0 then "," else "");
+          output_cpp (tcpp_interface.if_name ^ "::" ^ callName ^ "(ctx->getThis()" ^ if List.length args > 0 then "," else "");
 
           let signature, _, _ =
             List.fold_left
@@ -241,8 +238,7 @@ let generate_managed_interface baseCtx class_def =
     in
 
     let sigs = Hashtbl.create 0 in
-    let new_sctipt_functions = all_virtual_functions class_def in
-    match new_sctipt_functions with
+    match tcpp_interface.if_virtual_functions with
     | [] ->
       output_cpp "static ::hx::ScriptNamedFunction *__scriptableFunctions = 0;\n"
     | _ ->
@@ -250,7 +246,7 @@ let generate_managed_interface baseCtx class_def =
         (fun (f, _, _) ->
           let s = generate_script_function f ("__s_" ^ f.cf_name) (keyword_remap f.cf_name) in
           Hashtbl.add sigs f.cf_name s)
-        new_sctipt_functions;
+        tcpp_interface.if_virtual_functions;
 
       output_cpp "#ifndef HXCPP_CPPIA_SUPER_ARG\n";
       output_cpp "#define HXCPP_CPPIA_SUPER_ARG(x)\n";
@@ -262,56 +258,56 @@ let generate_managed_interface baseCtx class_def =
           ("  ::hx::ScriptNamedFunction(\"" ^ f.cf_name ^ "\",__s_" ^ f.cf_name
          ^ ",\"" ^ s ^ "\", " ^ isStaticFlag ^ " ");
         let superCall =
-          if isStaticFlag = "true" || has_class_flag class_def CInterface then
+          if isStaticFlag = "true" || has_class_flag tcpp_interface.if_class CInterface then
             "0"
           else "__s_" ^ f.cf_name ^ "<true>"
         in
         output_cpp ("HXCPP_CPPIA_SUPER_ARG(" ^ superCall ^ ")");
         output_cpp " ),\n"
       in
-      List.iter (fun (f, _, _) -> dump_func f "false") new_sctipt_functions;
+      List.iter (fun (f, _, _) -> dump_func f "false") tcpp_interface.if_virtual_functions;
       output_cpp "  ::hx::ScriptNamedFunction(0,0,0 HXCPP_CPPIA_SUPER_ARG(0) ) };\n";
 
-    output_cpp ("\n\n" ^ class_name ^ " " ^ class_name ^ "_scriptable = {\n");
+    output_cpp ("\n\n" ^ tcpp_interface.if_name ^ " " ^ tcpp_interface.if_name ^ "_scriptable = {\n");
     List.iter
       (fun (f, args, return_type) ->
         let cast = cpp_tfun_signature true args return_type in
         output_cpp
           ("\t" ^ cast ^ "&" ^ sctipt_name ^ "::" ^ keyword_remap f.cf_name ^ ",\n"))
-      new_sctipt_functions;
+      tcpp_interface.if_virtual_functions;
     output_cpp "};\n");
 
   let class_name_text = join_class_path class_path "." in
 
-  output_cpp ("::hx::Class " ^ class_name ^ "::__mClass;\n\n");
+  output_cpp ("::hx::Class " ^ tcpp_interface.if_name ^ "::__mClass;\n\n");
 
-  output_cpp ("void " ^ class_name ^ "::__register()\n{\n");
+  output_cpp ("void " ^ tcpp_interface.if_name ^ "::__register()\n{\n");
 
   output_cpp "\t::hx::Static(__mClass) = new ::hx::Class_obj();\n";
   output_cpp ("\t__mClass->mName = " ^ strq class_name_text ^ ";\n");
   output_cpp "\t__mClass->mSuper = &super::__SGetClass();\n";
   output_cpp ("\t__mClass->mMembers = ::hx::Class_obj::dupFunctions(" ^ sMemberFields ^ ");\n");
-  output_cpp ("\t__mClass->mCanCast = ::hx::TIsInterface< (int)" ^ cpp_class_hash class_def ^ " >;\n");
+  output_cpp ("\t__mClass->mCanCast = ::hx::TIsInterface< (int)" ^ cpp_class_hash tcpp_interface.if_class ^ " >;\n");
   output_cpp "\t::hx::_hx_RegisterClass(__mClass->mName, __mClass);\n";
   if scriptable then
-    output_cpp ("  HX_SCRIPTABLE_REGISTER_INTERFACE(\"" ^ class_name_text ^ "\"," ^ class_name ^ ");\n");
+    output_cpp ("  HX_SCRIPTABLE_REGISTER_INTERFACE(\"" ^ class_name_text ^ "\"," ^ tcpp_interface.if_name ^ ");\n");
   output_cpp "}\n\n";
 
-  if has_boot_field class_def then (
-    output_cpp ("void " ^ class_name ^ "::__boot()\n{\n");
+  if has_boot_field tcpp_interface.if_class then (
+    output_cpp ("void " ^ tcpp_interface.if_name ^ "::__boot()\n{\n");
 
     List.iter
-      (gen_field_init ctx class_def)
-      (List.filter should_implement_field class_def.cl_ordered_statics);
+      (gen_field_init ctx tcpp_interface.if_class)
+      (List.filter should_implement_field tcpp_interface.if_class.cl_ordered_statics);
 
     output_cpp "}\n\n");
 
   end_namespace output_cpp class_path;
 
-  if Meta.has Meta.ObjcProtocol class_def.cl_meta then (
+  if Meta.has Meta.ObjcProtocol tcpp_interface.if_class.cl_meta then (
     let full_class_name = ("::" ^ join_class_path_remap class_path "::") ^ "_obj" in
-    let protocol = get_meta_string class_def.cl_meta Meta.ObjcProtocol |> Option.default "" in
-    generate_protocol_delegate ctx class_def output_cpp;
+    let protocol = get_meta_string tcpp_interface.if_class.cl_meta Meta.ObjcProtocol |> Option.default "" in
+    generate_protocol_delegate ctx tcpp_interface.if_class output_cpp;
     output_cpp ("id<" ^ protocol ^ "> " ^ full_class_name ^ "::_hx_toProtocol(Dynamic inImplementation) {\n");
     output_cpp ("\treturn [ [_hx_" ^ protocol ^ "_delegate alloc] initWithImplementation:inImplementation.mPtr];\n");
     output_cpp "}\n\n");

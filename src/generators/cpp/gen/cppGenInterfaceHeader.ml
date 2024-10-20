@@ -12,12 +12,6 @@ open CppSourceWriter
 open CppContext
 open CppGen
 
-let calculate_debug_level interface_def base_ctx =
-  if Meta.has Meta.NoDebug interface_def.cl_meta || Common.defined base_ctx.ctx_common Define.NoDebug then
-    0
-  else
-    1
-
 let attribs common_ctx = match Common.defined common_ctx Define.DllExport with
   | true -> "HXCPP_EXTERN_CLASS_ATTRIBUTES"
   | false -> "HXCPP_CLASS_ATTRIBUTES"
@@ -106,68 +100,65 @@ let gen_header_includes interface_def output_h =
   let printer inc = output_h ("#include \"" ^ inc ^ "\"\n") in
   List.iter printer includes
 
-let gen_body interface_def ctx output_h =
-  if has_boot_field interface_def then output_h "\t\tstatic void __boot();\n";
+let gen_body tcpp_interface ctx output_h =
+  if has_boot_field tcpp_interface.if_class then output_h "\t\tstatic void __boot();\n";
 
-  match interface_def.cl_array_access with
+  match tcpp_interface.if_class.cl_array_access with
   | Some t -> output_h ("\t\ttypedef " ^ type_string t ^ " __array_access;\n")
   | _ -> ();
 
-  interface_def
-    |> all_virtual_functions
-    |> List.iter (fun (field, _, _) -> gen_member_def ctx interface_def field);
+  tcpp_interface.if_virtual_functions
+    |> List.iter (fun (field, _, _) -> gen_member_def ctx tcpp_interface.if_class field);
 
-  match get_meta_string interface_def.cl_meta Meta.ObjcProtocol with
+  match get_meta_string tcpp_interface.if_class.cl_meta Meta.ObjcProtocol with
   | Some protocol ->
     output_h ("\t\tstatic id<" ^ protocol ^ "> _hx_toProtocol(Dynamic inImplementation);\n")
   | None ->
     ();
 
-  output_h (get_class_code interface_def Meta.HeaderClassCode)
+  output_h (get_class_code tcpp_interface.if_class Meta.HeaderClassCode)
 
-let generate_native_interface base_ctx interface_def =
+let generate_native_interface base_ctx tcpp_interface =
   let common_ctx = base_ctx.ctx_common in
-  let class_path = interface_def.cl_path in
-  let class_name = class_name interface_def in
+  let class_path = tcpp_interface.if_class.cl_path in
 
   let parent, super =
-    match interface_def.cl_super with
+    match tcpp_interface.if_class.cl_super with
     | Some (klass, params) ->
-        let name = tcpp_to_string_suffix "_obj" (cpp_instance_type klass params) in
-        ( "virtual " ^ name, name )
+      let name = tcpp_to_string_suffix "_obj" (cpp_instance_type klass params) in
+      ( "virtual " ^ name, name )
     | None ->
-        ("virtual ::hx::NativeInterface", "::hx::NativeInterface")
+      ("virtual ::hx::NativeInterface", "::hx::NativeInterface")
   in
 
   let h_file     = new_header_file common_ctx common_ctx.file class_path in
-  let debug      = calculate_debug_level interface_def base_ctx in
-  let ctx        = file_context base_ctx h_file debug true in
+  let ctx        = file_context base_ctx h_file tcpp_interface.if_debug_level true in
   let output_h   = h_file#write in
   let def_string = join_class_path class_path "_" in
 
   begin_header_file h_file#write_h def_string true;
 
-  gen_includes h_file interface_def;
-  gen_forward_decls h_file interface_def ctx common_ctx;
-  gen_header_includes interface_def output_h;
+  gen_includes h_file tcpp_interface.if_class;
+  gen_forward_decls h_file tcpp_interface.if_class ctx common_ctx;
+  gen_header_includes tcpp_interface.if_class output_h;
 
   begin_namespace output_h class_path;
   output_h "\n\n";
-  output_h (get_class_code interface_def Meta.HeaderNamespaceCode);
+  output_h (get_class_code tcpp_interface.if_class Meta.HeaderNamespaceCode);
 
-  output_h ("class " ^ (attribs common_ctx) ^ " " ^ class_name ^ " : public " ^ parent);
+  output_h ("class " ^ (attribs common_ctx) ^ " " ^ tcpp_interface.if_name ^ " : public " ^ parent);
   
-  interface_def.cl_implements
+  tcpp_interface.if_class.cl_implements
     |> List.filter (fun (t, _) -> is_native_gen_class t)
     |> List.iter (fun (c, _) -> output_h (" , public virtual " ^ join_class_path c.cl_path "::"));
 
   output_h "\n{\n\tpublic:\n";
   output_h ("\t\ttypedef " ^ super ^ " super;\n");
-  output_h ("\t\ttypedef " ^ class_name ^ " OBJ_;\n");
+  output_h ("\t\ttypedef " ^ tcpp_interface.if_name ^ " OBJ_;\n");
 
-  CppGen.generate_native_constructor ctx output_h interface_def true;
+  CppGen.generate_native_constructor ctx output_h tcpp_interface.if_class true;
 
-  gen_body interface_def ctx output_h;
+  gen_body tcpp_interface ctx output_h;
   
   output_h "};\n\n";
 
@@ -176,13 +167,12 @@ let generate_native_interface base_ctx interface_def =
 
   h_file#close
 
-let generate_managed_interface base_ctx interface_def =
+let generate_managed_interface base_ctx tcpp_interface =
   let common_ctx = base_ctx.ctx_common in
-  let class_path = interface_def.cl_path in
-  let class_name = class_name interface_def in
+  let class_path = tcpp_interface.if_class.cl_path in
 
   let parent, super =
-    match interface_def.cl_super with
+    match tcpp_interface.if_class.cl_super with
     | Some (klass, params) ->
       let name = tcpp_to_string_suffix "_obj" (cpp_instance_type klass params) in
       ( name, name )
@@ -190,27 +180,26 @@ let generate_managed_interface base_ctx interface_def =
       ("", "::hx::Object")
   in
   let h_file     = new_header_file common_ctx common_ctx.file class_path in
-  let debug      = calculate_debug_level interface_def base_ctx in
-  let ctx        = file_context base_ctx h_file debug true in
+  let ctx        = file_context base_ctx h_file tcpp_interface.if_debug_level true in
   let output_h   = h_file#write in
   let def_string = join_class_path class_path "_" in
 
   begin_header_file h_file#write_h def_string false;
 
-  gen_includes h_file interface_def;
-  gen_forward_decls h_file interface_def ctx common_ctx;
-  gen_header_includes interface_def output_h;
+  gen_includes h_file tcpp_interface.if_class;
+  gen_forward_decls h_file tcpp_interface.if_class ctx common_ctx;
+  gen_header_includes tcpp_interface.if_class output_h;
 
   begin_namespace output_h class_path;
   output_h "\n\n";
-  output_h (get_class_code interface_def Meta.HeaderNamespaceCode);
+  output_h (get_class_code tcpp_interface.if_class Meta.HeaderNamespaceCode);
 
-  output_h ("class " ^ (attribs common_ctx) ^ " " ^ class_name ^ " {\n");
+  output_h ("class " ^ (attribs common_ctx) ^ " " ^ tcpp_interface.if_name ^ " {\n");
   output_h "\tpublic:\n";
   output_h ("\t\ttypedef " ^ super ^ " super;\n");
   output_h "\t\tHX_DO_INTERFACE_RTTI;\n\n";
 
-  gen_body interface_def ctx output_h;
+  gen_body tcpp_interface ctx output_h;
   
   output_h "};\n\n";
 

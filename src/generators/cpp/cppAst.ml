@@ -163,6 +163,13 @@ and tcpp_class = {
   cl_parent_ids : int32 list;
 }
 
+and tcpp_interface = {
+  if_class : tclass;
+  if_name : string;
+  if_debug_level : int;
+  if_virtual_functions : (tclass_field * (string * bool * t) list * t) list
+}
+
 and tcpp_enum_field = {
   ef_field : tenum_field;
   ef_remapped_name : string;
@@ -178,6 +185,6 @@ and tcpp_enum = {
 and tcpp_decl =
   | ManagedClass of tcpp_class
   | NativeClass of tcpp_class
-  | ManagedInterface of tclass
-  | NativeInterface of tclass
+  | ManagedInterface of tcpp_interface
+  | NativeInterface of tcpp_interface
   | Enum of tcpp_enum
