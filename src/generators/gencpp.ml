@@ -431,10 +431,10 @@ let generate_source ctx =
    List.iter (fun tcpp_type ->
       match tcpp_type with
       | ManagedClass tcpp_class ->
-         CppGenClassHeader.generate ctx tcpp_class;
+         CppGenClassHeader.generate_managed_header ctx tcpp_class;
          CppGenClassImplementation.generate ctx tcpp_class;
       | NativeClass tcpp_class ->
-         CppGenClassHeader.generate ctx tcpp_class;
+         CppGenClassHeader.generate_native_header ctx tcpp_class;
          CppGenClassImplementation.generate ctx tcpp_class;
       | ManagedInterface interface_def ->
          CppGenInterfaceHeader.generate_managed_interface ctx interface_def;
