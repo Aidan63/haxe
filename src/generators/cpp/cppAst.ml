@@ -169,6 +169,17 @@ and tcpp_class = {
   cl_parent_ids : int32 list;
   cl_flags : int;
   cl_debug_level : int;
+
+  (* cl_static_variables : tclass_field list;
+  cl_static_properties : tclass_field list;
+  cl_static_functions : tclass_field list;
+  cb_static_dynamic_functions : tclass_field list;
+
+  cl_variables : tclass_field list;
+  cl_properties : tclass_field list;
+  cl_functions : tclass_field list;
+  cb_dynamic_functions : tclass_field list;
+  cl_abstracts : tclass_field list; *)
 }
 
 and tcpp_interface = {

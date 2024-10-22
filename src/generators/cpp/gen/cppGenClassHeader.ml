@@ -12,109 +12,27 @@ open CppSourceWriter
 open CppContext
 open CppGen
 
-let gen_member_def ctx class_def is_static field =
-  let output = ctx.ctx_output in
+let gen_member_variable ctx class_def is_static field =
+  let tcpp     = cpp_type_of field.cf_type in
+  let tcpp_str = tcpp_to_string tcpp in
+
+  if not is_static && only_stack_access field.cf_type then
+    abort (Printf.sprintf "%s is marked as stack only and therefor cannot be used as the type for a non static variable" tcpp_str) field.cf_pos;
+
+  let output     = ctx.ctx_output in
   let remap_name = keyword_remap field.cf_name in
-  let nativeGen = Meta.has Meta.NativeGen class_def.cl_meta in
-  let nonVirtual = Meta.has Meta.NonVirtual field.cf_meta in
-  let doDynamic = (nonVirtual || not (is_override field)) && reflective class_def field in
-  let decl = get_meta_string field.cf_meta Meta.Decl in
-  let has_decl = match decl with Some _ -> true | None -> false in
-  if has_decl then output ("      typedef " ^ (decl |> Option.get) ^ ";\n");
-  output (if is_static then "\t\tstatic " else "\t\t");
-  match field.cf_expr with
-  | Some { eexpr = TFunction function_def } ->
-    (if is_dynamic_haxe_method field then (
-      if doDynamic then (
-        output ("::Dynamic " ^ remap_name ^ ";\n");
-        if (not is_static) && is_gc_element ctx TCppDynamic then
-          output
-            ("\t\tinline ::Dynamic _hx_set_" ^ remap_name
-            ^ "(::hx::StackContext *_hx_ctx,::Dynamic _hx_v) { \
-              HX_OBJ_WB(this,_hx_v.mPtr) return " ^ remap_name
-            ^ "=_hx_v; }\n");
-        output (if is_static then "\t\tstatic " else "\t\t");
-        output ("inline ::Dynamic &" ^ remap_name ^ "_dyn() " ^ "{return " ^ remap_name ^ "; }\n")))
-      else
-        let return_type = type_to_string function_def.tf_type in
-        (if (not is_static) && not nonVirtual then
-          let scriptable =
-            Common.defined ctx.ctx_common Define.Scriptable
-          in
-          if (not (is_internal_member field.cf_name)) && not scriptable then
-            let key =
-              join_class_path class_def.cl_path "." ^ "." ^ field.cf_name
-            in
-            try output (StringMap.find key ctx.ctx_class_member_types)
-            with Not_found -> ()
-          else output "virtual ");
-        output (if return_type = "Void" then "void" else return_type);
+  let suffix      = if is_static then "\t\tstatic " else "\t\t" in
 
-        let remap_name = native_field_name_remap is_static field in
-        output (" " ^ remap_name ^ "(");
-        output (print_arg_list function_def.tf_args "");
-        output ");\n";
-        if doDynamic then (
-          output (if is_static then "\t\tstatic " else "\t\t");
-          output ("::Dynamic " ^ remap_name ^ "_dyn();\n")));
-    output "\n"
-  | _ when has_class_field_flag field CfAbstract ->
-      let ctx_arg_list ctx arg_list prefix =
-        let get_default_value name =
-          try
-            match Meta.get Meta.Value field.cf_meta with
-            | _, [ (EObjectDecl decls, _) ], _ ->
-              Some
-                (List.find (fun ((n, _, _), _) -> n = name) decls
-                |> snd
-                |> type_constant_value ctx.ctx_common.basic)
-            | _ -> None
-          with Not_found -> None
-        in
+  Printf.sprintf "%s%s %s;\n" suffix tcpp_str remap_name |> output;
 
-        String.concat ","
-          (List.map
-            (fun (n, o, t) -> print_arg n (get_default_value n) t prefix)
-            arg_list)
-      in
-      let tl, tr =
-        match follow field.cf_type with
-        | TFun (tl, tr) -> (tl, tr)
-        | _ -> die "" __LOC__
-      in
-      let return_type = type_to_string tr in
-      let remap_name = native_field_name_remap is_static field in
-      output "virtual ";
-      output (if return_type = "Void" then "void" else return_type);
-      output (" " ^ remap_name ^ "(");
-      output (ctx_arg_list ctx tl "");
-      output
-        (") "
-        ^ (if return_type = "void" then "{}" else "{ return 0; }")
-        ^ "\n");
-      if doDynamic then output ("\t\t::Dynamic " ^ remap_name ^ "_dyn();\n")
-  | _ when has_decl -> output (remap_name ^ "_decl " ^ remap_name ^ ";\n")
-  (* Variable access *)
-  | _ -> (
-    (* Variable access *)
-    let tcpp = cpp_type_of field.cf_type in
-    let tcppStr = tcpp_to_string tcpp in
-    if (not is_static) && only_stack_access field.cf_type then
-      abort
-        ("Variables of type " ^ tcppStr ^ " may not be used as members")
-        field.cf_pos;
-
-    output (tcppStr ^ " " ^ remap_name ^ ";\n");
-    (if (not is_static) && is_gc_element ctx tcpp then
-      let getPtr = match tcpp with TCppString -> ".raw_ref()" | _ -> ".mPtr" in
-      output
-        ("\t\tinline " ^ tcppStr ^ " _hx_set_" ^ remap_name
-        ^ "(::hx::StackContext *_hx_ctx," ^ tcppStr
-        ^ " _hx_v) { HX_OBJ_WB(this,_hx_v" ^ getPtr ^ ") return "
-        ^ remap_name ^ "=_hx_v; }\n"));
+  if not is_static && is_gc_element ctx tcpp then (
+    let get_ptr = match tcpp with TCppString -> ".raw_ref()" | _ -> ".mPtr" in
+    Printf.sprintf
+      "\t\tinline %s _hx_set_%s(::hx::StackContext* _hx_ctx, %s _hx_v) { HX_OBJ_WB(this, _hx_v%s) return %s = _hx_v; }\n"
+      tcpp_str remap_name tcpp_str get_ptr remap_name |> output;
 
     (* Add a "dyn" function for variable to unify variable/function access *)
-    if (not nativeGen) then
+    if (not (Meta.has Meta.NativeGen class_def.cl_meta)) then
       match follow field.cf_type with
       | TFun (_, _) ->
         output (if is_static then "\t\tstatic " else "\t\t");
@@ -123,17 +41,86 @@ let gen_member_def ctx class_def is_static field =
           ^ ";}\n")
       | _ -> (
         (match field.cf_kind with
-        | Var { v_read = AccCall } when
-          (not is_static)
-          && is_dynamic_accessor ("get_" ^ field.cf_name) "get" field class_def ->
-            output ("\t\tDynamic get_" ^ field.cf_name ^ ";\n")
-        | _ -> ());
+        | Var { v_read = AccCall } when (not is_static) && is_dynamic_accessor ("get_" ^ field.cf_name) "get" field class_def ->
+          output ("\t\tDynamic get_" ^ field.cf_name ^ ";\n")
+        | _ ->
+          ());
         match field.cf_kind with
-        | Var { v_write = AccCall } when
-          (not is_static)
-          && is_dynamic_accessor ("set_" ^ field.cf_name) "set" field class_def ->
-            output ("\t\tDynamic set_" ^ field.cf_name ^ ";\n")
-        | _ -> ()))
+        | Var { v_write = AccCall } when (not is_static) && is_dynamic_accessor ("set_" ^ field.cf_name) "set" field class_def ->
+          output ("\t\tDynamic set_" ^ field.cf_name ^ ";\n")
+        | _ ->
+          ()))
+
+let gen_dynamic_function ctx class_def is_static field function_def =
+  let output        = ctx.ctx_output in
+  let remap_name    = keyword_remap field.cf_name in
+  let is_not_static = not is_static in
+  let prefix        = if is_static then "\t\tstatic " else "\t\t" in
+
+  Printf.sprintf "%s::Dynamic %s;\n" prefix remap_name |> output;
+
+  if is_not_static && is_gc_element ctx TCppDynamic then
+    Printf.sprintf "\t\tinline ::Dynamic _hx_set_%s(::hx::StackContext* _hx_ctx, ::Dynamic _hx_v) { HX_OBJ_WB(this, _hx_v.mPtr) return %s = _hx_v; }\n" remap_name remap_name |> output;
+
+  Printf.sprintf "%sinline ::Dynamic& %s_dyn() { return %s; }\n" prefix remap_name remap_name |> output
+
+let gen_abstract_function ctx class_def field tl tr =
+  let ctx_arg_list ctx arg_list prefix =
+    let get_default_value name =
+      try
+        match Meta.get Meta.Value field.cf_meta with
+        | _, [ (EObjectDecl decls, _) ], _ ->
+          Some
+            (decls
+              |> List.find (fun ((n, _, _), _) -> n = name)
+              |> snd
+              |> type_constant_value ctx.ctx_common.basic)
+        | _ -> None
+      with Not_found -> None
+    in
+
+    arg_list
+      |> List.map (fun (n, o, t) -> print_arg n (get_default_value n) t prefix)
+      |> String.concat ","
+  in
+  let output      = ctx.ctx_output in
+  let return_type = type_to_string tr in
+  let remap_name  = native_field_name_remap false field in
+
+  Printf.sprintf
+    "\t\tvirtual %s %s(%s) %s\n"
+    (if return_type = "Void" then "void" else return_type)
+    remap_name
+    (ctx_arg_list ctx tl "")
+    (if return_type = "void" then "{}" else "{ return 0; }") |> output;
+
+  if reflective class_def field then Printf.sprintf "\t\t::Dynamic %s_dyn();\n" remap_name |> output
+
+let gen_member_function ctx class_def is_static field function_def =
+  let output         = ctx.ctx_output in
+  let is_non_virtual = Meta.has Meta.NonVirtual field.cf_meta in
+  let is_virtual     = not is_non_virtual in
+  let is_non_static  = not is_static in
+
+  if is_virtual && is_non_static then (
+    let is_not_scriptable  = not (Common.defined ctx.ctx_common Define.Scriptable) in
+    let is_external_member = not (is_internal_member field.cf_name) in
+    if is_not_scriptable && is_external_member then
+      let key = Printf.sprintf "%s.%s" (join_class_path class_def.cl_path ".") field.cf_name in
+      match StringMap.find_opt key ctx.ctx_class_member_types with
+      | Some v -> output v
+      | None -> ()
+    else
+      output "virtual ");
+
+  let return_type     = type_to_string function_def.tf_type in
+  let return_type_str = if return_type = "Void" then "void" else return_type in
+  let remap_name      = native_field_name_remap is_static field in
+  let prefix          = (if is_static then "\t\tstatic " else "\t\t") in
+  Printf.sprintf "%s%s %s(%s);\n" prefix return_type_str remap_name (print_arg_list function_def.tf_args "") |> output;
+
+  if (is_non_virtual || not (is_override field)) && reflective class_def field then
+    Printf.sprintf "%s::Dynamic %s_dyn();\n" prefix remap_name |> output
 
 let generate base_ctx tcpp_class =
   let common_ctx = base_ctx.ctx_common in
@@ -425,17 +412,78 @@ let generate base_ctx tcpp_class =
 
   if has_boot_field class_def then output_h "\t\tstatic void __boot();\n";
 
-  (match class_def.cl_array_access with
-  | Some t -> output_h ("\t\ttypedef " ^ type_string t ^ " __array_access;\n")
-  | _ -> ());
+  let filter_functions field =
+    if should_implement_field field then
+      match (field.cf_kind, field.cf_expr) with
+      | Method (MethNormal | MethInline), Some { eexpr = TFunction func } ->
+        Some (field, func)
+      | _ ->
+        None
+    else
+      None in
 
-  List.iter
-    (gen_member_def ctx class_def true)
-    (List.filter should_implement_field class_def.cl_ordered_statics);
+  let filter_dynamic_functions field =
+    if should_implement_field field then
+      match (field.cf_kind, field.cf_expr) with
+      | Method MethDynamic, Some { eexpr = TFunction func } ->
+        Some (field, func)
+      | _ ->
+        None
+    else
+      None in
 
-  List.iter
-    (gen_member_def ctx class_def false)
-    (List.filter should_implement_field class_def.cl_ordered_fields);
+  let filter_abstract_functions field =
+    if should_implement_field field then
+      match (field.cf_kind, field.cf_type) with
+      | Method MethNormal, TFun (tl, tr) when has_class_field_flag field CfAbstract ->
+        Some (field, tl, tr)
+      | _ ->
+        None
+    else
+      None in
+
+  let filter_variables field =
+    if should_implement_field field then
+      match (field.cf_kind, field.cf_expr) with
+      | Var _, _ ->
+        Some field
+      (* Below should cause abstracts which have functions with no implementation to be generated as a field *)
+      | Method (MethNormal | MethInline), None when not (has_class_field_flag field CfAbstract) ->
+        Some field
+      | _ ->
+        None
+    else
+      None in
+
+  class_def.cl_ordered_statics
+  |> List.filter_map filter_functions
+  |> List.iter (fun (field, func) -> gen_member_function ctx class_def true field func);
+
+  class_def.cl_ordered_statics
+  |> List.filter_map filter_dynamic_functions
+  |> List.iter (fun (field, func) -> gen_dynamic_function ctx class_def true field func);
+
+  class_def.cl_ordered_statics
+  |> List.filter_map filter_variables
+  |> List.iter (fun field -> gen_member_variable ctx class_def true field);
+
+  (*  *)
+
+  class_def.cl_ordered_fields
+  |> List.filter_map filter_functions
+  |> List.iter (fun (field, func) -> gen_member_function ctx class_def false field func);
+
+  class_def.cl_ordered_fields
+  |> List.filter_map filter_dynamic_functions
+  |> List.iter (fun (field, func) -> gen_dynamic_function ctx class_def false field func);
+
+  class_def.cl_ordered_fields
+  |> List.filter_map filter_variables
+  |> List.iter (fun field -> gen_member_variable ctx class_def false field);
+
+  class_def.cl_ordered_fields
+  |> List.filter_map filter_abstract_functions
+  |> List.iter (fun (field, tl, tr) -> gen_abstract_function ctx class_def field tl tr);
 
   output_h (get_class_code class_def Meta.HeaderClassCode);
   output_h "};\n\n";

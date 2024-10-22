@@ -103,10 +103,6 @@ let gen_header_includes interface_def output_h =
 let gen_body tcpp_interface ctx output_h =
   if has_boot_field tcpp_interface.if_class then output_h "\t\tstatic void __boot();\n";
 
-  match tcpp_interface.if_class.cl_array_access with
-  | Some t -> output_h ("\t\ttypedef " ^ type_string t ^ " __array_access;\n")
-  | _ -> ();
-
   tcpp_interface.if_virtual_functions
     |> List.iter (fun (field, _, _) -> gen_member_def ctx tcpp_interface.if_class field);
 
