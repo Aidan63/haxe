@@ -12,6 +12,49 @@ open CppSourceWriter
 open CppContext
 open CppGen
 
+let filter_functions field =
+  if should_implement_field field then
+    match (field.cf_kind, field.cf_expr) with
+    | Method (MethNormal | MethInline), Some { eexpr = TFunction func } ->
+      Some (field, func)
+    | _ ->
+      None
+  else
+    None
+
+let filter_dynamic_functions field =
+  if should_implement_field field then
+    match (field.cf_kind, field.cf_expr) with
+    | Method MethDynamic, Some { eexpr = TFunction func } ->
+      Some (field, func)
+    | _ ->
+      None
+  else
+    None
+
+let filter_abstract_functions field =
+  if should_implement_field field then
+    match (field.cf_kind, field.cf_type) with
+    | Method MethNormal, TFun (tl, tr) when has_class_field_flag field CfAbstract ->
+      Some (field, tl, tr)
+    | _ ->
+      None
+  else
+    None
+
+let filter_variables field =
+  if should_implement_field field then
+    match (field.cf_kind, field.cf_expr) with
+    | Var _, _ ->
+      Some field
+    (* Below should cause abstracts which have functions with no implementation to be generated as a field *)
+    | Method (MethNormal | MethInline), None when not (has_class_field_flag field CfAbstract) ->
+      Some field
+    | _ ->
+      None
+  else
+    None
+
 let gen_member_variable ctx class_def is_static field =
   let tcpp     = cpp_type_of field.cf_type in
   let tcpp_str = tcpp_to_string tcpp in
@@ -122,32 +165,14 @@ let gen_member_function ctx class_def is_static field function_def =
   if (is_non_virtual || not (is_override field)) && reflective class_def field then
     Printf.sprintf "%s::Dynamic %s_dyn();\n" prefix remap_name |> output
 
-let generate_native_header base_ctx tcpp_class =
-  let common_ctx = base_ctx.ctx_common in
-  let class_def  = tcpp_class.cl_class in
-  let class_path = class_def.cl_path in
-  let scriptable = has_tcpp_class_flag tcpp_class Scriptable in
-  let class_name = tcpp_class.cl_name in
-
-  let h_file = new_header_file common_ctx common_ctx.file class_path in
-  let ctx = file_context base_ctx h_file tcpp_class.cl_debug_level true in
-
-  let parent, super =
-    match class_def.cl_super with
-    | Some (klass, params) ->
-        let name =
-          tcpp_to_string_suffix "_obj" (cpp_instance_type klass params)
-        in
-        ( name, name )
-    | None -> ("", "")
-  in
-  let output_h = h_file#write in
+let gen_class_header ctx tcpp_class h_file scriptable parents =
+  let class_path = tcpp_class.cl_class.cl_path in
   let def_string = join_class_path class_path "_" in
 
-  begin_header_file h_file#write_h def_string true;
+  begin_header_file h_file#write_h def_string false;
 
   (* Include the real header file for the super class *)
-  (match class_def.cl_super with
+  (match tcpp_class.cl_class.cl_super with
   | Some super ->
       let klass = fst super in
       let include_files = get_all_meta_string_path klass.cl_meta Meta.Include in
@@ -170,12 +195,14 @@ let generate_native_header base_ctx tcpp_class =
           (fun inc -> h_file#add_include (path_of_string inc))
           include_files
       else h_file#add_include interface.cl_path)
-    (real_interfaces class_def.cl_implements);
+    (real_interfaces tcpp_class.cl_class.cl_implements);
 
   (* Only need to forward-declare classes that are mentioned in the header file
      (ie, not the implementation) *)
+  let output_h   = h_file#write in
+  let class_path = tcpp_class.cl_class.cl_path in
   let header_referenced, header_flags =
-    CppReferences.find_referenced_types_flags ctx (TClassDecl class_def) None
+    CppReferences.find_referenced_types_flags ctx (TClassDecl tcpp_class.cl_class) None
     ctx.ctx_super_deps CppContext.PathMap.empty true false scriptable
   in
   List.iter2
@@ -183,18 +210,18 @@ let generate_native_header base_ctx tcpp_class =
     header_referenced header_flags;
   output_h "\n";
 
-  output_h (get_class_code class_def Meta.HeaderCode);
+  output_h (get_class_code tcpp_class.cl_class Meta.HeaderCode);
   let includes =
-    get_all_meta_string_path class_def.cl_meta Meta.HeaderInclude
+    get_all_meta_string_path tcpp_class.cl_class.cl_meta Meta.HeaderInclude
   in
   let printer inc = output_h ("#include \"" ^ inc ^ "\"\n") in
   List.iter printer includes;
 
   begin_namespace output_h class_path;
   output_h "\n\n";
-  output_h (get_class_code class_def Meta.HeaderNamespaceCode);
+  output_h (get_class_code tcpp_class.cl_class Meta.HeaderNamespaceCode);
 
-  let extern_class = Common.defined common_ctx Define.DllExport in
+  let extern_class = Common.defined ctx.ctx_common Define.DllExport in
   let attribs =
     "HXCPP_" ^ (if extern_class then "EXTERN_" else "") ^ "CLASS_ATTRIBUTES"
   in
@@ -205,64 +232,43 @@ let generate_native_header base_ctx tcpp_class =
     else
       acc
     in
-  let initial = if super = "" then [] else [ (Printf.sprintf "public %s" parent) ] in
   let all_parents =
-    class_def.cl_implements
-    |> List.fold_left folder initial
+    tcpp_class.cl_class.cl_implements
+    |> List.fold_left folder parents
     |> List.rev in
   let parent_string =
     match all_parents with
     | [] -> ""
     | xs ->  " : " ^ String.concat ", " xs in
 
-  Printf.sprintf "class %s %s%s\n{\n\tpublic:\n" attribs class_name parent_string |> output_h;
+  Printf.sprintf "class %s %s%s\n{\n\tpublic:\n" attribs tcpp_class.cl_name parent_string |> output_h
+
+let generate_native_header base_ctx tcpp_class =
+  let common_ctx = base_ctx.ctx_common in
+  let class_def  = tcpp_class.cl_class in
+  let class_path = class_def.cl_path in
+  let scriptable = has_tcpp_class_flag tcpp_class Scriptable in
+
+  let h_file = new_header_file common_ctx common_ctx.file class_path in
+  let ctx = file_context base_ctx h_file tcpp_class.cl_debug_level true in
+
+  let parent, super =
+    match class_def.cl_super with
+    | Some (klass, params) ->
+        let name =
+          tcpp_to_string_suffix "_obj" (cpp_instance_type klass params)
+        in
+        ( name, name )
+    | None -> ("", "")
+  in
+  let output_h = h_file#write in
+  let def_string = join_class_path class_path "_" in
+
+  gen_class_header ctx tcpp_class h_file scriptable (if super = "" then [] else [ (Printf.sprintf "public %s" parent) ]);
       
   CppGen.generate_native_constructor ctx output_h class_def true;
 
   if has_boot_field class_def then output_h "\t\tstatic void __boot();\n";
-
-  let filter_functions field =
-    if should_implement_field field then
-      match (field.cf_kind, field.cf_expr) with
-      | Method (MethNormal | MethInline), Some { eexpr = TFunction func } ->
-        Some (field, func)
-      | _ ->
-        None
-    else
-      None in
-
-  let filter_dynamic_functions field =
-    if should_implement_field field then
-      match (field.cf_kind, field.cf_expr) with
-      | Method MethDynamic, Some { eexpr = TFunction func } ->
-        Some (field, func)
-      | _ ->
-        None
-    else
-      None in
-
-  let filter_abstract_functions field =
-    if should_implement_field field then
-      match (field.cf_kind, field.cf_type) with
-      | Method MethNormal, TFun (tl, tr) when has_class_field_flag field CfAbstract ->
-        Some (field, tl, tr)
-      | _ ->
-        None
-    else
-      None in
-
-  let filter_variables field =
-    if should_implement_field field then
-      match (field.cf_kind, field.cf_expr) with
-      | Var _, _ ->
-        Some field
-      (* Below should cause abstracts which have functions with no implementation to be generated as a field *)
-      | Method (MethNormal | MethInline), None when not (has_class_field_flag field CfAbstract) ->
-        Some field
-      | _ ->
-        None
-    else
-      None in
 
   class_def.cl_ordered_statics
   |> List.filter_map filter_functions
@@ -337,78 +343,8 @@ let generate_managed_header base_ctx tcpp_class =
   let output_h = h_file#write in
   let def_string = join_class_path class_path "_" in
 
-  begin_header_file h_file#write_h def_string false;
+  gen_class_header ctx tcpp_class h_file scriptable [ (Printf.sprintf "public %s" parent) ];
 
-  (* Include the real header file for the super class *)
-  (match class_def.cl_super with
-  | Some super ->
-      let klass = fst super in
-      let include_files = get_all_meta_string_path klass.cl_meta Meta.Include in
-      if List.length include_files > 0 then
-        List.iter
-          (fun inc -> h_file#add_include (path_of_string inc))
-          include_files
-      else h_file#add_include klass.cl_path
-  | _ -> ());
-
-  (* And any interfaces ... *)
-  List.iter
-    (fun imp ->
-      let interface = fst imp in
-      let include_files =
-        get_all_meta_string_path interface.cl_meta Meta.Include
-      in
-      if List.length include_files > 0 then
-        List.iter
-          (fun inc -> h_file#add_include (path_of_string inc))
-          include_files
-      else h_file#add_include interface.cl_path)
-    (real_interfaces class_def.cl_implements);
-
-  (* Only need to forward-declare classes that are mentioned in the header file
-     (ie, not the implementation) *)
-  let header_referenced, header_flags =
-    CppReferences.find_referenced_types_flags ctx (TClassDecl class_def) None
-    ctx.ctx_super_deps CppContext.PathMap.empty true false scriptable
-  in
-  List.iter2
-    (fun r f -> gen_forward_decl h_file r f)
-    header_referenced header_flags;
-  output_h "\n";
-
-  output_h (get_class_code class_def Meta.HeaderCode);
-  let includes =
-    get_all_meta_string_path class_def.cl_meta Meta.HeaderInclude
-  in
-  let printer inc = output_h ("#include \"" ^ inc ^ "\"\n") in
-  List.iter printer includes;
-
-  begin_namespace output_h class_path;
-  output_h "\n\n";
-  output_h (get_class_code class_def Meta.HeaderNamespaceCode);
-
-  let extern_class = Common.defined common_ctx Define.DllExport in
-  let attribs =
-    "HXCPP_" ^ (if extern_class then "EXTERN_" else "") ^ "CLASS_ATTRIBUTES"
-  in
-
-  let folder acc (cls, _) =
-    if is_native_class cls then
-      (Printf.sprintf "public virtual %s" (join_class_path cls.cl_path "::")) :: acc
-    else
-      acc
-    in
-  let initial = if super = "" then [] else [ (Printf.sprintf "public %s" parent) ] in
-  let all_parents =
-    class_def.cl_implements
-    |> List.fold_left folder initial
-    |> List.rev in
-  let parent_string =
-    match all_parents with
-    | [] -> ""
-    | xs ->  " : " ^ String.concat ", " xs in
-
-  Printf.sprintf "class %s %s%s\n{\n\tpublic:\n" attribs class_name parent_string |> output_h;
   Printf.sprintf "\t\ttypedef %s super;\n" super |> output_h;
   Printf.sprintf "\t\ttypedef %s OBJ_;\n" class_name |> output_h;
 
@@ -584,49 +520,6 @@ let generate_managed_header base_ctx tcpp_class =
     ^ "; }\n\n");
 
   if has_boot_field class_def then output_h "\t\tstatic void __boot();\n";
-
-  let filter_functions field =
-    if should_implement_field field then
-      match (field.cf_kind, field.cf_expr) with
-      | Method (MethNormal | MethInline), Some { eexpr = TFunction func } ->
-        Some (field, func)
-      | _ ->
-        None
-    else
-      None in
-
-  let filter_dynamic_functions field =
-    if should_implement_field field then
-      match (field.cf_kind, field.cf_expr) with
-      | Method MethDynamic, Some { eexpr = TFunction func } ->
-        Some (field, func)
-      | _ ->
-        None
-    else
-      None in
-
-  let filter_abstract_functions field =
-    if should_implement_field field then
-      match (field.cf_kind, field.cf_type) with
-      | Method MethNormal, TFun (tl, tr) when has_class_field_flag field CfAbstract ->
-        Some (field, tl, tr)
-      | _ ->
-        None
-    else
-      None in
-
-  let filter_variables field =
-    if should_implement_field field then
-      match (field.cf_kind, field.cf_expr) with
-      | Var _, _ ->
-        Some field
-      (* Below should cause abstracts which have functions with no implementation to be generated as a field *)
-      | Method (MethNormal | MethInline), None when not (has_class_field_flag field CfAbstract) ->
-        Some field
-      | _ ->
-        None
-    else
-      None in
 
   class_def.cl_ordered_statics
   |> List.filter_map filter_functions
