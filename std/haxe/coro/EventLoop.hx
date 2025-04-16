@@ -1,6 +1,6 @@
 package haxe.coro;
 
-#if sys
+#if (target.threaded && !cppia)
 import sys.thread.EventLoop;
 private typedef EventLoopImpl = sys.thread.EventLoop;
 #else
