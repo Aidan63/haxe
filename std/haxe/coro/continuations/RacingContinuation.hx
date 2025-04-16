@@ -1,6 +1,6 @@
 package haxe.coro.continuations;
 
-#if sys
+#if (target.threaded && !cppia)
 import sys.thread.Lock;
 import sys.thread.Mutex;
 import sys.thread.Thread;
