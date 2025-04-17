@@ -38,6 +38,7 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars econtinuatio
 
 	let ereturn = mk (TReturn (Some econtinuation)) econtinuation.etype p in
 
+
 	let cb_uncaught = CoroFunctions.make_block ctx None in
 	let mk_suspending_call call =
 		let p = call.cs_pos in
@@ -65,8 +66,11 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars econtinuatio
 			ereturn;
 		]) com.basic.tvoid p in
 		let ereturned = assign (base_continuation_field_on econtinuation cont.ContTypes.result) (base_continuation_field_on ecororesult cont.ContTypes.result) in
-		let edoesnthappenyet = ereturn in
-		let econtrol_switch = CoroControl.make_control_switch com.basic esubject esuspended ereturned edoesnthappenyet p in
+		let ethrown = mk (TBlock [
+			set_state cb_uncaught.cb_id;
+			mk (TThrow (base_continuation_field_on ecororesult cont.ContTypes.error)) t_dynamic p;
+		]) com.basic.tvoid p in
+		let econtrol_switch = CoroControl.make_control_switch com.basic esubject esuspended ereturned ethrown p in
 		[
 			cororesult_var;
 			econtrol_switch;
@@ -82,6 +86,13 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars econtinuatio
 		cs_el = el;
 	} in
 
+	(* TODO: this sucks a bit and its usage isn't much better *)
+	let wrap_thrown = match com.basic.texception with
+		| TInst(c,_) ->
+			(fun e -> Texpr.Builder.resolve_and_make_static_call c "thrown" [e] e.epos)
+		| _ ->
+			die "" __LOC__
+	in
 	let exc_state_map = Array.init ctx.next_block_id (fun _ -> ref []) in
 	let rec loop cb current_el =
 		assert (cb != ctx.cb_unreachable);
@@ -186,7 +197,7 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars econtinuatio
 			let _ = loop bb_next [] in
 			let try_state_id = loop bb_try [] in
 			let erethrow = mk (TBlock [
-				mk_assign eerror eresult;
+				mk_assign eerror (wrap_thrown eresult);
 				set_state (match catch.cc_cb.cb_catch with None -> cb_uncaught.cb_id | Some cb -> cb.cb_id);
 			]) t_dynamic null_pos in
 			let eif =
@@ -357,10 +368,10 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars econtinuatio
 		)) com.basic.tvoid p
 	in
 
-	let etry = if not ctx.has_catch then
-		eswitch (* If our coro doesn't catch anything then we shouldn't have to rethrow by hand *)
-	else mk (TTry (
-		eswitch,
+	let eloop = mk (TWhile (make_bool com.basic true p, eswitch, NormalWhile)) com.basic.tvoid p in
+
+	let etry = mk (TTry (
+		eloop,
 		[
 			let vcaught = alloc_var VGenerated "e" t_dynamic null_pos in
 			let cases = DynArray.create () in
@@ -375,10 +386,17 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars econtinuatio
 					]) com.basic.tvoid null_pos in
 					DynArray.add cases {case_patterns = patterns; case_expr = expr};
 			) exc_state_map;
-			let default = mk (TBlock [
-				set_state rethrow_state_id;
-				mk (TThrow(make_local vcaught null_pos)) t_dynamic null_pos;
-			]) com.basic.tvoid null_pos in
+			let el = [
+				set_control CoroThrown;
+				ereturn;
+			] in
+			let el = if ctx.has_catch then
+				el
+			else begin
+				let ev = make_local vcaught null_pos in
+				(assign eerror (wrap_thrown ev)) :: el
+			end in
+			let default = mk (TBlock el) com.basic.tvoid null_pos in
 			if DynArray.empty cases then
 				(vcaught,default)
 			else begin
