@@ -412,6 +412,11 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars econtinuatio
 		]
 	)) com.basic.tvoid null_pos in
 
-	let eloop = mk (TWhile (make_bool com.basic true p, etry, NormalWhile)) com.basic.tvoid p in
+	let eloop = if ctx.has_catch then
+		mk (TWhile (make_bool com.basic true p, etry, NormalWhile)) com.basic.tvoid p
+	else
+		(* If there is no catch we don't need to pseudo-goto back into the state loop, so we don't need a control loop. *)
+		etry
+	in
 
 	eloop, eif_error, !init_state, fields |> Hashtbl.to_seq_values |> List.of_seq
