@@ -101,6 +101,36 @@ class TestControlFlow extends utest.Test {
 		}), E3);
 	}
 
+	function testTryCatchNonExc() {
+		Assert.same(["ne1", "ne2"], Coroutine.run(@:coroutine function run() {
+			return mapCalls([ new NE1(), new NE2() ], tryCatchNonExc);
+		}));
+	}
+
+	function testTryCatchNonExcFail() {
+		Assert.raises(() -> Coroutine.run(@:coroutine function run() {
+			return tryCatchNonExc(new NE3());
+		}), NE3);
+	}
+
+	function testTryCatchMixed() {
+		Assert.same(["e1", "e2", "ne1", "ne2"], Coroutine.run(@:coroutine function run() {
+			return mapCalls(([ new E1(), new E2(), new NE1(), new NE2() ] : Array<Dynamic>), tryCatchMixed);
+		}));
+	}
+
+	function testTryCatchMixedFail() {
+		Assert.raises(() -> Coroutine.run(@:coroutine function run() {
+			return tryCatchMixed("foo");
+		}), String);
+		Assert.raises(() -> Coroutine.run(@:coroutine function run() {
+			return tryCatchMixed(new E3());
+		}), E3);
+		Assert.raises(() -> Coroutine.run(@:coroutine function run() {
+			return tryCatchMixed(new NE3());
+		}), NE3);
+	}
+
 	function testRecursion() {
 		var maxIters = 3;
 		var counter  = 0;
@@ -142,6 +172,32 @@ class TestControlFlow extends utest.Test {
 		}
 		return "none";
 	}
+
+	@:coroutine function tryCatchNonExc(e:NE) {
+		try {
+			throw e;
+		} catch (e:NE1) {
+			return "ne1";
+		} catch (e:NE2) {
+			return "ne2";
+		}
+		return "none";
+	}
+
+	@:coroutine function tryCatchMixed(e:Any) {
+		try {
+			throw e;
+		} catch (e:E1) {
+			return "e1";
+		} catch (e:E2) {
+			return "e2";
+		} catch (e:NE1) {
+			return "ne1";
+		} catch (e:NE2) {
+			return "ne2";
+		}
+		return "none";
+	}
 }
 
 @:coroutine
@@ -157,4 +213,18 @@ private class E2 extends haxe.Exception {
 }
 private class E3 extends haxe.Exception {
 	public function new() super("E3");
+}
+
+interface NE {}
+
+private class NE1 implements NE {
+	public function new() {};
+}
+
+private class NE2 implements NE {
+	public function new() {};
+}
+
+private class NE3 implements NE {
+	public function new() {};
 }
