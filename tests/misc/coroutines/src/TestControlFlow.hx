@@ -162,6 +162,37 @@ class TestControlFlow extends utest.Test {
 		Assert.equals(counter, maxIters);
 	}
 
+	function testTryCatchNested() {
+		@:coroutine function f(yield:Coroutine<Int -> Void>, throwValue:Dynamic) {
+			var dummy = '1';
+			try {
+				try {
+					dummy += '2';
+					throw throwValue;
+					dummy += '3';
+				} catch (e:Int) {
+					dummy += '4';
+					yield(10);
+					dummy += '5';
+				}
+				dummy += '6';
+			} catch (e:Dynamic) {
+				dummy += '7';
+				yield(20);
+				dummy += '8';
+			}
+			dummy += '9';
+			return dummy;
+		}
+		var a = [];
+		Assert.equals("124569", Coroutine.run(() -> f(i -> a.push(i), 1)));
+		Assert.same([10], a);
+		a = [];
+		Assert.equals("12789", Coroutine.run(() -> f(i -> a.push(i), "foo")));
+		Assert.same([20], a);
+		a = [];
+	}
+
 	@:coroutine function tryCatch(e:haxe.Exception) {
 		try {
 			throw e;
