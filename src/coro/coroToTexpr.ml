@@ -67,7 +67,6 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars econtinuatio
 		]) com.basic.tvoid p in
 		let ereturned = assign (base_continuation_field_on econtinuation cont.ContTypes.result) (base_continuation_field_on ecororesult cont.ContTypes.result) in
 		let ethrown = mk (TBlock [
-			set_state cb_uncaught.cb_id;
 			mk (TThrow (base_continuation_field_on ecororesult cont.ContTypes.error)) t_dynamic p;
 		]) com.basic.tvoid p in
 		let econtrol_switch = CoroControl.make_control_switch com.basic esubject esuspended ereturned ethrown p in
@@ -196,10 +195,15 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars econtinuatio
 			let new_exc_state_id = catch.cc_cb.cb_id in
 			let _ = loop bb_next [] in
 			let try_state_id = loop bb_try [] in
-			let erethrow = mk (TBlock [
-				mk_assign eerror (wrap_thrown eresult);
-				set_state (match catch.cc_cb.cb_catch with None -> cb_uncaught.cb_id | Some cb -> cb.cb_id);
-			]) t_dynamic null_pos in
+			let erethrow = match catch.cc_cb.cb_catch with
+				| Some cb ->
+					set_state cb.cb_id
+				| None ->
+					mk (TBlock [
+					set_state cb_uncaught.cb_id;
+					mk (TThrow eresult) t_dynamic p
+				]) t_dynamic null_pos
+			in
 			let eif =
 				List.fold_left (fun enext (vcatch,bb_catch) ->
 					let ecatchvar = mk (TVar (vcatch, Some eresult)) com.basic.tvoid null_pos in
@@ -386,16 +390,12 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars econtinuatio
 					]) com.basic.tvoid null_pos in
 					DynArray.add cases {case_patterns = patterns; case_expr = expr};
 			) exc_state_map;
+			let ev = make_local vcaught null_pos in
 			let el = [
+				assign eerror (wrap_thrown ev);
 				set_control CoroThrown;
 				ereturn;
 			] in
-			let el = if ctx.has_catch then
-				el
-			else begin
-				let ev = make_local vcaught null_pos in
-				(assign eerror (wrap_thrown ev)) :: el
-			end in
 			let default = mk (TBlock el) com.basic.tvoid null_pos in
 			if DynArray.empty cases then
 				(vcaught,default)
