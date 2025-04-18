@@ -144,7 +144,7 @@ class TestTryCatch extends utest.Test {
 	}
 
 	function testTryCatchNested() {
-		@:coroutine function f(yield:Coroutine<Int->Void>, throwValue:Dynamic) {
+		@:coroutine function f(yield:Coroutine<String->Void>, throwValue:Dynamic) {
 			var dummy = '1';
 			try {
 				try {
@@ -153,13 +153,13 @@ class TestTryCatch extends utest.Test {
 					dummy += '3';
 				} catch (e:Int) {
 					dummy += '4';
-					yield(10);
+					yield("10");
 					dummy += '5';
 				}
 				dummy += '6';
 			} catch (e:Dynamic) {
 				dummy += '7';
-				yield(20);
+				yield('caught: $e, dummy: $dummy');
 				dummy += '8';
 			}
 			dummy += '9';
@@ -167,13 +167,25 @@ class TestTryCatch extends utest.Test {
 		}
 		var a = [];
 		Assert.equals("124569", Coroutine.run(() -> f(i -> a.push(i), 1)));
-		Assert.same([10], a);
+		Assert.same(["10"], a);
 		a = [];
 		Assert.equals("12789", Coroutine.run(() -> f(i -> a.push(i), "foo")));
-		Assert.same([20], a);
+		Assert.same(["caught: foo, dummy: 127"], a);
 		a = [];
-		Assert.equals("124789", Coroutine.run(() -> f(i -> i == 10?throw i:a.push(i), 1)));
-		Assert.same([20], a);
+		Assert.equals("124789", Coroutine.run(() -> f(i -> i == "10"?throw i:a.push(i), 1)));
+		Assert.same(["caught: 10, dummy: 1247"], a);
+		try {
+			Coroutine.run(() -> f(i -> throw i, "foo"));
+			Assert.fail();
+		} catch (e:String) {
+			Assert.equals('caught: foo, dummy: 127', e);
+		}
+		try {
+			Coroutine.run(() -> f(i -> throw i, 1));
+			Assert.fail();
+		} catch (e:String) {
+			Assert.equals('caught: 10, dummy: 1247', e);
+		}
 	}
 
 	function testTryCatchExceptionNotCaughtThrownOutOfYieldContext() { // wtf?
