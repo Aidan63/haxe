@@ -9,10 +9,10 @@ class BlockingContinuation implements IContinuation<Any> {
 	var result:Any;
 	var error:Exception;
 
-	public function new(loop, scheduler) {
+	public function new(loop : EventLoop, scheduler : Scheduler) {
 		this.loop = loop;
 
-		_hx_context = new CoroutineContext(scheduler);
+		_hx_context = CoroutineContext.empty + scheduler;
 		running = true;
 		result = 0;
 		error = null;

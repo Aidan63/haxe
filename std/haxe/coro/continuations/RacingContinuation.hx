@@ -47,7 +47,7 @@ private class Thread {
 	}
 
 	public function resume(result:T, error:Exception):Void {
-		_hx_context.scheduler.schedule(() -> {
+		_hx_context.get(Scheduler.key).schedule(() -> {
 			lock.acquire();
 
 			if (assigned) {

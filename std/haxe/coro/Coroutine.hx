@@ -32,13 +32,13 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 
 	@:coroutine public static function delay(ms:Int):Void {
 		Coroutine.suspend(cont -> {
-			cont._hx_context.scheduler.scheduleIn(() -> cont.resume(null, null), ms);
+			cont._hx_context.get(Scheduler.key).scheduleIn(() -> cont.resume(null, null), ms);
 		});
 	}
 
 	@:coroutine public static function yield():Void {
 		Coroutine.suspend(cont -> {
-			cont._hx_context.scheduler.schedule(() -> cont.resume(null, null));
+			cont._hx_context.get(Scheduler.key).schedule(() -> cont.resume(null, null));
 		});
 	}
 

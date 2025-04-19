@@ -23,7 +23,7 @@ abstract class BaseContinuation extends ContinuationResult implements IContinuat
     public final function resume(result:Any, error:Exception):Void {
         _hx_result = result;
         _hx_error  = error;
-        _hx_context.scheduler.schedule(() -> {
+        _hx_context.get(Scheduler.key).schedule(() -> {
             try
             {
                 _hx_recursing = false;
