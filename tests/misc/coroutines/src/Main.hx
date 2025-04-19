@@ -6,7 +6,9 @@ function main() {
 		new TestBasic(),
 		new TestTricky(),
 		new TestControlFlow(),
+		#if !lua // https://github.com/HaxeFoundation/haxe/issues/12192 and probably other issues
 		new TestTryCatch(),
+		#end
 		new TestHoisting(),
 		new TestMisc(),
 		// new TestGenerator(),

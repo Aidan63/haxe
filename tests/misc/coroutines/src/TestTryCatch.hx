@@ -75,8 +75,6 @@ class TestTryCatch extends utest.Test {
 		Assert.equals(counter, maxIters);
 	}
 
-	#if !lua // codegen issue
-
 	function testTryCatchNoCatch() {
 		@:coroutine function f(yield:Coroutine<Int->Void>) {
 			var dummy = '1';
@@ -238,8 +236,6 @@ class TestTryCatch extends utest.Test {
 		Assert.equals("12456", Coroutine.run(() -> f(i -> a.push(i))));
 		Assert.same([10], a);
 	}
-
-	#end
 
 	@:coroutine function tryCatch(e:haxe.Exception) {
 		try {
