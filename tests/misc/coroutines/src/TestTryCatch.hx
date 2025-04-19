@@ -174,17 +174,22 @@ class TestTryCatch extends utest.Test {
 		a = [];
 		Assert.equals("124789", Coroutine.run(() -> f(i -> i == "10"?throw i:a.push(i), 1)));
 		Assert.same(["caught: 10, dummy: 1247"], a);
-		try {
-			Coroutine.run(() -> f(i -> throw i, "foo"));
-			Assert.fail();
-		} catch (e:String) {
-			Assert.equals('caught: foo, dummy: 127', e);
-		}
-		try {
-			Coroutine.run(() -> f(i -> throw i, 1));
-			Assert.fail();
-		} catch (e:String) {
-			Assert.equals('caught: 10, dummy: 1247', e);
+		final yieldThrow = @:coroutine i -> throw i;
+		// TODO: gives "Cannot use Void as value" without the explicit :Void type-hint
+		final yieldThrowInChildCoro = @:coroutine function(i):Void return Coroutine.run(() -> throw i);
+		for (yield in [yieldThrow, yieldThrowInChildCoro]) {
+			try {
+				Coroutine.run(() -> f(yield, "foo"));
+				Assert.fail();
+			} catch (e:String) {
+				Assert.equals('caught: foo, dummy: 127', e);
+			}
+			try {
+				Coroutine.run(() -> f(yield, 1));
+				Assert.fail();
+			} catch (e:String) {
+				Assert.equals('caught: 10, dummy: 1247', e);
+			}
 		}
 	}
 
