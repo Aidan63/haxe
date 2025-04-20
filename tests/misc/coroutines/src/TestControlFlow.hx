@@ -1,5 +1,7 @@
 import Helper;
 
+import haxe.coro.Coroutine.yield;
+
 class TestControlFlow extends utest.Test {
 	function testIfThen() {
 		@:coroutine function f(x) {
