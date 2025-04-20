@@ -1,4 +1,4 @@
-package haxe.coro;
+package haxe.coro.context;
 
 import haxe.coro.context.Key;
 import haxe.coro.context.Element;
@@ -34,8 +34,6 @@ abstract CoroutineContext(Map<String, Any>) {
 
         return cast dst;
     }
-
-    //
 
     public function new() {
         this = [];

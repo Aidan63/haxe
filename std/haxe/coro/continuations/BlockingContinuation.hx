@@ -1,5 +1,7 @@
 package haxe.coro.continuations;
 
+import haxe.coro.context.CoroutineContext;
+
 class BlockingContinuation implements IContinuation<Any> {
 	public final _hx_context:CoroutineContext;
 
