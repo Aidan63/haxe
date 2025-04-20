@@ -1,5 +1,7 @@
 import Helper;
 
+import haxe.coro.Coroutine.yield;
+
 class TestControlFlow extends utest.Test {
 	function testIfThen() {
 		@:coroutine function f(x) {
@@ -89,5 +91,34 @@ class TestControlFlow extends utest.Test {
 		}));
 	}
 
+	function testRecursion() {
+		var maxIters = 3;
+		var counter = 0;
 
+		@:coroutine function foo() {
+			if (++counter < maxIters) {
+				foo();
+			}
+		}
+
+		Coroutine.run(foo);
+
+		Assert.equals(counter, maxIters);
+	}
+
+	function testSuspendingRecursion() {
+		var maxIters = 3;
+		var counter = 0;
+
+		@:coroutine function foo() {
+			if (++counter < maxIters) {
+				yield();
+				foo();
+			}
+		}
+
+		Coroutine.run(foo);
+
+		Assert.equals(counter, maxIters);
+	}
 }
