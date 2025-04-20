@@ -44,37 +44,6 @@ class TestTryCatch extends utest.Test {
 		}), NE3);
 	}
 
-	function testRecursion() {
-		var maxIters = 3;
-		var counter = 0;
-
-		@:coroutine function foo() {
-			if (++counter < maxIters) {
-				foo();
-			}
-		}
-
-		Coroutine.run(foo);
-
-		Assert.equals(counter, maxIters);
-	}
-
-	function testSuspendingRecursion() {
-		var maxIters = 3;
-		var counter = 0;
-
-		@:coroutine function foo() {
-			if (++counter < maxIters) {
-				yield();
-				foo();
-			}
-		}
-
-		Coroutine.run(foo);
-
-		Assert.equals(counter, maxIters);
-	}
-
 	function testTryCatchNoCatch() {
 		@:coroutine function f(yield:Coroutine<Int->Void>) {
 			var dummy = '1';
