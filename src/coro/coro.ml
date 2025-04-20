@@ -15,6 +15,8 @@ type coro_cls = {
 	params : typed_type_param list;
 	param_types : Type.t list;
 	cls_t : Type.t;
+	result_type : Type.t;
+	cont_type : Type.t;
 }
 
 let substitute_type_params subst t =
@@ -29,8 +31,6 @@ let substitute_type_params subst t =
 module ContinuationClassBuilder = struct
 	type coro_class = {
 		cls : tclass;
-		result_type : Type.t;
-		cont_type : Type.t;
 		(* inside = inside the continuation class *)
 		inside : coro_cls;
 		(* outside = in the original function *)
@@ -89,8 +89,8 @@ module ContinuationClassBuilder = struct
 		let param_types_inside = extract_param_types params_inside in
 		let param_types_outside = extract_param_types params_outside in
 		let subst = List.combine params_outside param_types_inside in
-		let result_type = substitute_type_params subst result_type in
-		cls.cl_super <- Some (basic.tcoro.base_continuation_class, [result_type]);
+		let result_type_inside = substitute_type_params subst result_type in
+		cls.cl_super <- Some (basic.tcoro.base_continuation_class, [result_type_inside]);
 
 		(* TODO: This should be cached on the typer context so we don't have to dig up the fields for every coro *)
 		let cf_control    = PMap.find "_hx_control" basic.tcoro.continuation_result_class.cl_fields in
@@ -104,17 +104,19 @@ module ContinuationClassBuilder = struct
 
 		{
 			cls        = cls;
-			result_type;
-			cont_type = basic.tcoro.base_continuation result_type;
 			inside = {
 				params = params_inside;
 				param_types = param_types_inside;
 				cls_t = TInst(cls,param_types_inside);
+				result_type = result_type_inside;
+				cont_type = basic.tcoro.base_continuation result_type_inside;
 			};
 			outside = {
 				params = params_outside;
 				param_types = param_types_outside;
 				cls_t = TInst(cls,param_types_outside);
+				result_type = result_type;
+				cont_type = basic.tcoro.base_continuation result_type;
 			};
 			type_param_subst = subst;
 			coro_type  = coro_type;
@@ -130,7 +132,7 @@ module ContinuationClassBuilder = struct
 		let vargcompletion    = alloc_var VGenerated name basic.tcoro.continuation null_pos in
 		let evarargcompletion = Builder.make_local vargcompletion null_pos in
 		let einitialstate     = mk (TConst (TInt (Int32.of_int initial_state) )) basic.tint null_pos in
-		let esuper            = mk (TCall ((mk (TConst TSuper) coro_class.cont_type  null_pos), [ evarargcompletion; einitialstate ])) basic.tvoid null_pos in
+		let esuper            = mk (TCall ((mk (TConst TSuper) coro_class.inside.cont_type null_pos), [ evarargcompletion; einitialstate ])) basic.tvoid null_pos in
 
 		let this_field cf =
 			mk (TField(ethis,FInstance(coro_class.cls, coro_class.inside.param_types, cf))) cf.cf_type null_pos
@@ -325,7 +327,10 @@ let fun_to_coro ctx coro_type =
 	]) basic.tvoid null_pos in
 
 	let tf_args = args @ [ (vcompletion,None) ] in
-	let tf_type = coro_class.outside.cls_t in
+	(* I'm not sure what this should be, but let's stick to the narrowest one for now.
+	   Cpp dies if I try to use coro_class.outside.cls_t here, which might be something
+	   to investigate independently. *)
+	let tf_type = basic.tcoro.continuation_result coro_class.outside.result_type in
 	if ctx.coro_debug then begin
 		print_endline ("BEFORE:\n" ^ (s_expr_debug expr));
 		CoroDebug.create_dotgraph (DotGraph.get_dump_path (SafeCom.of_com ctx.typer.com) (* TODO: stupid *) ([],pe.pfile) (Printf.sprintf "pos_%i" pe.pmin)) cb_root
