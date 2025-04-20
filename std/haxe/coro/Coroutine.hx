@@ -44,14 +44,14 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 
 	public static function run<T>(f:Coroutine<() -> T>):T {
 		final loop = new EventLoop();
-		final cont = new BlockingContinuation(loop, new EventLoopScheduler(loop));
+		final cont = new BlockingContinuation<T>(loop, new EventLoopScheduler(loop));
 		final result = f(cont);
 
 		return switch (result._hx_control) {
 			case Pending:
-				cast cont.wait();
+				cont.wait();
 			case Returned:
-				cast result._hx_result;
+				result._hx_result;
 			case Thrown:
 				throw result._hx_error;
 		}
