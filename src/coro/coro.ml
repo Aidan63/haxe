@@ -59,14 +59,14 @@ module ContinuationClassBuilder = struct
 					Some (mk_field captured_field_name ctx.typer.c.tthis null_pos null_pos)),
 				field.cf_params,
 				tf.tf_type
-			| LocalFunc(f,_) ->
+			| LocalFunc(f,v) ->
 				let n = Printf.sprintf "HxCoroAnonFunc_%i" !localFuncCount in
 				localFuncCount := !localFuncCount + 1;
 
 				let args = List.map (fun (v, _) -> (v.v_name, false, v.v_type)) f.tf_args in
 				let t    = TFun (Common.expand_coro_type basic args f.tf_type) in
 
-				n, Some (mk_field captured_field_name t null_pos null_pos), [] (* TODO: need the tvar for params *), f.tf_type
+				n, Some (mk_field captured_field_name t null_pos null_pos), (match v.v_extra with Some ve -> ve.v_params | None -> []), f.tf_type
 			in
 
 		(* Is there a pre-existing function somewhere to a valid path? *)
@@ -91,6 +91,7 @@ module ContinuationClassBuilder = struct
 		let subst = List.combine params_outside param_types_inside in
 		let result_type_inside = substitute_type_params subst result_type in
 		cls.cl_super <- Some (basic.tcoro.base_continuation_class, [result_type_inside]);
+		cf_captured |> Option.may (fun cf -> cf.cf_type <- substitute_type_params subst cf.cf_type);
 
 		(* TODO: This should be cached on the typer context so we don't have to dig up the fields for every coro *)
 		let cf_control    = PMap.find "_hx_control" basic.tcoro.continuation_result_class.cl_fields in
