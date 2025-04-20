@@ -5,12 +5,12 @@ import haxe.coro.schedulers.EventLoopScheduler;
 import haxe.coro.continuations.RacingContinuation;
 import haxe.coro.continuations.BlockingContinuation;
 
-private class CoroSuspend extends haxe.coro.BaseContinuation {
+private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
 	public function new(completion:haxe.coro.IContinuation<Any>) {
 		super(completion, 1);
 	}
 
-	public function invokeResume() {
+	public function invokeResume():ContinuationResult<T> {
 		return Coroutine.suspend(null, this);
 	}
 }

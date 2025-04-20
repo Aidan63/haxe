@@ -30,7 +30,7 @@ private class Thread {
 
 @:coreApi class RacingContinuation<T> implements IContinuation<T> {
 	final inputCont:IContinuation<Any>;
-	final outputCont:ContinuationResult;
+	final outputCont:ContinuationResult<T>;
 
 	final lock:Mutex;
 
@@ -38,7 +38,7 @@ private class Thread {
 
 	public final _hx_context:CoroutineContext;
 
-	public function new(inputCont:IContinuation<Any>, outputCont:ContinuationResult) {
+	public function new(inputCont:IContinuation<Any>, outputCont:ContinuationResult<T>) {
 		this.inputCont = inputCont;
 		this.outputCont = outputCont;
 		_hx_context = inputCont._hx_context;
