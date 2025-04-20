@@ -22,7 +22,7 @@ private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
 @:coreType
 abstract Coroutine<T:haxe.Constraints.Function> {
 	@:coroutine @:coroutine.transformed
-	public static function suspend<T>(func:haxe.coro.IContinuation<Any>->Void, _hx_completion:haxe.coro.IContinuation<Any>):T {
+	public static function suspend<T>(func:haxe.coro.IContinuation<T>->Void, _hx_completion:haxe.coro.IContinuation<Any>):T {
 		var _hx_continuation = new CoroSuspend(_hx_completion);
 		var safe = new haxe.coro.continuations.RacingContinuation(_hx_completion, _hx_continuation);
 		func(safe);
