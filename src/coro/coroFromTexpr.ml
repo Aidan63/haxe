@@ -320,3 +320,147 @@ let expr_to_coro ctx eresult cb_root e =
 				aux' cb el
 	in
 	loop_block cb_root RBlock e
+
+let coro_iter f cb =
+	Option.may f cb.cb_catch;
+	match cb.cb_next with
+	| NextSub(cb_sub,cb_next) ->
+		f cb_sub;
+		f cb_next
+	| NextIfThen(_,cb_then,cb_next) ->
+		f cb_then;
+		f cb_next;
+	| NextIfThenElse(_,cb_then,cb_else,cb_next) ->
+		f cb_then;
+		f cb_else;
+		f cb_next;
+	| NextSwitch(switch,cb_next) ->
+		List.iter (fun (_,cb) -> f cb) switch.cs_cases;
+		Option.may f switch.cs_default;
+		f cb_next;
+	| NextWhile(e,cb_body,cb_next) ->
+		f cb_body;
+		f cb_next;
+	| NextTry(cb_try,catch,cb_next) ->
+		f cb_try;
+		f catch.cc_cb;
+		List.iter (fun (_,cb) -> f cb) catch.cc_catches;
+	| NextSuspend(call,cb_next) ->
+		f cb_next
+	| NextBreak cb_next | NextContinue cb_next | NextFallThrough cb_next | NextGoto cb_next ->
+		f cb_next;
+	| NextUnknown | NextReturnVoid | NextReturn _ | NextThrow _ ->
+		()
+
+let coro_next_map f cb =
+	match cb.cb_next with
+	| NextSub(cb_sub,cb_next) ->
+		let cb_sub = f cb_sub in
+		let cb_next = f cb_next in
+		cb.cb_next <- NextSub(cb_sub,cb_next);
+	| NextIfThen(e,cb_then,cb_next) ->
+		let cb_then = f cb_then in
+		let cb_next = f cb_next in
+		cb.cb_next <- NextIfThen(e,cb_then,cb_next);
+	| NextIfThenElse(e,cb_then,cb_else,cb_next) ->
+		let cb_then = f cb_then in
+		let cb_else = f cb_else in
+		let cb_next = f cb_next in
+		cb.cb_next <- NextIfThenElse(e,cb_then,cb_else,cb_next);
+	| NextSwitch(switch,cb_next) ->
+		let cases = List.map (fun (el,cb) -> (el,f cb)) switch.cs_cases in
+		let def = Option.map f switch.cs_default in
+		let switch = {
+			switch with cs_cases = cases; cs_default = def
+		} in
+		let cb_next = f cb_next in
+		cb.cb_next <- NextSwitch(switch,cb_next);
+	| NextWhile(e,cb_body,cb_next) ->
+		let cb_body = f cb_body in
+		let cb_next = f cb_next in
+		cb.cb_next <- NextWhile(e,cb_body,cb_next);
+	| NextTry(cb_try,catch,cb_next) ->
+		let cb_try = f cb_try in
+		let cc_cb = f catch.cc_cb in
+		let catches = List.map (fun (v,cb) -> (v,f cb)) catch.cc_catches in
+		let catch = {
+			cc_cb;
+			cc_catches = catches
+		} in
+		let cb_next = f cb_next in
+		cb.cb_next <- NextTry(cb_try,catch,cb_next);
+	| NextSuspend(call,cb_next) ->
+		let cb_next = f cb_next in
+		cb.cb_next <- NextSuspend(call,cb_next);
+	| NextBreak cb_next ->
+		cb.cb_next <- NextBreak (f cb_next);
+	| NextContinue cb_next ->
+		cb.cb_next <- NextContinue (f cb_next);
+	| NextGoto cb_next ->
+		cb.cb_next <- NextContinue (f cb_next);
+	| NextFallThrough cb_next ->
+		cb.cb_next <- NextFallThrough (f cb_next);
+	| NextReturnVoid | NextReturn _ | NextThrow _ | NextUnknown ->
+		()
+
+let optimize_cfg ctx cb =
+	let forward_el cb_from cb_to =
+		if DynArray.length cb_from.cb_el > 0 then begin
+			if DynArray.length cb_to.cb_el = 0 then begin
+				DynArray.iter (fun e -> DynArray.add cb_to.cb_el e) cb_from.cb_el
+			end else begin
+				let e = mk (TBlock (DynArray.to_list cb_from.cb_el)) ctx.typer.t.tvoid null_pos in
+				DynArray.set cb_to.cb_el 0 (concat e (DynArray.get cb_to.cb_el 0))
+			end
+		end
+	in
+	(* first pass: find empty blocks and store their replacement*)
+	let forward = Array.make ctx.next_block_id None in
+	let rec loop cb =
+		if not (has_block_flag cb CbEmptyMarked) then begin
+			add_block_flag cb CbEmptyMarked;
+			match cb.cb_next with
+			| NextSub(cb_sub,cb_next) when cb_next == ctx.cb_unreachable ->
+				loop cb_sub;
+				forward_el cb cb_sub;
+				forward.(cb.cb_id) <- Some cb_sub
+			| NextFallThrough cb_next | NextGoto cb_next | NextBreak cb_next | NextContinue cb_next when DynArray.length cb.cb_el = 0 ->
+				loop cb_next;
+				forward.(cb.cb_id) <- Some cb_next
+			| _ ->
+				coro_iter loop cb
+		end
+	in
+	loop cb;
+	(* second pass: map graph to skip forwarding block *)
+	let rec loop cb = match forward.(cb.cb_id) with
+		| Some cb ->
+			loop cb
+		| None ->
+			if not (has_block_flag cb CbForwardMarked) then begin
+				add_block_flag cb CbForwardMarked;
+				coro_next_map loop cb;
+			end;
+			cb
+	in
+	let cb = loop cb in
+	(* TODO: this doesn't work yet due to some problem with catches, probably related to cb.cb_catch not being mapped properly *)
+	(* third pass: reindex cb_id for tighter switches. Breadth-first because that makes the numbering more natural, maybe. *)
+	(* let i = ref 0 in
+	let queue = Queue.create () in
+	Queue.push cb queue;
+	let rec loop () =
+		if not (Queue.is_empty queue) then begin
+			let cb = Queue.pop queue in
+			if not (has_block_flag cb CbReindexed) then begin
+				add_block_flag cb CbReindexed;
+				cb.cb_id <- !i;
+				incr i;
+				coro_iter (fun cb -> Queue.add cb queue) cb;
+				Option.may (fun cb -> Queue.add cb queue) cb.cb_catch;
+			end;
+			loop ()
+		end
+	in
+	loop (); *)
+	cb

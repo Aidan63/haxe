@@ -11,4 +11,11 @@ let make_block ctx typepos =
 		cb_typepos = typepos;
 		cb_next = NextUnknown;
 		cb_catch = ctx.current_catch;
+		cb_flags = 0;
 	}
+
+let add_block_flag cb (flag : cb_flag) =
+	cb.cb_flags <- set_flag cb.cb_flags (Obj.magic flag)
+
+let has_block_flag cb (flag : cb_flag) =
+	has_flag cb.cb_flags (Obj.magic flag)

@@ -86,7 +86,7 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p =
 
 	let states = ref [] in
 
-	let init_state = ref 1 in
+	let init_state = cb.cb_id in
 
 	let make_state id el = {
 		cs_id = id;
@@ -101,9 +101,24 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p =
 			die "" __LOC__
 	in
 	let exc_state_map = Array.init ctx.next_block_id (fun _ -> ref []) in
+	let get_block_exprs cb =
+		let rec loop idx acc =
+		if idx < 0 then
+			acc
+		else begin
+			let acc = match DynArray.unsafe_get cb.cb_el idx with
+				| {eexpr = TBlock el} ->
+					el @ acc
+				| e ->
+					e :: acc
+			in
+			loop (idx - 1) acc
+		end in
+		loop (DynArray.length cb.cb_el - 1) []
+	in
 	let rec loop cb current_el =
 		assert (cb != ctx.cb_unreachable);
-		let el = DynArray.to_list cb.cb_el in
+		let el = get_block_exprs cb in
 
 		let add_state next_id extra_el =
 			let el = current_el @ el @ extra_el in
@@ -131,30 +146,13 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p =
 		| NextUnknown ->
 			add_state (Some (-1)) [set_control CoroReturned; ereturn]
 		| NextFallThrough cb_next | NextGoto cb_next | NextBreak cb_next | NextContinue cb_next ->
-			let rec skip_loop cb =
-				if DynArray.empty cb.cb_el then begin match cb.cb_next with
-					| NextFallThrough cb_next | NextGoto cb_next | NextBreak cb_next | NextContinue cb_next ->
-						skip_loop cb_next
-					| _ ->
-						cb.cb_id
-				end else
-					cb.cb_id
-			in
-			if not (DynArray.empty cb.cb_el) then
-				add_state (Some (skip_loop cb_next)) []
-			else
-				skip_loop cb
+			add_state (Some cb_next.cb_id) []
 		| NextReturnVoid ->
 			add_state (Some (-1)) [ set_control CoroReturned; ereturn ]
 		| NextReturn e ->
 			add_state (Some (-1)) [ set_control CoroReturned; assign eresult e; ereturn ]
 		| NextThrow e1 ->
 			add_state None [ assign eresult e1; mk TBreak t_dynamic p ]
-		| NextSub (cb_sub,cb_next) when cb_next == ctx.cb_unreachable ->
-			(* If we're skipping our initial state we have to track this for the _hx_state init *)
-			if cb.cb_id = !init_state then
-				init_state := cb_sub.cb_id;
-			loop cb_sub (current_el @ el)
 		| NextSub (bb_sub,bb_next) ->
 			let next_state_id = loop bb_next [] in
 			let sub_state_id = loop bb_sub [] in
@@ -425,4 +423,4 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p =
 		etry
 	in
 
-	eloop, eif_error, !init_state, fields |> Hashtbl.to_seq_values |> List.of_seq
+	eloop, eif_error, init_state, fields |> Hashtbl.to_seq_values |> List.of_seq
