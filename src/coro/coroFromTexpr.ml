@@ -345,6 +345,7 @@ let coro_iter f cb =
 		f cb_try;
 		f catch.cc_cb;
 		List.iter (fun (_,cb) -> f cb) catch.cc_catches;
+		f cb_next;
 	| NextSuspend(call,cb_next) ->
 		f cb_next
 	| NextBreak cb_next | NextContinue cb_next | NextFallThrough cb_next | NextGoto cb_next ->
@@ -353,6 +354,7 @@ let coro_iter f cb =
 		()
 
 let coro_next_map f cb =
+	Option.may (fun cb_catch -> cb.cb_catch <- Some (f cb_catch)) cb.cb_catch;
 	match cb.cb_next with
 	| NextSub(cb_sub,cb_next) ->
 		let cb_sub = f cb_sub in
@@ -444,9 +446,8 @@ let optimize_cfg ctx cb =
 			cb
 	in
 	let cb = loop cb in
-	(* TODO: this doesn't work yet due to some problem with catches, probably related to cb.cb_catch not being mapped properly *)
 	(* third pass: reindex cb_id for tighter switches. Breadth-first because that makes the numbering more natural, maybe. *)
-	(* let i = ref 0 in
+	let i = ref 0 in
 	let queue = Queue.create () in
 	Queue.push cb queue;
 	let rec loop () =
@@ -462,5 +463,6 @@ let optimize_cfg ctx cb =
 			loop ()
 		end
 	in
-	loop (); *)
+	loop ();
+	ctx.next_block_id <- !i;
 	cb

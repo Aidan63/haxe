@@ -5,7 +5,7 @@ type coro_block = {
 	mutable cb_id : int;
 	cb_el : texpr DynArray.t;
 	cb_typepos : (Type.t * pos) option;
-	cb_catch : coro_block option;
+	mutable cb_catch : coro_block option;
 	mutable cb_next : coro_next;
 	mutable cb_flags : int;
 }
