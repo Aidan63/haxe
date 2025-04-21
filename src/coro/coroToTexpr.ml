@@ -150,7 +150,11 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p stac
 		| NextReturn e ->
 			add_state (Some (-1)) [ set_control CoroReturned; assign eresult e; ereturn ]
 		| NextThrow e1 ->
-			add_state None [ assign eresult e1; mk TBreak t_dynamic p ]
+			let field         = PMap.find "wrapException" com.basic.tcoro.base_continuation_class.cl_fields in
+			let eaccess       = mk (TField(econtinuation, FInstance(cls, [], field))) field.cf_type null_pos in
+			let ewrapped_call = mk (TCall (eaccess, [ e1 ])) com.basic.texception null_pos in
+			
+			add_state None [ stack_item_inserter e1.epos; assign eresult ewrapped_call; mk TBreak t_dynamic p ]
 		| NextSub (cb_sub,cb_next) when cb_next == ctx.cb_unreachable ->
 			(* If we're skipping our initial state we have to track this for the _hx_state init *)
 			if cb.cb_id = !init_state then

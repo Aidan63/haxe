@@ -2,6 +2,7 @@ package haxe.coro;
 
 import haxe.CallStack.StackItem;
 import haxe.Exception;
+import haxe.exceptions.CoroutineException;
 
 abstract class BaseContinuation<T> extends ContinuationResult<T> implements IContinuation<T> implements IStackFrame {
     public final _hx_completion:IContinuation<Any>;
@@ -55,6 +56,19 @@ abstract class BaseContinuation<T> extends ContinuationResult<T> implements ICon
 
     public function setLocalFuncStackItem(id:Int, file:String, line:Int, pos:Int) {
         _hx_stackItem = StackItem.FilePos(StackItem.LocalFunction(id), file, line, pos);
+    }
+
+    public function wrapException(exn:Exception):Exception {
+        final frames = [ _hx_stackItem ];
+
+        var frame = callerFrame();
+        while (frame != null) {
+            frames.push(frame._hx_stackItem);
+
+            frame = frame.callerFrame();
+        }
+
+        return new CoroutineException(exn.message, exn, frames);
     }
 
     abstract function invokeResume():ContinuationResult<T>;

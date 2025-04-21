@@ -273,8 +273,8 @@ let fun_to_coro ctx coro_type =
 			| ClassField (cls, field, _, _) ->
 				PMap.find "setClassFuncStackItem" basic.tcoro.base_continuation_class.cl_fields,
 				[
-					Builder.make_null basic.tstring null_pos;
-					Builder.make_null basic.tstring null_pos;
+					Builder.make_const_texpr basic (TString (s_class_path cls)) null_pos;
+					Builder.make_const_texpr basic (TString field.cf_name) null_pos;
 				]
 			| LocalFunc (f, v) ->
 				PMap.find "setLocalFuncStackItem" basic.tcoro.base_continuation_class.cl_fields,
