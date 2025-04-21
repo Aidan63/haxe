@@ -212,7 +212,7 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p =
 		if not (has_block_flag cb CbGenerated) then begin
 			add_block_flag cb CbGenerated;
 			ignore(generate cb);
-			CoroFromTexpr.coro_iter loop cb;
+			coro_iter loop cb;
 		end
 	in
 	loop cb;
