@@ -60,3 +60,4 @@ type cb_flag =
 	| CbEmptyMarked
 	| CbForwardMarked
 	| CbReindexed
+	| CbGenerated

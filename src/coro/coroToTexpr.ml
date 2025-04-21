@@ -1,5 +1,6 @@
 open Globals
 open CoroTypes
+open CoroFunctions
 open Type
 open Texpr
 open CoroControl
@@ -117,6 +118,12 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p =
 		loop (DynArray.length cb.cb_el - 1) []
 	in
 	let rec loop cb current_el =
+		if not (has_block_flag cb CbGenerated) then begin
+			add_block_flag cb CbGenerated;
+			generate cb current_el
+		end else
+			cb.cb_id
+	and generate cb current_el =
 		assert (cb != ctx.cb_unreachable);
 		let el = get_block_exprs cb in
 
