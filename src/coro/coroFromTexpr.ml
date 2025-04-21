@@ -247,11 +247,15 @@ let expr_to_coro ctx eresult cb_root e =
 			let cb_next = make_block None in
 			let catches = List.map (fun (v,e) ->
 				let cb_catch = block_from_e e in
+				add_expr cb_catch (mk (TVar(v,Some eresult)) ctx.typer.t.tvoid null_pos);
 				let cb_catch_next,_ = loop_block cb_catch ret e in
 				fall_through cb_catch_next cb_next;
 				v,cb_catch
 			) catches in
 			let catch = make_block None in
+			(* This block is handled in a special way in the texpr transformer, let's mark it as
+			   already generated so we don't generate it twice. *)
+			add_block_flag catch CbGenerated;
 			let old = ctx.current_catch in
 			ctx.current_catch <- Some catch;
 			let catch = {
