@@ -78,7 +78,21 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p =
 			mk TBreak t_dynamic p;
 		]) com.basic.tvoid p in
 		let econtrol_switch = CoroControl.make_control_switch com.basic esubject esuspended ereturned ethrown p in
+		let estack_pos_update =
+			let field   = PMap.find "setClassFuncStackItem" com.basic.tcoro.base_continuation_class.cl_fields in
+			let eaccess = mk (TField(ecompletion, FInstance(cls, [], field))) field.cf_type null_pos in
+			let l1,c1,_,_ = Lexer.get_pos_coords call.cs_pos in
+			let eargs   = [
+				make_null com.basic.tstring null_pos;
+				make_null com.basic.tstring null_pos;
+				make_const_texpr com.basic (TString call.cs_pos.pfile) null_pos;
+				make_const_texpr com.basic (TInt (Int32.of_int l1)) null_pos;
+				make_const_texpr com.basic (TInt (Int32.of_int c1)) null_pos;
+			] in
+			mk (TCall (eaccess, eargs)) com.basic.tvoid null_pos
+		in
 		[
+			estack_pos_update;
 			cororesult_var;
 			econtrol_switch;
 		]

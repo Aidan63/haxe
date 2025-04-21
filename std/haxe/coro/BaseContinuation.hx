@@ -1,8 +1,9 @@
 package haxe.coro;
 
+import haxe.CallStack.StackItem;
 import haxe.Exception;
 
-abstract class BaseContinuation<T> extends ContinuationResult<T> implements IContinuation<T> {
+abstract class BaseContinuation<T> extends ContinuationResult<T> implements IContinuation<T> implements IStackFrame {
     public final _hx_completion:IContinuation<Any>;
 
 	public final _hx_context:CoroutineContext;
@@ -10,6 +11,8 @@ abstract class BaseContinuation<T> extends ContinuationResult<T> implements ICon
     public var _hx_state:Int;
 
     public var _hx_recursing:Bool;
+
+    public var _hx_stackItem:StackItem;
 
     function new(completion:IContinuation<Any>, initialState:Int) {
         _hx_completion = completion;
@@ -36,6 +39,18 @@ abstract class BaseContinuation<T> extends ContinuationResult<T> implements ICon
 					_hx_completion.resume(null, result._hx_error);
 			}
         });
+    }
+
+    public function callerFrame():Null<IStackFrame> {
+        return if (_hx_completion is IStackFrame) {
+            cast _hx_completion;
+        } else {
+            null;
+        }
+    }
+
+    public function setClassFuncStackItem(cls:String, func:String, file:String, line:Int, pos:Int) {
+        _hx_stackItem = StackItem.FilePos(StackItem.Method(cls, func), file, line, pos);
     }
 
     abstract function invokeResume():ContinuationResult<T>;
