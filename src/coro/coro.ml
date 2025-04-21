@@ -267,7 +267,31 @@ let fun_to_coro ctx coro_type =
 
 	ignore(CoroFromTexpr.expr_to_coro ctx eresult cb_root expr);
 	let exprs = {CoroToTexpr.econtinuation;ecompletion;econtrol;eresult;estate;eerror} in
-	let eloop, eif_error, initial_state, fields = CoroToTexpr.block_to_texpr_coroutine ctx cb_root cont coro_class.cls args [ vcompletion.v_id; vcontinuation.v_id ] exprs null_pos in
+	let stack_item_inserter pos =
+		let field, eargs =
+			match coro_type with
+			| ClassField (cls, field, _, _) ->
+				PMap.find "setClassFuncStackItem" basic.tcoro.base_continuation_class.cl_fields,
+				[
+					Builder.make_null basic.tstring null_pos;
+					Builder.make_null basic.tstring null_pos;
+				]
+			| LocalFunc (f, v) ->
+				PMap.find "setLocalFuncStackItem" basic.tcoro.base_continuation_class.cl_fields,
+				[
+					Builder.make_const_texpr basic (TInt (Int32.of_int v.v_id)) null_pos;
+				]
+		in
+		let eaccess = mk (TField(econtinuation, FInstance(coro_class.cls, [], field))) field.cf_type null_pos in
+		let l1,c1,_,_ = Lexer.get_pos_coords pos in
+		let eargs   = eargs @ [
+			Builder.make_const_texpr basic (TString pos.pfile) null_pos;
+			Builder.make_const_texpr basic (TInt (Int32.of_int l1)) null_pos;
+			Builder.make_const_texpr basic (TInt (Int32.of_int c1)) null_pos;
+		] in
+		mk (TCall (eaccess, eargs)) basic.tvoid null_pos
+	in
+	let eloop, eif_error, initial_state, fields = CoroToTexpr.block_to_texpr_coroutine ctx cb_root cont coro_class.cls args [ vcompletion.v_id; vcontinuation.v_id ] exprs null_pos stack_item_inserter in
 	(* update cf_type to use inside type parameters *)
 	List.iter (fun cf ->
 		cf.cf_type <- substitute_type_params coro_class.type_param_subst cf.cf_type;

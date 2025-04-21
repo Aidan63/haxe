@@ -53,5 +53,9 @@ abstract class BaseContinuation<T> extends ContinuationResult<T> implements ICon
         _hx_stackItem = StackItem.FilePos(StackItem.Method(cls, func), file, line, pos);
     }
 
+    public function setLocalFuncStackItem(id:Int, file:String, line:Int, pos:Int) {
+        _hx_stackItem = StackItem.FilePos(StackItem.LocalFunction(id), file, line, pos);
+    }
+
     abstract function invokeResume():ContinuationResult<T>;
 }
