@@ -11,7 +11,7 @@ type coro_ret =
 	| RValue
 	| RBlock
 
-let expr_to_coro ctx eresult cb_root e =
+let expr_to_coro ctx etmp cb_root e =
 	let ordered_value_marker = ref false in
 	let start_ordered_value_list () =
 		let old = !ordered_value_marker in
@@ -145,13 +145,14 @@ let expr_to_coro ctx eresult cb_root e =
 					begin match follow_with_coro e1.etype with
 					| Coro _ ->
 						let cb_next = block_from_e e1 in
+						add_block_flag cb_next CbResumeState;
 						let suspend = {
 							cs_fun = e1;
 							cs_args = el;
 							cs_pos = e.epos
 						} in
 						terminate cb (NextSuspend(suspend,cb_next)) t_dynamic null_pos;
-						cb_next,eresult
+						cb_next,etmp
 					| _ ->
 						cb,{e with eexpr = TCall(e1,el)}
 					end
@@ -247,7 +248,7 @@ let expr_to_coro ctx eresult cb_root e =
 			let cb_next = make_block None in
 			let catches = List.map (fun (v,e) ->
 				let cb_catch = block_from_e e in
-				add_expr cb_catch (mk (TVar(v,Some eresult)) ctx.typer.t.tvoid null_pos);
+				add_expr cb_catch (mk (TVar(v,Some etmp)) ctx.typer.t.tvoid null_pos);
 				let cb_catch_next,_ = loop_block cb_catch ret e in
 				fall_through cb_catch_next cb_next;
 				v,cb_catch
@@ -366,6 +367,28 @@ let optimize_cfg ctx cb =
 			cb
 	in
 	let cb = loop cb in
+	let is_empty_termination_block cb =
+		DynArray.empty cb.cb_el && match cb.cb_next with
+			| NextReturnVoid | NextUnknown ->
+				true
+			| _ ->
+				false
+	in
+	let rec loop cb =
+		if not (has_block_flag cb CbTcoChecked) then begin
+			add_block_flag cb CbTcoChecked;
+			begin match cb.cb_next with
+			| NextSuspend(_,cb_next) ->
+				if not (is_empty_termination_block cb_next) then
+					raise Exit;
+			| _ ->
+				()
+			end;
+			coro_iter loop cb;
+		end
+	in
+	if ctx.allow_tco && not ctx.has_catch then
+		(try loop cb; raise (CoroTco cb) with Exit -> ());
 	(* third pass: reindex cb_id for tighter switches. Breadth-first because that makes the numbering more natural, maybe. *)
 	let i = ref 0 in
 	let queue = Queue.create () in
