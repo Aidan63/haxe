@@ -255,6 +255,9 @@ let fun_to_coro ctx coro_type =
 	let eresult = continuation_field cont.result basic.tany in
 	let eerror = continuation_field cont.error basic.texception in
 
+	let vtmp = alloc_var VGenerated "_hx_tmp" basic.tany null_pos in
+	let etmp = mk (TLocal vtmp) vtmp.v_type null_pos in
+
 	let expr, args, pe =
 		match coro_type with
 		| ClassField (_, cf, f, p) ->
@@ -265,9 +268,9 @@ let fun_to_coro ctx coro_type =
 
 	let cb_root = make_block ctx (Some(expr.etype, null_pos)) in
 
-	ignore(CoroFromTexpr.expr_to_coro ctx eresult cb_root expr);
+	ignore(CoroFromTexpr.expr_to_coro ctx etmp cb_root expr);
 	let cb_root = CoroFromTexpr.optimize_cfg ctx cb_root in
-	let exprs = {CoroToTexpr.econtinuation;ecompletion;econtrol;eresult;estate;eerror} in
+	let exprs = {CoroToTexpr.econtinuation;ecompletion;econtrol;eresult;estate;eerror;etmp} in
 	let eloop, eif_error, initial_state, fields = CoroToTexpr.block_to_texpr_coroutine ctx cb_root cont coro_class.cls args [ vcompletion.v_id; vcontinuation.v_id ] exprs null_pos in
 	(* update cf_type to use inside type parameters *)
 	List.iter (fun cf ->
@@ -331,6 +334,7 @@ let fun_to_coro ctx coro_type =
 		mk_assign
 			(continuation_field cont.recursing basic.tbool)
 			(mk (TConst (TBool true)) basic.tbool null_pos);
+		mk (TVar(vtmp,Some eresult)) vtmp.v_type null_pos;
 		eloop;
 		Builder.mk_return (Builder.make_null basic.tany null_pos);
 	]) basic.tvoid null_pos in
