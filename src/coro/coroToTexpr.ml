@@ -104,10 +104,13 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p =
 			die "" __LOC__
 	in
 	let eif_error =
-		let e_then = mk (TBlock [
+		let el = if ctx.throw then
+			[mk (TThrow eerror) t_dynamic p]
+		else [
 			assign etmp eerror;
 			mk TBreak t_dynamic p;
-		]) com.basic.tvoid null_pos in
+		] in
+		let e_then = mk (TBlock el) com.basic.tvoid null_pos in
 		mk (TIf (
 			mk (TBinop (
 				OpNotEq,
