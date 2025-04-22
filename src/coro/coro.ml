@@ -266,6 +266,7 @@ let fun_to_coro ctx coro_type =
 	let cb_root = make_block ctx (Some(expr.etype, null_pos)) in
 
 	ignore(CoroFromTexpr.expr_to_coro ctx eresult cb_root expr);
+	let cb_root = CoroFromTexpr.optimize_cfg ctx cb_root in
 	let exprs = {CoroToTexpr.econtinuation;ecompletion;econtrol;eresult;estate;eerror} in
 	let stack_item_inserter pos =
 		let field, eargs =
