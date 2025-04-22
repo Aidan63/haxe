@@ -30,7 +30,9 @@ class BlockingContinuation<T> implements IContinuation<T> {
 		}
 
 		if (error != null) {
-			throw error;
+			trace((cast result : haxe.CallStack));
+
+			throw new haxe.exceptions.CoroutineException(error.message, error, cast result);
 		} else {
 			return result;
 		}

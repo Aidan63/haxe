@@ -40,11 +40,11 @@ abstract class BaseContinuation<T> extends ContinuationResult<T> implements ICon
 				case Returned:
 					_hx_completion.resume(result._hx_result, null);
 				case Thrown:
-					_hx_completion.resume(null, result._hx_error);
+					_hx_completion.resume(result._hx_result, result._hx_error);
 			}
 			#if coroutine.throw
 			} catch (e:Dynamic) {
-				_hx_completion.resume(null, @:privateAccess Exception.thrown(e));
+				_hx_completion.resume(result._hx_result, @:privateAccess Exception.thrown(e));
 			}
 			#end
         });
@@ -66,7 +66,19 @@ abstract class BaseContinuation<T> extends ContinuationResult<T> implements ICon
         _hx_stackItem = StackItem.FilePos(StackItem.LocalFunction(id), file, line, pos);
     }
 
-    public function wrapException(exn:Exception):Exception {
+    public function buildCallStack() {
+        // trace('building stack');
+
+        // if (_hx_result is Array) {
+        //     trace('pushing $_hx_stackItem');
+
+        //     (cast _hx_result : Array<StackItem>).push(_hx_stackItem);
+        // } else {
+        //     trace('starting with $_hx_stackItem');
+
+        //     _hx_result = cast [ _hx_stackItem ];
+        // }
+
         final frames = [ _hx_stackItem ];
 
         var frame = callerFrame();
@@ -76,7 +88,9 @@ abstract class BaseContinuation<T> extends ContinuationResult<T> implements ICon
             frame = frame.callerFrame();
         }
 
-        return new CoroutineException(exn.message, exn, frames);
+        _hx_result = cast frames;
+
+        // return new CoroutineException(exn.message, exn, frames);
     }
 
     abstract function invokeResume():ContinuationResult<T>;

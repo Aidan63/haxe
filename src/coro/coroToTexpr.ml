@@ -164,10 +164,10 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p stac
 		| NextReturn e ->
 			add_state (Some (-1)) [ set_control CoroReturned; assign eresult e; ereturn ]
 		| NextThrow e1 ->
-			let field         = PMap.find "wrapException" com.basic.tcoro.base_continuation_class.cl_fields in
+			let field         = PMap.find "buildCallStack" com.basic.tcoro.base_continuation_class.cl_fields in
 			let eaccess       = mk (TField(econtinuation, FInstance(cls, [], field))) field.cf_type null_pos in
-			let ewrapped_call = mk (TCall (eaccess, [ e1 ])) com.basic.texception null_pos in
-			let exprs         = [ stack_item_inserter e1.epos; assign eresult ewrapped_call ] in
+			let ewrapped_call = mk (TCall (eaccess, [ ])) com.basic.tvoid null_pos in
+			let exprs         = [ stack_item_inserter e1.epos; ewrapped_call ] in
 			if ctx.throw then
 				add_state None (exprs @ [mk (TThrow e1) t_dynamic p])
 			else
