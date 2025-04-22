@@ -67,18 +67,6 @@ abstract class BaseContinuation<T> extends ContinuationResult<T> implements ICon
     }
 
     public function buildCallStack() {
-        // trace('building stack');
-
-        // if (_hx_result is Array) {
-        //     trace('pushing $_hx_stackItem');
-
-        //     (cast _hx_result : Array<StackItem>).push(_hx_stackItem);
-        // } else {
-        //     trace('starting with $_hx_stackItem');
-
-        //     _hx_result = cast [ _hx_stackItem ];
-        // }
-
         final frames = [ _hx_stackItem ];
 
         var frame = callerFrame();
@@ -89,8 +77,6 @@ abstract class BaseContinuation<T> extends ContinuationResult<T> implements ICon
         }
 
         _hx_result = cast frames;
-
-        // return new CoroutineException(exn.message, exn, frames);
     }
 
     abstract function invokeResume():ContinuationResult<T>;
