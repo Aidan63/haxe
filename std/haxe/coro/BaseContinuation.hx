@@ -84,10 +84,8 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
         final frames = (_hx_result != null) ? (cast _hx_result) : [ _hx_stackItem ];
 
         var frame = callerFrame();
-        while (frame != null) {
+        if (frame != null) {
             frames.push(frame._hx_stackItem);
-
-            frame = frame.callerFrame();
         }
 
         _hx_result = cast frames;
