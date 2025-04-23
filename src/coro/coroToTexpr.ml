@@ -35,7 +35,7 @@ let make_suspending_call basic call econtinuation =
 	let args = call.cs_args @ [ econtinuation ] in
 	mk (TCall (efun, args)) (basic.tcoro.continuation_result basic.tany) call.cs_pos
 
-let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p stack_item_inserter take_exception_call_stack =
+let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs p stack_item_inserter take_exception_call_stack =
 	let {econtinuation;ecompletion;econtrol;eresult;estate;eerror;etmp} = exprs in
 	let open Texpr.Builder in
 	let com = ctx.typer.com in
@@ -398,7 +398,7 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p stac
 			mk (TThrow etmp) t_dynamic null_pos
 		] else begin
 			let field         = PMap.find "buildCallStack" com.basic.tcoro.base_continuation_class.cl_fields in
-			let eaccess       = mk (TField(econtinuation, FInstance(cls, [], field))) field.cf_type null_pos in
+			let eaccess       = mk (TField(econtinuation, FInstance(com.basic.tcoro.base_continuation_class, params, field))) field.cf_type null_pos in
 			let ewrapped_call = mk (TCall (eaccess, [ ])) com.basic.tvoid null_pos in
 			[
 				ewrapped_call;

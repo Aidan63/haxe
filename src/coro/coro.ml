@@ -253,7 +253,7 @@ let create_continuation_class ctx coro_class initial_state =
 let coro_to_state_machine ctx coro_class cb_root exprs args vtmp vcompletion vcontinuation stack_item_inserter take_exception_call_stack =
 	let basic = ctx.typer.t in
 	let cont = coro_class.ContinuationClassBuilder.continuation_api in
-	let eloop, initial_state, fields = CoroToTexpr.block_to_texpr_coroutine ctx cb_root cont coro_class.cls args [ vcompletion.v_id; vcontinuation.v_id ] exprs null_pos stack_item_inserter take_exception_call_stack in
+	let eloop, initial_state, fields = CoroToTexpr.block_to_texpr_coroutine ctx cb_root cont coro_class.cls coro_class.outside.param_types args [ vcompletion.v_id; vcontinuation.v_id ] exprs null_pos stack_item_inserter take_exception_call_stack in
 	(* update cf_type to use inside type parameters *)
 	List.iter (fun cf ->
 		cf.cf_type <- substitute_type_params coro_class.type_param_subst cf.cf_type;
@@ -448,7 +448,7 @@ let fun_to_coro ctx coro_type =
 	let econtinuation = Builder.make_local vcontinuation null_pos in
 
 	let continuation_field cf t =
-		mk (TField(econtinuation,FInstance(coro_class.cls, coro_class.outside.param_types, cf))) t null_pos
+		mk (TField(econtinuation,FInstance(basic.tcoro.base_continuation_class, coro_class.outside.param_types, cf))) t null_pos
 	in
 
 	let estate  = continuation_field cont.state basic.tint in
@@ -486,7 +486,7 @@ let fun_to_coro ctx coro_type =
 					Builder.make_const_texpr basic (TInt (Int32.of_int v.v_id)) null_pos;
 				]
 		in
-		let eaccess = mk (TField(econtinuation, FInstance(coro_class.cls, [], field))) field.cf_type null_pos in
+		let eaccess = continuation_field field field.cf_type in
 		let l1,c1,_,_ = Lexer.get_pos_coords pos in
 		let eargs   = eargs @ [
 			Builder.make_const_texpr basic (TString pos.pfile) null_pos;
