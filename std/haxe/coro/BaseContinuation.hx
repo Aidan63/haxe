@@ -4,7 +4,7 @@ import haxe.CallStack.StackItem;
 import haxe.Exception;
 import haxe.exceptions.CoroutineException;
 
-abstract class BaseContinuation<T> extends ContinuationResult<T> implements IContinuation<T> implements IStackFrame {
+abstract class BaseContinuation<T> extends SuspensionResult<T> implements IContinuation<T> implements IStackFrame {
     public final _hx_completion:IContinuation<Any>;
 
 	public final _hx_context:CoroutineContext;
@@ -93,5 +93,5 @@ abstract class BaseContinuation<T> extends ContinuationResult<T> implements ICon
         _hx_result = cast frames;
     }
 
-    abstract function invokeResume():ContinuationResult<T>;
+    abstract function invokeResume():SuspensionResult<T>;
 }
