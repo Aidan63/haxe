@@ -35,7 +35,7 @@ let make_suspending_call basic call econtinuation =
 	let args = call.cs_args @ [ econtinuation ] in
 	mk (TCall (efun, args)) (basic.tcoro.continuation_result basic.tany) call.cs_pos
 
-let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p stack_item_inserter =
+let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p stack_item_inserter take_exception_call_stack =
 	let {econtinuation;ecompletion;econtrol;eresult;estate;eerror;etmp} = exprs in
 	let open Texpr.Builder in
 	let com = ctx.typer.com in
@@ -99,9 +99,10 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p stac
 	} in
 
 	(* TODO: this sucks a bit and its usage isn't much better *)
-	let wrap_thrown = match com.basic.texception with
+	let wrap_thrown,get_caught = match com.basic.texception with
 		| TInst(c,_) ->
-			(fun e -> Texpr.Builder.resolve_and_make_static_call c "thrown" [e] e.epos)
+			(fun e -> Texpr.Builder.resolve_and_make_static_call c "thrown" [e] e.epos),
+			(fun e -> Texpr.Builder.resolve_and_make_static_call c "caught" [e] e.epos)
 		| _ ->
 			die "" __LOC__
 	in
@@ -207,8 +208,8 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p stac
 					set_state cb.cb_id
 				| None ->
 					mk (TBlock [
-					mk TBreak t_dynamic p
-				]) t_dynamic null_pos
+						mk TBreak t_dynamic p
+					]) t_dynamic null_pos
 			in
 			let eif =
 				List.fold_left (fun enext (vcatch,cb_catch) ->
@@ -371,7 +372,12 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p stac
 			eloop,
 			[
 				let vcaught = alloc_var VGenerated "e" t_dynamic null_pos in
-				(vcaught,assign etmp (make_local vcaught null_pos))
+				let ecaught = make_local vcaught null_pos in
+				let e = mk (TBlock [
+					take_exception_call_stack (get_caught ecaught);
+					assign etmp ecaught
+				]) com.basic.tvoid null_pos in
+				(vcaught,e)
 			]
 		)) com.basic.tvoid null_pos
 	in

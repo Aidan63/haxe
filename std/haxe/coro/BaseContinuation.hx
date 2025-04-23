@@ -66,6 +66,20 @@ abstract class BaseContinuation<T> extends ContinuationResult<T> implements ICon
         _hx_stackItem = StackItem.FilePos(StackItem.LocalFunction(id), file, line, pos);
     }
 
+	public function takeExceptionCallStack(e:Exception) {
+		final a = [];
+		for (i => item in @:privateAccess e.stack.asArray()) {
+			switch (item) {
+				// TODO: this needs a better check
+				case FilePos(_, _, -1, _):
+					break;
+				case _:
+					a.push(item);
+			}
+		}
+		_hx_result = cast a;
+	}
+
     public function buildCallStack() {
         final frames = (_hx_result != null) ? (cast _hx_result) : [ _hx_stackItem ];
 
