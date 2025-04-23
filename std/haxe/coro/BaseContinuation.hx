@@ -44,7 +44,7 @@ abstract class BaseContinuation<T> extends ContinuationResult<T> implements ICon
 			}
 			#if coroutine.throw
 			} catch (e:Dynamic) {
-				_hx_completion.resume(result._hx_result, @:privateAccess Exception.thrown(e));
+				_hx_completion.resume(null, @:privateAccess Exception.thrown(e));
 			}
 			#end
         });
