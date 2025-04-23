@@ -77,6 +77,7 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p stac
 		]) com.basic.tvoid p in
 		let ereturned = assign etmp (base_continuation_field_on ecororesult cont.result com.basic.tany) in
 		let ethrown = mk (TBlock [
+			assign eresult (* TODO: wrong type? *) (base_continuation_field_on ecororesult cont.result com.basic.tany);
 			assign etmp (base_continuation_field_on ecororesult cont.error cont.error.cf_type);
 			mk TBreak t_dynamic p;
 		]) com.basic.tvoid p in
@@ -164,14 +165,10 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p stac
 		| NextReturn e ->
 			add_state (Some (-1)) [ set_control CoroReturned; assign eresult e; ereturn ]
 		| NextThrow e1 ->
-			let field         = PMap.find "buildCallStack" com.basic.tcoro.base_continuation_class.cl_fields in
-			let eaccess       = mk (TField(econtinuation, FInstance(cls, [], field))) field.cf_type null_pos in
-			let ewrapped_call = mk (TCall (eaccess, [ ])) com.basic.tvoid null_pos in
-			let exprs         = [ stack_item_inserter e1.epos; ewrapped_call ] in
 			if ctx.throw then
-				add_state None (exprs @ [mk (TThrow e1) t_dynamic p])
+				add_state None ([stack_item_inserter e1.epos; mk (TThrow e1) t_dynamic p])
 			else
-				add_state None (exprs @ [ assign etmp e1; mk TBreak t_dynamic p ])
+				add_state None ([stack_item_inserter e1.epos; assign etmp e1; mk TBreak t_dynamic p ])
 		| NextSub (cb_sub,cb_next) ->
 			ignore(cb_next.cb_id);
 			add_state (Some cb_sub.cb_id) []
@@ -393,11 +390,17 @@ let block_to_texpr_coroutine ctx cb cont cls tf_args forbidden_vars exprs p stac
 		) exc_state_map;
 		let el = if ctx.throw then [
 			mk (TThrow etmp) t_dynamic null_pos
-		] else [
-			assign eerror (wrap_thrown etmp);
-			set_control CoroThrown;
-			ereturn;
-		] in
+		] else begin
+			let field         = PMap.find "buildCallStack" com.basic.tcoro.base_continuation_class.cl_fields in
+			let eaccess       = mk (TField(econtinuation, FInstance(cls, [], field))) field.cf_type null_pos in
+			let ewrapped_call = mk (TCall (eaccess, [ ])) com.basic.tvoid null_pos in
+			[
+				ewrapped_call;
+				assign eerror (wrap_thrown etmp);
+				set_control CoroThrown;
+				ereturn;
+			]
+		end in
 		let default = mk (TBlock el) com.basic.tvoid null_pos in
 		if DynArray.empty cases then
 			default

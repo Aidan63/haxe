@@ -67,7 +67,7 @@ abstract class BaseContinuation<T> extends ContinuationResult<T> implements ICon
     }
 
     public function buildCallStack() {
-        final frames = [ _hx_stackItem ];
+        final frames = (_hx_result != null) ? (cast _hx_result) : [ _hx_stackItem ];
 
         var frame = callerFrame();
         while (frame != null) {
