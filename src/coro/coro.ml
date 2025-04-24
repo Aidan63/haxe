@@ -333,10 +333,10 @@ let coro_to_normal ctx coro_class cb_root exprs vcontinuation =
 		let continue cb_next e =
 			loop cb_next (!current_el @ [e])
 		in
-		let maybe_continue cb_next term e =
-			if not term then
+		let maybe_continue cb_next term e = match cb_next with
+			| Some cb_next when not term ->
 				continue cb_next e
-			else
+			| _ ->
 				(!current_el @ [e]),true
 		in
 		let add e = current_el := !current_el @ [e] in
@@ -398,7 +398,7 @@ let coro_to_normal ctx coro_class cb_root exprs vcontinuation =
 			| NextWhile(e1,cb_body,cb_next) ->
 				let e_body,_ = loop_as_block cb_body in
 				let e_while = mk (TWhile(e1,e_body,NormalWhile)) basic.tvoid p in
-				continue cb_next e_while
+				maybe_continue cb_next false e_while
 			| NextTry(cb_try,catches,cb_next) ->
 				let e_try,term = loop_as_block cb_try in
 				let term = ref term in
@@ -501,9 +501,7 @@ let create_coro_context typer meta =
 		nothrow = Meta.has (Meta.Custom ":coroutine.nothrow") meta;
 		vthis = None;
 		next_block_id = 0;
-		cb_unreachable = Obj.magic "";
 		current_catch = None;
 		has_catch = false;
 	} in
-	ctx.cb_unreachable <- make_block ctx None;
 	ctx
