@@ -1,15 +1,16 @@
 package haxe.exceptions;
 
 class CoroutineException extends Exception {
-    final coroStack:CallStack;
 
-    public function new(message:String, previous:Exception, coroStack:CallStack) {
+	final customStack:CallStack;
+
+	public function new(message:String, previous:Exception, coroStack:CallStack, callStack:CallStack) {
         super(message, previous);
-
-        this.coroStack = coroStack;
+		customStack = coroStack.asArray().concat(callStack.asArray());
+		this.stack = customStack;
     }
 
-    override function get_stack():CallStack {
-        return coroStack;
-    }
+	override function get_stack():CallStack {
+		return customStack;
+	}
 }
