@@ -493,6 +493,8 @@ let fun_to_coro ctx coro_type =
 			Builder.make_const_texpr basic (TString pos.pfile) null_pos;
 			Builder.make_const_texpr basic (TInt (Int32.of_int l1)) null_pos;
 			Builder.make_const_texpr basic (TInt (Int32.of_int c1)) null_pos;
+			Builder.make_const_texpr basic (TInt (Int32.of_int pos.pmin)) null_pos;
+			Builder.make_const_texpr basic (TInt (Int32.of_int pos.pmax)) null_pos;
 		] in
 		mk (TCall (eaccess, eargs)) basic.tvoid null_pos
 	in
