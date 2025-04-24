@@ -72,18 +72,9 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 		#end
     }
 
-	public function takeExceptionCallStack(e:Exception) {
-		final a = [];
-		for (i => item in @:privateAccess e.stack.asArray()) {
-			switch (item) {
-				// TODO: this needs a better check
-				case FilePos(_, _, -1, _):
-					break;
-				case _:
-					a.push(item);
-			}
-		}
-		_hx_result = cast a;
+	public function takeExceptionCallStack(e:Exception) { // TODO: rename this
+		// unset so that _hx_stackItem isn't added in buildCallStack
+		_hx_result = cast [];
 	}
 
     public function buildCallStack() {

@@ -31,8 +31,17 @@ class BlockingContinuation<T> implements IContinuation<T> {
 
 		if (error != null) {
 			trace((cast result : haxe.CallStack));
-
-			throw new haxe.exceptions.CoroutineException(error.message, null, cast result, haxe.CallStack.callStack());
+			final topStack = [];
+			for (item in error.stack.asArray()) {
+				switch (item) {
+					// TODO: this needs a better check
+					case FilePos(_, _, -1, _):
+						break;
+					case _:
+						topStack.push(item);
+				}
+			}
+			throw new haxe.exceptions.CoroutineException(error.message, null, topStack, cast result, haxe.CallStack.callStack());
 		} else {
 			return result;
 		}
