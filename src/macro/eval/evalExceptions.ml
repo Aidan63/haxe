@@ -135,17 +135,21 @@ let catch_exceptions ctx ?(final=(fun() -> ())) f p =
 			in
 			begin match v with
 			| VInstance vi when is v key_haxe_Exception ->
-				let vf = instance_field vi key_custom_stack in
-				begin match vf with
-				| VVector vv ->
-					Array.to_list vv |> List.map (fun v -> match v with
-						| VEnumValue {enpos = Some p} ->
-							p
-						| _ ->
-							die "" __LOC__
-					)
-				| _ ->
-					def();
+				begin try
+					let vf = instance_field vi key_custom_stack in
+					begin match vf with
+					| VVector vv ->
+						Array.to_list vv |> List.map (fun v -> match v with
+							| VEnumValue {enpos = Some p} ->
+								p
+							| _ ->
+								die "" __LOC__
+						)
+					| _ ->
+						def();
+					end
+				with Not_found ->
+					def ()
 				end
 			| _ ->
 				def();
