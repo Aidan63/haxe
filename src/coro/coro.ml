@@ -473,7 +473,7 @@ let fun_to_coro ctx coro_type =
 	ignore(CoroFromTexpr.expr_to_coro ctx etmp cb_root expr);
 	let exprs = {CoroToTexpr.econtinuation;ecompletion;econtrol;eresult;estate;eerror;etmp} in
 	let tf_expr,cb_root = try
-		let cb_root = CoroFromTexpr.optimize_cfg ctx cb_root in
+		let cb_root = if ctx.optimize then CoroFromTexpr.optimize_cfg ctx cb_root else cb_root in
 		coro_to_state_machine ctx coro_class cb_root exprs args vtmp vcompletion vcontinuation,cb_root
 	with CoroTco cb_root ->
 		coro_to_normal ctx coro_class cb_root exprs vcontinuation,cb_root
@@ -496,6 +496,7 @@ let create_coro_context typer meta =
 	let ctx = {
 		typer;
 		coro_debug = Meta.has (Meta.Custom ":coroutine.debug") meta;
+		optimize = not (Define.raw_defined typer.com.defines ":coroutine.noopt");
 		allow_tco = not (Meta.has (Meta.Custom ":coroutine.notco") meta);
 		throw = Define.raw_defined typer.com.defines "coroutine.throw";
 		nothrow = Meta.has (Meta.Custom ":coroutine.nothrow") meta;

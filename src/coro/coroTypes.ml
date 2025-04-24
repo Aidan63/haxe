@@ -51,6 +51,7 @@ and coro_suspend = {
 type coro_ctx = {
 	typer : Typecore.typer;
 	coro_debug : bool;
+	optimize : bool;
 	allow_tco : bool;
 	throw : bool;
 	nothrow : bool;
