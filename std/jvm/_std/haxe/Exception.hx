@@ -101,7 +101,7 @@ class Exception extends NativeException {
 		}
 		var a = NativeArray.ofArray(a);
 		setStackTrace(a);
-		return stack;
+		return __exceptionStack = stack;
 	}
 }
 

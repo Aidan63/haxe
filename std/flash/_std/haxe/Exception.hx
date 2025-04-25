@@ -88,7 +88,7 @@ class Exception extends NativeException {
 	}
 
 	function set_stack(stack:CallStack) {
-		return stack;
+		return __exceptionStack = stack;
 	}
 }
 
