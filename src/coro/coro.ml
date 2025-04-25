@@ -42,9 +42,6 @@ module ContinuationClassBuilder = struct
 		captured : tclass_field option;
 	}
 
-	let mk_assign estate eid =
-		mk (TBinop (OpAssign,estate,eid)) eid.etype null_pos
-
 	let create ctx coro_type =
 		let basic = ctx.typer.t in
 		(* Mangle class names to hopefully get unique names and avoid collisions *)
@@ -144,16 +141,17 @@ module ContinuationClassBuilder = struct
 
 	let mk_ctor ctx coro_class initial_state =
 		let basic = ctx.typer.t in
+		let b     = ctx.builder in
 		let name  = "completion" in
 		let ethis = mk (TConst TThis) coro_class.inside.cls_t null_pos in
 
 		let vargcompletion    = alloc_var VGenerated name basic.tcoro.continuation null_pos in
-		let evarargcompletion = Builder.make_local vargcompletion null_pos in
-		let einitialstate     = mk (TConst (TInt (Int32.of_int initial_state) )) basic.tint null_pos in
-		let esuper            = mk (TCall ((mk (TConst TSuper) coro_class.inside.cont_type null_pos), [ evarargcompletion; einitialstate ])) basic.tvoid null_pos in
+		let evarargcompletion = b#local vargcompletion null_pos in
+		let einitialstate     = b#int initial_state null_pos in
+		let esuper            = b#call (b#super coro_class.inside.cont_type null_pos) [ evarargcompletion; einitialstate ] basic.tvoid in
 
 		let this_field cf =
-			mk (TField(ethis,FInstance(coro_class.cls, coro_class.inside.param_types, cf))) cf.cf_type null_pos
+			b#instance_field ethis coro_class.cls coro_class.inside.param_types cf cf.cf_type
 		in
 
 		let captured =
@@ -161,9 +159,9 @@ module ContinuationClassBuilder = struct
 			|> Option.map
 				(fun field ->
 					let vargcaptured    = alloc_var VGenerated "captured" field.cf_type null_pos in
-					let eargcaptured    = Builder.make_local vargcaptured null_pos in
+					let eargcaptured    = b#local vargcaptured null_pos in
 					let ecapturedfield  = this_field field in
-					vargcaptured, mk_assign ecapturedfield eargcaptured)
+					vargcaptured, b#assign ecapturedfield eargcaptured)
 			in
 
 		(* If the coroutine field is not static then our HxCoro class needs to capture this for future resuming *)
@@ -179,7 +177,7 @@ module ContinuationClassBuilder = struct
 						([], [], [])
 				in
 
-			mk (TBlock (esuper :: extra_exprs)) basic.tvoid null_pos,
+			b#void_block (esuper :: extra_exprs),
 			extra_tfun_args @ [ (name, false, basic.tcoro.continuation) ],
 			extra_tfunction_args @ [ (vargcompletion, None) ]
 		in
@@ -197,28 +195,29 @@ module ContinuationClassBuilder = struct
 
 	let mk_invoke_resume ctx coro_class =
 		let basic     = ctx.typer.t in
+		let b         = ctx.builder in
 		let tret_invoke_resume = coro_class.inside.cls_t in
-		let ethis     = mk (TConst TThis) coro_class.inside.cls_t null_pos in
+		let ethis     = b#this coro_class.inside.cls_t null_pos in
 		let ecorocall =
 			let this_field cf =
-				mk (TField(ethis,FInstance(coro_class.cls, coro_class.inside.param_types, cf))) cf.cf_type null_pos
+				b#instance_field ethis coro_class.cls coro_class.inside.param_types cf cf.cf_type
 			in
 			match coro_class.coro_type with
 			| ClassField (cls, field, f, _) when has_class_field_flag field CfStatic ->
 				let args      = (f.tf_args |> List.map (fun (v, _) -> Texpr.Builder.default_value v.v_type null_pos)) @ [ ethis ] in
 				let efunction = Builder.make_static_field cls field null_pos in
-				mk (TCall (efunction, args)) tret_invoke_resume null_pos
+				b#call efunction args tret_invoke_resume
 			| ClassField (cls, field,f, _) ->
 				let args      = (f.tf_args |> List.map (fun (v, _) -> Texpr.Builder.default_value v.v_type null_pos)) @ [ ethis ] in
 				let captured  = coro_class.captured |> Option.get in
 				let ecapturedfield = this_field captured in
-				let efunction      = mk (TField(ecapturedfield,FInstance(cls, [] (* TODO: check *), field))) field.cf_type null_pos in
-				mk (TCall (efunction, args)) tret_invoke_resume null_pos
+				let efunction      = b#instance_field ecapturedfield cls [] (* TODO: check *) field field.cf_type in
+				b#call efunction args tret_invoke_resume
 			| LocalFunc(f,_) ->
 				let args      = (List.map (fun (v, _) -> Texpr.Builder.default_value v.v_type null_pos) f.tf_args) @ [ ethis ] in
 				let captured  = coro_class.captured |> Option.get in
 				let ecapturedfield = this_field captured in
-				mk (TCall (ecapturedfield, args)) tret_invoke_resume null_pos
+				b#call ecapturedfield args tret_invoke_resume
 		in
 		(* TODO: this is awkward, it would be better to avoid the entire expression and work with the correct types right away *)
 		let rec map_expr_type e =
@@ -228,7 +227,7 @@ module ContinuationClassBuilder = struct
 
 		let field = mk_field "invokeResume" (TFun ([], tret_invoke_resume)) null_pos null_pos in
 		add_class_field_flag field CfOverride;
-		let block = mk (TBlock [ Builder.mk_return ecorocall ]) tret_invoke_resume null_pos in
+		let block = b#void_block [ b#return ecorocall ] in
 		let func  = TFunction { tf_type = tret_invoke_resume; tf_args = []; tf_expr = block } in
 		let expr  = mk (func) basic.tvoid null_pos in
 		field.cf_expr <- Some expr;

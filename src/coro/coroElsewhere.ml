@@ -20,6 +20,9 @@ object(self)
 	method break (p : pos) =
 		mk TBreak t_dynamic p
 
+	method call (e1 : texpr) (el : texpr list) (tret : Type.t) =
+		mk (TCall(e1,el)) tret (punion e1.epos (punion_el e1.epos el))
+
 	method continue (p : pos) =
 		mk TContinue t_dynamic p
 
@@ -52,6 +55,9 @@ object(self)
 
 	method string (s : string) (p : pos) =
 		mk (TConst (TString s)) basic.tstring p
+
+	method super (t: Type.t) (p : pos) =
+		mk (TConst TSuper) t p
 
 	method this (t : Type.t) (p : pos) =
 		mk (TConst TThis) t p
