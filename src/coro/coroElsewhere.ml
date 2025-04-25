@@ -20,6 +20,9 @@ object(self)
 	method break (p : pos) =
 		mk TBreak t_dynamic p
 
+	method continue (p : pos) =
+		mk TContinue t_dynamic p
+
 	method local (v : tvar) (p : pos) =
 		mk (TLocal v) v.v_type p
 
@@ -38,17 +41,29 @@ object(self)
 	method null (t : Type.t) (p : pos) =
 		mk (TConst TNull) t p
 
+	method op_bool_and (e1 : texpr) (e2 : texpr) =
+		self#binop OpBoolAnd e1 e2 basic.tbool
+
+	method op_eq (e1 : texpr) (e2 : texpr) =
+		self#binop OpEq e1 e2 basic.tbool
+
 	method return (e : texpr) =
 		mk (TReturn (Some e)) t_dynamic e.epos
 
 	method string (s : string) (p : pos) =
 		mk (TConst (TString s)) basic.tstring p
 
+	method this (t : Type.t) (p : pos) =
+		mk (TConst TThis) t p
+
 	method throw (e : texpr) =
 		mk (TThrow e) t_dynamic e.epos
 
 	method var_init (v : tvar) (e : texpr) =
 		mk (TVar(v,Some e)) basic.tvoid (punion v.v_pos e.epos)
+
+	method var_init_null (v : tvar) =
+		self#var_init v (self#null v.v_type v.v_pos)
 
 	method void_block (el : texpr list) =
 		mk (TBlock el) basic.tvoid (Texpr.punion_el null_pos el)
