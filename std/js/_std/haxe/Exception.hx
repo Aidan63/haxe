@@ -107,7 +107,7 @@ class Exception extends NativeException {
 	}
 
 	function set_stack(stack:CallStack) {
-		return __exceptionStack = stack;
+		return stack; // TODO: uh
 	}
 
 	@:noCompletion
