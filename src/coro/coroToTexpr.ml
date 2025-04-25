@@ -197,7 +197,7 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 			initial.cs_el <- assign :: initial.cs_el) tf_args;
 	fields
 
-	let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs p stack_item_inserter take_exception_call_stack =
+	let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs p stack_item_inserter start_exception =
 	let {econtinuation;ecompletion;econtrol;eresult;estate;eerror;etmp} = exprs in
 	let com = ctx.typer.com in
 	let b = new texpr_builder com.basic in
@@ -315,9 +315,9 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 			add_state (Some (-1)) [ set_control CoroReturned; b#assign eresult e; ereturn ]
 		| NextThrow e1 ->
 			if ctx.throw then
-				add_state None ([stack_item_inserter e1.epos; b#throw e1])
+				add_state None ([stack_item_inserter e1.epos; start_exception (b#bool true p); b#throw e1])
 			else
-				add_state None ([stack_item_inserter e1.epos; b#assign etmp e1; b#break p ])
+				add_state None ([stack_item_inserter e1.epos; start_exception (b#bool true p); b#assign etmp e1; b#break p ])
 		| NextSub (cb_sub,cb_next) ->
 			add_state (Some cb_sub.cb_id) []
 
@@ -410,7 +410,7 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 				let vcaught = alloc_var VGenerated "e" t_dynamic null_pos in
 				let ecaught = b#local vcaught null_pos in
 				let e = b#void_block [
-					take_exception_call_stack (get_caught ecaught);
+					start_exception (b#bool false p);
 					b#assign etmp ecaught
 				] in
 				(vcaught,e)

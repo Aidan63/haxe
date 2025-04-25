@@ -251,10 +251,10 @@ let create_continuation_class ctx coro_class initial_state =
 
 	ctx.typer.m.curmod.m_types <- ctx.typer.m.curmod.m_types @ [ TClassDecl coro_class.cls ]
 
-let coro_to_state_machine ctx coro_class cb_root exprs args vtmp vcompletion vcontinuation stack_item_inserter take_exception_call_stack =
+let coro_to_state_machine ctx coro_class cb_root exprs args vtmp vcompletion vcontinuation stack_item_inserter start_exception =
 	let basic = ctx.typer.t in
 	let cont = coro_class.ContinuationClassBuilder.continuation_api in
-	let eloop, initial_state, fields = CoroToTexpr.block_to_texpr_coroutine ctx cb_root cont coro_class.cls coro_class.outside.param_types args [ vcompletion.v_id; vcontinuation.v_id ] exprs null_pos stack_item_inserter take_exception_call_stack in
+	let eloop, initial_state, fields = CoroToTexpr.block_to_texpr_coroutine ctx cb_root cont coro_class.cls coro_class.outside.param_types args [ vcompletion.v_id; vcontinuation.v_id ] exprs null_pos stack_item_inserter start_exception in
 	(* update cf_type to use inside type parameters *)
 	List.iter (fun cf ->
 		cf.cf_type <- substitute_type_params coro_class.type_param_subst cf.cf_type;
@@ -498,8 +498,8 @@ let fun_to_coro ctx coro_type =
 		] in
 		mk (TCall (eaccess, eargs)) basic.tvoid null_pos
 	in
-	let take_exception_call_stack =
-		let cf = PMap.find "takeExceptionCallStack" basic.tcoro.base_continuation_class.cl_fields in
+	let start_exception =
+		let cf = PMap.find "startException" basic.tcoro.base_continuation_class.cl_fields in
 		let ef = continuation_field cf cf.cf_type in
 		(fun e ->
 			mk (TCall(ef,[e])) basic.tvoid null_pos
@@ -507,7 +507,7 @@ let fun_to_coro ctx coro_type =
 	in
 	let tf_expr,cb_root = try
 		let cb_root = if ctx.optimize then CoroFromTexpr.optimize_cfg ctx cb_root else cb_root in
-		coro_to_state_machine ctx coro_class cb_root exprs args vtmp vcompletion vcontinuation stack_item_inserter take_exception_call_stack, cb_root
+		coro_to_state_machine ctx coro_class cb_root exprs args vtmp vcompletion vcontinuation stack_item_inserter start_exception, cb_root
 	with CoroTco cb_root ->
 		coro_to_normal ctx coro_class cb_root exprs vcontinuation,cb_root
 	in

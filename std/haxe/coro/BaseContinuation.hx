@@ -13,8 +13,6 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 
     public var _hx_recursing:Bool;
 
-    public var _hx_stackItem:StackItem;
-
     function new(completion:IContinuation<Any>, initialState:Int) {
         _hx_completion = completion;
         _hx_context    = completion._hx_context;
@@ -58,34 +56,46 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
         }
     }
 
+	public function getStackItem():Null<StackItem> {
+		return cast _hx_result;
+	}
+
     public function setClassFuncStackItem(cls:String, func:String, file:String, line:Int, pos:Int, pmin:Int, pmax:Int) {
-        _hx_stackItem = StackItem.FilePos(StackItem.Method(cls, func), file, line, pos);
+        _hx_result = cast StackItem.FilePos(StackItem.Method(cls, func), file, line, pos);
 		#if eval
-		eval.vm.Context.callMacroApi("associate_enum_value_pos")(_hx_stackItem, haxe.macro.Context.makePosition({file: file, min: pmin, max: pmax}));
+		eval.vm.Context.callMacroApi("associate_enum_value_pos")(_hx_result, haxe.macro.Context.makePosition({file: file, min: pmin, max: pmax}));
 		#end
     }
 
     public function setLocalFuncStackItem(id:Int, file:String, line:Int, pos:Int, pmin:Int, pmax:Int) {
-        _hx_stackItem = StackItem.FilePos(StackItem.LocalFunction(id), file, line, pos);
+        _hx_result = cast StackItem.FilePos(StackItem.LocalFunction(id), file, line, pos);
 		#if eval
-		eval.vm.Context.callMacroApi("associate_enum_value_pos")(_hx_stackItem, haxe.macro.Context.makePosition({file: file, min: pmin, max: pmax}));
+		eval.vm.Context.callMacroApi("associate_enum_value_pos")(_hx_result, haxe.macro.Context.makePosition({file: file, min: pmin, max: pmax}));
 		#end
     }
 
-	public function takeExceptionCallStack(e:Exception) { // TODO: rename this
-		// unset so that _hx_stackItem isn't added in buildCallStack
-		_hx_result = cast [];
+	public function startException(fromThrow:Bool) {
+		if (fromThrow) {
+			/*
+				This comes from a coro-level throw, which pushes its position via one of the functions
+				above. In this case we turn _hx_result into the stack item array now.
+			*/
+			_hx_result = cast [_hx_result];
+		} else {
+			/*
+				This means we caught an exception, which must come from outside our current coro. We
+				don't need our current _hx_result value because if anything it points to the last
+				suspension call.
+			*/
+			_hx_result = cast [];
+		}
 	}
 
     public function buildCallStack() {
-        final frames = (_hx_result != null) ? (cast _hx_result) : [ _hx_stackItem ];
-
         var frame = callerFrame();
         if (frame != null) {
-            frames.push(frame._hx_stackItem);
+            (cast _hx_result : Array<StackItem>).push(frame.getStackItem());
         }
-
-        _hx_result = cast frames;
     }
 
     abstract function invokeResume():SuspensionResult<T>;
