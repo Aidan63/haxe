@@ -20,56 +20,6 @@ type coro_to_texpr_exprs = {
 	etmp : texpr;
 }
 
-class texpr_builder (basic : basic_types) =
-	let open Ast in
-object(self)
-	method assign (lhs : texpr) (rhs : texpr) =
-		mk (TBinop(OpAssign,lhs,rhs)) lhs.etype (punion lhs.epos rhs.epos)
-
-	method binop (op : binop) (lhs : texpr) (rhs : texpr) (t : Type.t) =
-		mk (TBinop(op,lhs,rhs)) t (punion lhs.epos rhs.epos)
-
-	method bool (b : bool) (p : pos) =
-		mk (TConst (TBool b)) basic.tbool p
-
-	method break (p : pos) =
-		mk TBreak t_dynamic p
-
-	method local (v : tvar) (p : pos) =
-		mk (TLocal v) v.v_type p
-
-	method if_then (eif : texpr) (ethen : texpr) =
-		mk (TIf(eif,ethen,None)) basic.tvoid (punion eif.epos ethen.epos)
-
-	method if_then_else (eif : texpr) (ethen : texpr) (eelse : texpr) (t : Type.t) =
-		mk (TIf(eif,ethen,Some eelse)) t (punion eif.epos eelse.epos)
-
-	method instance_field (e : texpr) (c : tclass) (params : Type.t list) (cf : tclass_field) (t : Type.t) =
-		mk (TField(e,FInstance(c,params,cf))) t e.epos
-
-	method int (i : int) (p : pos) =
-		mk (TConst (TInt (Int32.of_int i))) basic.tint p
-
-	method null (t : Type.t) (p : pos) =
-		mk (TConst TNull) t p
-
-	method return (e : texpr) =
-		mk (TReturn (Some e)) t_dynamic e.epos
-
-	method string (s : string) (p : pos) =
-		mk (TConst (TString s)) basic.tstring p
-
-	method throw (e : texpr) =
-		mk (TThrow e) t_dynamic e.epos
-
-	method var_init (v : tvar) (e : texpr) =
-		mk (TVar(v,Some e)) basic.tvoid (punion v.v_pos e.epos)
-
-	method void_block (el : texpr list) =
-		mk (TBlock el) basic.tvoid (Texpr.punion_el null_pos el)
-
-end
-
 let make_suspending_call basic call econtinuation =
 	(* lose Coroutine<T> type for the called function not to confuse further filters and generators *)
 	let tfun = match follow_with_coro call.cs_fun.etype with
@@ -200,7 +150,7 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 	let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs p stack_item_inserter start_exception =
 	let {econtinuation;ecompletion;econtrol;eresult;estate;eerror;etmp} = exprs in
 	let com = ctx.typer.com in
-	let b = new texpr_builder com.basic in
+	let b = ctx.builder in
 
 	let set_state id = b#assign estate (b#int id null_pos) in
 

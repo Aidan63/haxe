@@ -1,0 +1,56 @@
+(*
+	Code that should eventually be moved elsewhere.
+*)
+
+open Globals
+open Ast
+open Type
+
+class texpr_builder (basic : basic_types) =
+object(self)
+	method assign (lhs : texpr) (rhs : texpr) =
+		mk (TBinop(OpAssign,lhs,rhs)) lhs.etype (punion lhs.epos rhs.epos)
+
+	method binop (op : binop) (lhs : texpr) (rhs : texpr) (t : Type.t) =
+		mk (TBinop(op,lhs,rhs)) t (punion lhs.epos rhs.epos)
+
+	method bool (b : bool) (p : pos) =
+		mk (TConst (TBool b)) basic.tbool p
+
+	method break (p : pos) =
+		mk TBreak t_dynamic p
+
+	method local (v : tvar) (p : pos) =
+		mk (TLocal v) v.v_type p
+
+	method if_then (eif : texpr) (ethen : texpr) =
+		mk (TIf(eif,ethen,None)) basic.tvoid (punion eif.epos ethen.epos)
+
+	method if_then_else (eif : texpr) (ethen : texpr) (eelse : texpr) (t : Type.t) =
+		mk (TIf(eif,ethen,Some eelse)) t (punion eif.epos eelse.epos)
+
+	method instance_field (e : texpr) (c : tclass) (params : Type.t list) (cf : tclass_field) (t : Type.t) =
+		mk (TField(e,FInstance(c,params,cf))) t e.epos
+
+	method int (i : int) (p : pos) =
+		mk (TConst (TInt (Int32.of_int i))) basic.tint p
+
+	method null (t : Type.t) (p : pos) =
+		mk (TConst TNull) t p
+
+	method return (e : texpr) =
+		mk (TReturn (Some e)) t_dynamic e.epos
+
+	method string (s : string) (p : pos) =
+		mk (TConst (TString s)) basic.tstring p
+
+	method throw (e : texpr) =
+		mk (TThrow e) t_dynamic e.epos
+
+	method var_init (v : tvar) (e : texpr) =
+		mk (TVar(v,Some e)) basic.tvoid (punion v.v_pos e.epos)
+
+	method void_block (el : texpr list) =
+		mk (TBlock el) basic.tvoid (Texpr.punion_el null_pos el)
+
+end
