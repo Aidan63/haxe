@@ -2,7 +2,6 @@ package haxe.coro;
 
 import haxe.CallStack.StackItem;
 import haxe.Exception;
-import haxe.exceptions.CoroutineException;
 
 abstract class BaseContinuation<T> extends SuspensionResult<T> implements IContinuation<T> implements IStackFrame {
     public final _hx_completion:IContinuation<Any>;

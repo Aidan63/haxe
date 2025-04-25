@@ -1,5 +1,7 @@
 package haxe.coro.continuations;
 
+import haxe.CallStack;
+
 class BlockingContinuation<T> implements IContinuation<T> {
 	public final _hx_context:CoroutineContext;
 
@@ -41,7 +43,10 @@ class BlockingContinuation<T> implements IContinuation<T> {
 						topStack.push(item);
 				}
 			}
-			throw new haxe.exceptions.CoroutineException(error.message, null, topStack, cast result, haxe.CallStack.callStack());
+			final coroStack = (cast result : Array<StackItem>) ?? [];
+			final bottomStack = CallStack.callStack();
+			error.stack = topStack.concat(coroStack).concat(bottomStack);
+			throw error;
 		} else {
 			return result;
 		}
