@@ -13,7 +13,7 @@ function main() {
 		#if js
 		new TestJsPromise(),
 		#end
-		#if jvm
+		#if (!coroutine.throw && jvm)
 		new TestCallStack(),
 		#end
 		// new TestYieldBasic(),
