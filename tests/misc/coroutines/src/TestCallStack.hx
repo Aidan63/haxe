@@ -7,31 +7,34 @@ class TestCallStack extends utest.Test {
 			Assert.fail("Exception expected");
 		} catch(e:haxe.exceptions.NotImplementedException) {
 			var inspector = new CallStackInspector(e.stack.asArray());
+			final prefix = #if hl "" #else "src/" #end;
 			var r = inspector.inspect([
-				File("src/callstack/Top.hx"),
+				File('${prefix}callstack/Top.hx'),
 					Line(4),
 					Line(8),
 					Line(12),
-				File("src/callstack/CoroUpper.hx"),
+				Skip('${prefix}callstack/CoroUpper.hx'),
 					Line(10),
 					Line(8),
 					Line(8),
 					Line(8),
 					Line(8),
 					Line(17),
-				Skip("src/callstack/SyncMiddle.hx"),
+				Skip('${prefix}callstack/SyncMiddle.hx'),
 					Line(4),
 					Line(8),
-				File("src/callstack/CoroLower.hx"),
+				File('${prefix}callstack/CoroLower.hx'),
 					Line(8),
-				Skip("src/callstack/Bottom.hx"),
+				Skip('${prefix}callstack/Bottom.hx'),
 					Line(4)
 
 			]);
 			if (r == null) {
 				Assert.pass();
 			} else {
-				Assert.fail(r.toString());
+				var i = 0;
+				var lines = e.stack.asArray().map(item -> '\t[${i++}] $item');
+				Assert.fail('${r.toString()}\n${lines.join("\n")}');
 			}
 		}
 	}
