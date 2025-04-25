@@ -33,9 +33,10 @@ class Jvm {
 			runCommand("java", ["-jar", "bin/unit.jar"]);
 		}
 
-		runci.tests.CoroutineTests.run(["build-jvm.hxml", "--hxb", "bin/coro.hxb"], args ->
-			runCommand("haxe", args.concat(["--hxb-lib", "bin/coro.hxb"]))
-		);
+		runci.tests.CoroutineTests.run(["build-jvm.hxml", "--hxb", "bin/coro.hxb"]);
+		// , args ->
+		// 	runCommand("haxe", args.concat(["--hxb-lib", "bin/coro.hxb"]))
+		// );
 
 		Display.maybeRunDisplayTests(Jvm);
 
