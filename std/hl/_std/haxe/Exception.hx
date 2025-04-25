@@ -91,6 +91,10 @@ class Exception {
 	}
 
 	function set_stack(stack:CallStack) {
-		return __exceptionStack = stack;
+		__exceptionStack = stack;
+		__customStack = CallStack.toString(stack);
+		return stack;
 	}
+
+	@:noCompletion var __customStack:Null<String>;
 }
