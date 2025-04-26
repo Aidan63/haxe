@@ -15,7 +15,6 @@ class TestCallStack extends utest.Test {
 					Line(12),
 				File('${prefix}callstack/CoroUpper.hx'),
 					Line(10),
-					Line(5), // TODO: this shouldn't be here, invokeResume now also has CoroUpper.hx pos...
 					Line(8),
 					Line(8),
 					Line(8),

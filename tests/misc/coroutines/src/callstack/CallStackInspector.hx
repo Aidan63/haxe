@@ -25,6 +25,7 @@ class CallStackInspector {
 		this.stack = stack;
 		offset = 0;
 		inspectOffset = -1;
+		performedTests = 0;
 	}
 
 	public function inspect(items:Array<CallStackInspect>) {
