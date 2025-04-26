@@ -95,7 +95,7 @@ class Exception {
 	function set_stack(stack:CallStack) {
 		__customStack = CallStack.toString(stack);
 
-		return stack;
+		return __exceptionStack = stack;
 	}
 }
 
