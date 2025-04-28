@@ -3,7 +3,10 @@ package haxe.coro;
 class CoroutineContext {
     public final scheduler : IScheduler;
 
-    public function new(scheduler) {
+    public final job : Job;
+
+    public function new(scheduler, job) {
         this.scheduler = scheduler;
+        this.job       = job;
     }
 }

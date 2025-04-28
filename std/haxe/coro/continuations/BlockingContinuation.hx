@@ -11,12 +11,12 @@ class BlockingContinuation<T> implements IContinuation<T> {
 	var result:T;
 	var error:Exception;
 
-	public function new(loop, scheduler) {
-		this.loop = loop;
+	public function new(loop, context) {
+		this.loop    = loop;
+		this.context = context;
 
-		context = new CoroutineContext(scheduler);
 		running = true;
-		error = null;
+		error   = null;
 	}
 
 	public function resume(result:T, error:Exception) {
