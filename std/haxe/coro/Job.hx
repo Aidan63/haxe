@@ -17,7 +17,21 @@ class Job {
         children = [];
     }
 
-    @:coroutine public function wait() {
+    public function complete(v:T) {
         //
+    }
+
+    public function completeExceptionally(exn:Exception) {
+        //
+    }
+
+    @:coroutine public function wait() {
+        if (completed) {
+            return;
+        }
+
+        Coroutine.suspend(cont -> {
+            
+        });
     }
 }
