@@ -65,17 +65,15 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		final scope  = new CoroutineScope(cont.context);
 		final result = f(scope, cont);
 
-		if (cont.completed) {
-			return switch (result.control) {
-				case Pending:
-					cont.wait();
-				case Returned:
-					result.result;
-				case Thrown:
-					throw result.error;
-			}
-		} else {
-			return cont.wait();
+		return switch (result.control) {
+			case Pending:
+				cont.wait();
+			case Returned:
+				cont.complete(result.result);
+				cont.wait();
+			case Thrown:
+				cont.completeExceptionally(result.error);
+				cont.wait();
 		}
 	}
 }
@@ -85,31 +83,29 @@ private class BlockingScope<T> extends Job implements IContinuation<T> {
 
 	final loop : EventLoop;
 
-	var running : Bool;
-
 	var result : T;
 
 	var error : Exception;
 
 	public function new(loop : EventLoop) {
-		super(null, () -> running = false);
+		super(null, () -> {});
 
 		this.loop    = loop;
 		this.context = new CoroutineContext(new EventLoopScheduler(loop), this);
 
-		running = true;
 		error   = null;
 	}
 
 	public function resume(result:T, error:Exception) {
-		running = false;
-
-		this.result = result;
-		this.error  = error;
+		if (error != null) {
+			completeExceptionally(error);
+		} else {
+			complete(result);
+		}
 	}
 
 	public function wait():T {
-		while (loop.tick() || running) {
+		while (loop.tick() || state != Completed) {
 			// Busy wait
 		}
 

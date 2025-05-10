@@ -2,6 +2,12 @@ package haxe.coro;
 
 import haxe.exceptions.NotImplementedException;
 
+private enum abstract JobState(Int) {
+    final Running;
+    final AwaitingChildren;
+    final Completed;
+}
+
 class Job {
     final parent : Null<Job>;
 
@@ -9,20 +15,20 @@ class Job {
 
     final completionCallbacks : Array<()->Void>;
 
-    var finished : Bool;
+    var state : JobState;
 
     var completedChildren : Int;
 
     public var completed (get, never) : Bool;
 
     function get_completed() {
-        return finished && completedChildren == children.length;
+        return state == Completed;
     }
 
     public function new(parent, callback) {
         this.parent = parent;
         
-        finished            = false;
+        state               = Running;
         children            = [];
         completionCallbacks = [ callback ];
         completedChildren   = 0;
@@ -37,18 +43,18 @@ class Job {
     }
 
     public function complete<T>(v:T) {
-        finished = true;
+        if (children.length == 0 || children.length == completedChildren) {
+            state = Completed;
 
-        if (completed) {
             for (callback in completionCallbacks) {
                 callback();
             }
+        } else {
+            state = AwaitingChildren;
         }
     }
 
     public function completeExceptionally(exn:Exception) {
-        finished = true;
-
         throw new NotImplementedException();
     }
 
@@ -65,7 +71,9 @@ class Job {
     function onChildCompleted() {
         completedChildren++;
 
-        if (completed) {
+        if (state == AwaitingChildren && children.length == completedChildren) {
+            state = Completed;
+
             for (callback in completionCallbacks) {
                 callback();
             }
