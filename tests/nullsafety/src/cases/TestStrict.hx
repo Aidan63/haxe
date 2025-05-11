@@ -126,7 +126,6 @@ class TestStrict {
 	extern static final something:String;
 
 	public var field:Null<String>;
-	// @:shouldWarn public var publiclyModifiableField:String = 'hello';
 	@:shouldFail var notInitializedField:Int;
 	@:shouldFail var notInitializedProperty(default,null):Float;
 	@:shouldFail @:isVar var notInitializedIsVar(get,set):String;
@@ -149,15 +148,34 @@ class TestStrict {
 		shouldFail(return v);
 	}
 
+	@:shouldFail static var badInit:Int;
+	static var init:Int;
+	@:shouldFail static var init2:Int = null;
+
 	/**
 	 *  Null safety should work in __init__ functions
 	 */
 	static function __init__() {
 		var s:Null<String> = null;
 		shouldFail(s.length);
+
+		final v:Int = shouldFail(init);
+
+		if (true) init = 1;
+		else init = 1;
+		init2 = 1;
+
+		final v:Int = init;
+		final v:Int = shouldFail(badInit);
+
+		function name():Void {
+			shouldFail(badInit) = 1;
+		}
+		if (true) shouldFail(badInit) = 1;
 	}
 
-	static public function main() {
+	static public function main() { // not a real main
+		badInit = 1;
 	}
 
 	/**
@@ -841,8 +859,7 @@ class TestStrict {
 
 	static public function closure_storedSomewhere_shouldFail(?s:String) {
 		if(s != null) {
-			// unstable, see #12187
-			// passesSomewhereElse(() -> shouldFail(s.length));
+			passesSomewhereElse(() -> shouldFail(s.length));
 			storesSomewhere(() -> shouldFail(s.length));
 		}
 	}
@@ -1119,9 +1136,9 @@ typedef Recursive<T1> = {
 }
 
 // @see https://github.com/HaxeFoundation/haxe/issues/7733
-// class RecClass<T1> {
-// 	public function rec<T2>(a:Recursive<T1>):Recursive<T2> return a;
-// }
+class RecClass<T1> {
+	public function rec<T2>(a:Recursive<T1>):Recursive<T2> return a;
+}
 
 private class Parent {
 	public function new() {}
