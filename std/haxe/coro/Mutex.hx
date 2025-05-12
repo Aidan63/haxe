@@ -13,7 +13,7 @@ class Mutex {
     /**
 		Creates a stub mutex on non threaded target.
 	**/
-	function new():Void;
+	function new():Void {}
 
 	/**
         This is a stub version.
