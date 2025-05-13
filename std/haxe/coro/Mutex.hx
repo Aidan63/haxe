@@ -13,7 +13,7 @@ class Mutex {
     /**
 		Creates a stub mutex on non threaded target.
 	**/
-	function new():Void {}
+	public function new():Void {}
 
 	/**
         This is a stub version.
@@ -21,15 +21,16 @@ class Mutex {
 		The same thread can acquire several times the same mutex but
 		must release it as many times it has been acquired.
 	**/
-	function acquire():Void {}
+	public function acquire():Void {}
 
 	/**
         This is a stub version.
 		Try to acquire the mutex, returns true if acquire or false
 		if it's already locked by another thread.
 	**/
-	function tryAcquire():Bool
-        return true;
+	public function tryAcquire():Bool {
+		return true;
+	}
 
 	/**
         This is a stub version.
@@ -37,6 +38,6 @@ class Mutex {
 		The behavior is undefined if the current thread does not own
 		the mutex.
 	**/
-	function release():Void {}
+	public function release():Void {}
 }
 #end
