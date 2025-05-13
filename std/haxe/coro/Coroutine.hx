@@ -49,7 +49,7 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		final cont    = new BlockingContinuation<T>(loop, context);
 		final result  = f(cont);
 
-		return switch (result.control) {
+		return switch (result.state) {
 			case Pending:
 				cont.wait();
 			case Returned:

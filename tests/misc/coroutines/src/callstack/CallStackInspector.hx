@@ -1,6 +1,7 @@
 package callstack;
 
 import haxe.CallStack;
+using StringTools;
 
 enum CallStackInspect {
 	File(file:String);
@@ -52,7 +53,7 @@ class CallStackInspector {
 				final index = offset++;
 				switch (stack[index]) {
 					case FilePos(_, file, line):
-						if (file != expectedFile) {
+						if (!file.endsWith(expectedFile)) {
 							fail(inspect, 'file $file should be $expectedFile');
 						}
 						performedTests++;
@@ -69,7 +70,7 @@ class CallStackInspector {
 						fail(inspect, '$offset went out of bounds while skipping until $file');
 					}
 					switch (stack[offset]) {
-						case FilePos(Method(_), file2, _) if (file == file2):
+						case FilePos(Method(_), file2, _) if (file2.endsWith(file)):
 							expectedFile = file;
 							break;
 						case _:
