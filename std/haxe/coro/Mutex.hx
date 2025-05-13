@@ -3,13 +3,15 @@ package haxe.coro;
 #if (target.threaded)
 typedef Mutex = sys.thread.Mutex;
 #else
+typedef Mutex = StubMutex;
+
 /**
     This is a stub version.
 	Creates a mutex, which can be used to acquire a temporary lock
 	to access some resource. The main difference with a lock is
 	that a mutex must always be released by the owner thread.
 **/
-class Mutex {
+class StubMutex {
     /**
 		Creates a stub mutex on non threaded target.
 	**/
