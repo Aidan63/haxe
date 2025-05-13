@@ -65,7 +65,7 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		final scope  = new CoroutineScope(cont.context);
 		final result = f(scope, cont);
 
-		return switch (result.control) {
+		return switch (result.state) {
 			case Pending:
 				cont.wait();
 			case Returned:

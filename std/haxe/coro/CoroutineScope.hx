@@ -18,7 +18,7 @@ class CoroutineScope {
         newContext.scheduler.schedule(() -> {
             final result = c(newScope, cont);
 
-            switch result.control {
+            switch result.state {
                 case Pending:
                     return;
                 case Returned:
