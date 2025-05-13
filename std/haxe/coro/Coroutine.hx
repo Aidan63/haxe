@@ -2,6 +2,7 @@ package haxe.coro;
 
 import haxe.CallStack;
 import haxe.coro.EventLoop;
+import haxe.coro.ICoroutine;
 import haxe.coro.schedulers.EventLoopScheduler;
 import haxe.coro.continuations.RacingContinuation;
 import haxe.coro.continuations.BlockingContinuation;
@@ -59,28 +60,25 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		}
 	}
 
-	public static function runScoped<T>(f:Coroutine<(scope : CoroutineScope)->T>):T {
+	public static function runScoped<T>(f:Coroutine<(scope : ICoroutineScope)->T>):T {
 		final loop   = new EventLoop();
-		final cont   = new BlockingScope(loop);
-		final scope  = new CoroutineScope(cont.context);
-		final result = f(scope, cont);
+		final cont   = new BlockingCoroutine(loop);
+		final result = f(cont, cont);
 
-		return switch (result.state) {
+		switch (result.state) {
 			case Pending:
-				cont.wait();
+				//
 			case Returned:
-				cont.complete(result.result);
-				cont.wait();
+				cont.resume(result.result, null);
 			case Thrown:
-				cont.completeExceptionally(result.error);
-				cont.wait();
+				cont.resume(null, result.error);
 		}
+
+		return cont.wait();
 	}
 }
 
-private class BlockingScope<T> extends Job implements IContinuation<T> {
-	public final context : CoroutineContext;
-
+private class BlockingCoroutine<T> extends AbstractCoroutine<T> {
 	final loop : EventLoop;
 
 	var result : T;
@@ -88,20 +86,11 @@ private class BlockingScope<T> extends Job implements IContinuation<T> {
 	var error : Exception;
 
 	public function new(loop : EventLoop) {
-		super(null, () -> {});
+		super(new CoroutineContext(new EventLoopScheduler(loop), this), null);
 
-		this.loop    = loop;
-		this.context = new CoroutineContext(new EventLoopScheduler(loop), this);
+		this.loop = loop;
 
-		error   = null;
-	}
-
-	public function resume(result:T, error:Exception) {
-		if (error != null) {
-			completeExceptionally(error);
-		} else {
-			complete(result);
-		}
+		error = null;
 	}
 
 	public function wait():T {
