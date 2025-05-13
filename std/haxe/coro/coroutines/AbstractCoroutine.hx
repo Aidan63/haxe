@@ -8,14 +8,16 @@ private enum abstract JobState(Int) {
     final Completed;
 }
 
-abstract class AbstractCoroutine<T> implements ICoroutine implements ICoroutineScope implements IContinuation<T> {
+abstract class AbstractCoroutine<T> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
 	public final context : CoroutineContext;
 
-	public final parent : Null<ICoroutine>;
+	public final parent : Null<ICoroutine<Any>>;
 
-	public final children : Array<ICoroutine>;
+	public final children : Array<ICoroutine<Any>>;
 
 	final completionCallbacks : Array<()->Void>;
+
+	var result : T;
 
 	var state : JobState;
 
@@ -31,12 +33,12 @@ abstract class AbstractCoroutine<T> implements ICoroutine implements ICoroutineS
 		state               = Running;
 	}
 
-	@:coroutine public function await() : Void {
-		Coroutine.suspend(cont -> {
+	@:coroutine public function await() : T {
+		return Coroutine.suspend(cont -> {
             if (state == Completed) {
-                cont.resume(null, null);
+                cont.resume(result, null);
             } else {
-                completionCallbacks.push(() -> cont.resume(null, null));
+                completionCallbacks.push(() -> cont.resume(result, null));
             }
         });
 	}
@@ -44,6 +46,8 @@ abstract class AbstractCoroutine<T> implements ICoroutine implements ICoroutineS
 	public function resume(result : T, error : Exception) : Void {
 		switch error {
 			case null:
+				this.result = result;
+
 				if (children.length == 0 || children.length == completedChildren) {
 					state = Completed;
 
@@ -58,8 +62,8 @@ abstract class AbstractCoroutine<T> implements ICoroutine implements ICoroutineS
 		}
 	}
 
-	public function start(c : Coroutine<ICoroutineScope->Void>) : ICoroutine {
-		final coroutine = new ChildCoroutine(context);
+	public function start<T>(c : Coroutine<ICoroutineScope->T>) : ICoroutine<T> {
+		final coroutine = new ChildCoroutine<T>(context);
 
 		children.push(coroutine);
 

@@ -6,8 +6,6 @@ import haxe.coro.schedulers.EventLoopScheduler;
 class BlockingCoroutine<T> extends AbstractCoroutine<T> {
 	final loop : EventLoop;
 
-	var result : T;
-
 	var error : Exception;
 
 	public function new(loop : EventLoop) {

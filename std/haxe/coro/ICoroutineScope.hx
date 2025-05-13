@@ -3,5 +3,5 @@ package haxe.coro;
 interface ICoroutineScope {
 	final context : CoroutineContext;
 
-	function start(c : Coroutine<ICoroutineScope->Void>) : ICoroutine;
+	function start<T>(c : Coroutine<ICoroutineScope->T>) : ICoroutine<T>;
 }
