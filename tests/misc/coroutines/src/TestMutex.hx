@@ -1,5 +1,3 @@
-package tests.misc.coroutines.src;
-
 import haxe.coro.Mutex;
 
 class TestMutex extends utest.Test {
