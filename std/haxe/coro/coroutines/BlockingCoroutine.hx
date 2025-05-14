@@ -3,7 +3,7 @@ package haxe.coro.coroutines;
 import haxe.CallStack.StackItem;
 import haxe.coro.schedulers.EventLoopScheduler;
 
-class BlockingCoroutine<T> extends AbstractCoroutine<T> {
+class BlockingCoroutine<T> extends BaseCoroutine<T> {
 	final loop : EventLoop;
 
 	var error : Exception;

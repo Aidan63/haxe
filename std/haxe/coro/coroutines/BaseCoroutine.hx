@@ -2,13 +2,13 @@ package haxe.coro.coroutines;
 
 import haxe.exceptions.NotImplementedException;
 
-private enum abstract JobState(Int) {
+private enum abstract CoroutineState(Int) {
     final Running;
     final AwaitingChildren;
     final Completed;
 }
 
-abstract class AbstractCoroutine<T> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
+abstract class BaseCoroutine<T> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
 	public final context : CoroutineContext;
 
 	public final parent : Null<ICoroutine<Any>>;
@@ -19,7 +19,7 @@ abstract class AbstractCoroutine<T> implements ICoroutine<T> implements ICorouti
 
 	var result : T;
 
-	var state : JobState;
+	var state : CoroutineState;
 
 	var completedChildren : Int;
 
