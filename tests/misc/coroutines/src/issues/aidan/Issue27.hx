@@ -1,9 +1,17 @@
 package issues.aidan;
 import haxe.coro.context.Key;
+import haxe.coro.context.Element;
 import haxe.coro.Coroutine;
 
-class DebugName {
-	static public var key:Key<{name:String}> = Key.createNew("_hx_debugName");
+class DebugName extends Element {
+	static public var key:Key<DebugName> = Key.createNew("_hx_debugName");
+
+	public var name:String;
+
+	public function new(name:String) {
+		super(key.id);
+		this.name = name;
+	}
 }
 
 class Issue27 extends utest.Test {
@@ -11,7 +19,7 @@ class Issue27 extends utest.Test {
 		@:coroutine
 		function setDebug(name:String) {
 			Coroutine.suspend(cont -> {
-				cont.context.set(DebugName.key, {name: name});
+				cont.context.set(DebugName.key, new DebugName(name));
 				cont.resume(null, null);
 			});
 		}

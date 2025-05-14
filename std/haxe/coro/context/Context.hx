@@ -5,7 +5,7 @@ abstract Context(Array<Any>) {
 		this = [];
 	}
 
-	public function set<T>(key:Key<T>, value:T):Void {
+	public function set<T:Element>(key:Key<T>, value:T):Void {
 		this[key.id] = value;
 	}
 

@@ -6,7 +6,8 @@ class EventLoopScheduler extends Scheduler {
 
     final loop : EventLoop;
 
-    public function new(loop) {
+    public function new(loop:EventLoop) {
+		super();
         this.loop = loop;
     }
 
