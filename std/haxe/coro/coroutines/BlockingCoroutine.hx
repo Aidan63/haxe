@@ -1,5 +1,6 @@
 package haxe.coro.coroutines;
 
+import haxe.coro.context.Context;
 import haxe.CallStack.StackItem;
 import haxe.coro.schedulers.EventLoopScheduler;
 
@@ -9,7 +10,10 @@ class BlockingCoroutine<T> extends BaseCoroutine<T> {
 	var error : Exception;
 
 	public function new(loop : EventLoop) {
-		super(new CoroutineContext(new EventLoopScheduler(loop), this), null);
+		super(Context.empty(), null);
+
+		context.add(this);
+		context.add(new EventLoopScheduler(loop));
 
 		this.loop = loop;
 

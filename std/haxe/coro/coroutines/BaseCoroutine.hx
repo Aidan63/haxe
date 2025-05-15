@@ -1,5 +1,9 @@
 package haxe.coro.coroutines;
 
+import haxe.coro.schedulers.Scheduler;
+import haxe.coro.context.Key;
+import haxe.coro.context.Element;
+import haxe.coro.context.Context;
 import haxe.exceptions.NotImplementedException;
 
 private enum abstract CoroutineState(Int) {
@@ -8,8 +12,8 @@ private enum abstract CoroutineState(Int) {
     final Completed;
 }
 
-abstract class BaseCoroutine<T> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
-	public final context : CoroutineContext;
+abstract class BaseCoroutine<T> extends AbstractCoroutine implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
+	public final context : Context;
 
 	public final parent : Null<ICoroutine<Any>>;
 
@@ -23,7 +27,9 @@ abstract class BaseCoroutine<T> implements ICoroutine<T> implements ICoroutineSc
 
 	var completedChildren : Int;
 
-	public function new(context, parent) {
+	public function new(context : Context, parent : Null<ICoroutine<Any>>) {
+		super();
+		
 		this.context  = context;
 		this.parent   = parent;
 		this.children = [];
@@ -68,7 +74,7 @@ abstract class BaseCoroutine<T> implements ICoroutine<T> implements ICoroutineSc
 		children.push(coroutine);
 
 		coroutine.onCompletion(onChildCompleted);
-		coroutine.context.scheduler.schedule(() -> {
+		coroutine.context.get(Scheduler.key).schedule(() -> {
 			final result = c(coroutine, coroutine);
 
 			switch result.state {
@@ -86,6 +92,10 @@ abstract class BaseCoroutine<T> implements ICoroutine<T> implements ICoroutineSc
 
 	public function onCompletion(c : ()->Void) {
 		completionCallbacks.push(c);
+	}
+
+	public function toString() {
+		return 'Coroutine';
 	}
 
 	function onChildCompleted() {

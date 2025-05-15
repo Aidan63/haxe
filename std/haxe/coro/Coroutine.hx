@@ -2,8 +2,11 @@ package haxe.coro;
 
 import haxe.CallStack;
 import haxe.coro.EventLoop;
+import haxe.coro.context.Key;
+import haxe.coro.coroutines.AbstractCoroutine;
 import haxe.coro.coroutines.BlockingCoroutine;
 import haxe.coro.schedulers.EventLoopScheduler;
+import haxe.coro.schedulers.Scheduler;
 import haxe.coro.continuations.RacingContinuation;
 import haxe.coro.continuations.BlockingContinuation;
 
@@ -34,20 +37,19 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 
 	@:coroutine @:coroutine.nothrow public static function delay(ms:Int):Void {
 		Coroutine.suspend(cont -> {
-			cont.context.scheduler.scheduleIn(() -> cont.resume(null, null), ms);
+			cont.context.get(Scheduler.key).scheduleIn(() -> cont.resume(null, null), ms);
 		});
 	}
 
 	@:coroutine @:coroutine.nothrow public static function yield():Void {
 		Coroutine.suspend(cont -> {
-			cont.context.scheduler.schedule(() -> cont.resume(null, null));
+			cont.context.get(Scheduler.key).schedule(() -> cont.resume(null, null));
 		});
 	}
 
 	public static function run<T>(f:Coroutine<() -> T>):T {
 		final loop    = new EventLoop();
-		final context = new CoroutineContext(new EventLoopScheduler(loop), null);
-		final cont    = new BlockingContinuation<T>(loop, context);
+		final cont    = new BlockingContinuation<T>(loop, new EventLoopScheduler(loop));
 		final result  = f(cont);
 
 		return switch (result.state) {
