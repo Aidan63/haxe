@@ -12,7 +12,7 @@ private enum abstract CoroutineState(Int) {
     final Completed;
 }
 
-abstract class BaseCoroutine<T> extends AbstractCoroutine implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
+abstract class BaseCoroutine<T> extends Element<BaseCoroutine<Any>> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
 	public final context : Context;
 
 	public final parent : Null<ICoroutine<Any>>;
@@ -28,7 +28,7 @@ abstract class BaseCoroutine<T> extends AbstractCoroutine implements ICoroutine<
 	var completedChildren : Int;
 
 	public function new(context : Context, parent : Null<ICoroutine<Any>>) {
-		super();
+		super(Coroutine.key);
 		
 		this.context  = context;
 		this.parent   = parent;
