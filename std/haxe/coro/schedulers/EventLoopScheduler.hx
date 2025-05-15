@@ -18,4 +18,8 @@ class EventLoopScheduler extends Scheduler {
 	public function scheduleIn(func : ()->Void, ms:Int) {
 		loop.runIn(func, ms);
 	}
+
+	public function toString() {
+		return '[EventLoopScheduler: $loop]';
+	}
 }

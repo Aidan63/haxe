@@ -1,9 +1,11 @@
 package haxe.coro.context;
 
-abstract class Element {
-	public final id:Int;
+abstract class Element<T> {
+	public final id:Key<T>;
 
-	function new(id:Int) {
+	function new(id:Key<T>) {
 		this.id = id;
 	}
+
+	abstract public function toString():String;
 }

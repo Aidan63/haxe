@@ -3,14 +3,18 @@ import haxe.coro.context.Key;
 import haxe.coro.context.Element;
 import haxe.coro.Coroutine;
 
-class DebugName extends Element {
-	static public var key:Key<DebugName> = Key.createNew("_hx_debugName");
+class DebugName extends Element<DebugName> {
+	static public var key:Key<DebugName> = Key.createNew("DebugName");
 
 	public var name:String;
 
 	public function new(name:String) {
-		super(key.id);
+		super(key);
 		this.name = name;
+	}
+
+	public function toString() {
+		return '[DebugName: $name]';
 	}
 }
 
