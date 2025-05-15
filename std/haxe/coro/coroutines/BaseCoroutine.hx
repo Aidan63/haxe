@@ -1,7 +1,6 @@
 package haxe.coro.coroutines;
 
 import haxe.coro.schedulers.Scheduler;
-import haxe.coro.context.Key;
 import haxe.coro.context.Element;
 import haxe.coro.context.Context;
 import haxe.exceptions.NotImplementedException;
@@ -12,7 +11,7 @@ private enum abstract CoroutineState(Int) {
     final Completed;
 }
 
-abstract class BaseCoroutine<T> extends Element<BaseCoroutine<Any>> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
+abstract class BaseCoroutine<T> extends Element<ICoroutine<Any>> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
 	public final context : Context;
 
 	public final parent : Null<ICoroutine<Any>>;

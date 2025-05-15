@@ -2,7 +2,6 @@ package haxe.coro;
 
 import haxe.coro.EventLoop;
 import haxe.coro.context.Key;
-import haxe.coro.coroutines.BaseCoroutine;
 import haxe.coro.coroutines.BlockingCoroutine;
 import haxe.coro.schedulers.EventLoopScheduler;
 import haxe.coro.schedulers.Scheduler;
@@ -25,7 +24,7 @@ private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
 @:callable
 @:coreType
 abstract Coroutine<T:haxe.Constraints.Function> {
-	public static final key : Key<BaseCoroutine<Any>> = Key.createNew('_hx_coroutine');
+	public static final key : Key<ICoroutine<Any>> = Key.createNew('_hx_coroutine');
 
 	@:coroutine @:coroutine.transformed
 	public static function suspend<T>(func:haxe.coro.IContinuation<T>->Void, completion:haxe.coro.IContinuation<T>):T {
