@@ -7,8 +7,6 @@ import haxe.coro.schedulers.EventLoopScheduler;
 class BlockingCoroutine<T> extends BaseCoroutine<T> {
 	final loop : EventLoop;
 
-	var error : Exception;
-
 	public function new(loop : EventLoop) {
 		super(Context.empty(), null);
 
@@ -21,7 +19,7 @@ class BlockingCoroutine<T> extends BaseCoroutine<T> {
 	}
 
 	public function wait():T {
-		while (loop.tick() || state != Completed) {
+		while (loop.tick() || (state != Completed && state != Cancelled)) {
 			// Busy wait
 		}
 

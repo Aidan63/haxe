@@ -7,8 +7,10 @@ import haxe.exceptions.NotImplementedException;
 
 private enum abstract CoroutineState(Int) {
     final Running;
-    final AwaitingChildren;
+    final Completing;
     final Completed;
+	final Cancelling;
+	final Cancelled;
 }
 
 abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
@@ -22,7 +24,9 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 
 	var result : T;
 
-	var state : CoroutineState;
+	public var error : Exception;
+
+	public var state : CoroutineState;
 
 	var completedChildren : Int;
 
@@ -49,19 +53,9 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 	public function resume(result : T, error : Exception) : Void {
 		switch error {
 			case null:
-				this.result = result;
-
-				if (children.length == 0 || children.length == completedChildren) {
-					state = Completed;
-
-					for (callback in completionCallbacks) {
-						callback();
-					}
-				} else {
-					state = AwaitingChildren;
-				}
+				complete(result);
 			case _:
-				throw new NotImplementedException();
+				completeExceptionally(error);
 		}
 	}
 
@@ -70,7 +64,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 
 		children.push(coroutine);
 
-		coroutine.onCompletion(onChildCompleted);
+		coroutine.onCompletion(onChildCompleted.bind(coroutine));
 		coroutine.context.get(Scheduler.key).schedule(() -> {
 			final result = c(coroutine, coroutine);
 
@@ -78,9 +72,9 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 				case Pending:
 					return;
 				case Returned:
-					coroutine.resume(result.result, null);
+					coroutine.complete(result.result);
 				case Thrown:
-					coroutine.resume(null, result.error);
+					coroutine.completeExceptionally(result.error);
 			}
 		});
 
@@ -91,6 +85,10 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 		completionCallbacks.push(c);
 	}
 
+	public function cancel(cause : Exception) {
+		completeExceptionally(cause);
+	}
+
 	public function toString() {
 		return 'Coroutine';
 	}
@@ -99,15 +97,47 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 		return Coroutine.key;
 	}
 
-	function onChildCompleted() {
-		completedChildren++;
+	public function complete(result : T) {
+		this.result = result;
 
-		if (state == AwaitingChildren && children.length == completedChildren) {
+		if (children.length == 0 || children.length == completedChildren) {
 			state = Completed;
 
 			for (callback in completionCallbacks) {
 				callback();
 			}
+		} else {
+			state = Completing;
+		}
+	}
+
+	public function completeExceptionally(error : Exception) {
+		this.error = error;
+
+		if (children.length == 0 || children.length == completedChildren)
+		{
+			state = Cancelled;
+
+			for (callback in completionCallbacks) {
+				callback();
+			}
+		}
+		else
+		{
+			state = Cancelling;
+		}
+	}
+
+	function onChildCompleted(completed : ChildCoroutine<Any>) {
+		completedChildren++;
+
+		switch state {
+			case Completing if (completed.state == Completed):
+				complete(result);
+			case Completing if (completed.state == Cancelled):
+				completeExceptionally(completed.error);
+			case _:
+				throw new Exception("Unexpected coroutine state");
 		}
 	}
 }
