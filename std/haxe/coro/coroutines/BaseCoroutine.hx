@@ -1,7 +1,7 @@
 package haxe.coro.coroutines;
 
 import haxe.coro.schedulers.Scheduler;
-import haxe.coro.context.Element;
+import haxe.coro.context.IElement;
 import haxe.coro.context.Context;
 import haxe.exceptions.NotImplementedException;
 
@@ -11,7 +11,7 @@ private enum abstract CoroutineState(Int) {
     final Completed;
 }
 
-abstract class BaseCoroutine<T> extends Element<ICoroutine<Any>> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
+abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
 	public final context : Context;
 
 	public final parent : Null<ICoroutine<Any>>;
@@ -27,8 +27,6 @@ abstract class BaseCoroutine<T> extends Element<ICoroutine<Any>> implements ICor
 	var completedChildren : Int;
 
 	public function new(context : Context, parent : Null<ICoroutine<Any>>) {
-		super(Coroutine.key);
-		
 		this.context  = context;
 		this.parent   = parent;
 		this.children = [];
@@ -95,6 +93,10 @@ abstract class BaseCoroutine<T> extends Element<ICoroutine<Any>> implements ICor
 
 	public function toString() {
 		return 'Coroutine';
+	}
+
+	public function getKey() {
+		return Coroutine.key;
 	}
 
 	function onChildCompleted() {
