@@ -1,5 +1,6 @@
 package haxe.coro.coroutines;
 
+import haxe.CallStack;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.context.IElement;
 import haxe.coro.context.Context;
@@ -54,7 +55,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 			case null:
 				complete(result);
 			case _:
-				completeExceptionally(error);
+				completeExceptionally(error, cast result);
 		}
 	}
 
@@ -73,7 +74,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 				case Returned:
 					coroutine.complete(result.result);
 				case Thrown:
-					coroutine.completeExceptionally(result.error);
+					coroutine.completeExceptionally(result.error, cast result.result);
 			}
 		});
 
@@ -85,7 +86,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 	}
 
 	public function cancel(cause : Exception) {
-		completeExceptionally(cause);
+		completeExceptionally(cause, []);
 	}
 
 	public function toString() {
@@ -110,8 +111,9 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 		}
 	}
 
-	public function completeExceptionally(error : Exception) {
+	public function completeExceptionally(error : Exception, stack:Array<StackItem>) {
 		this.error = error;
+		this.result = cast stack;
 
 		if (children.length == 0 || children.length == completedChildren) {
 			state = Cancelled;
