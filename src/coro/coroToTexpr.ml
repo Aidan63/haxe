@@ -164,7 +164,7 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 		let base_continuation_field_on e cf t =
 			b#instance_field e com.basic.tcoro.suspension_result_class [com.basic.tany] cf t
 		in
-		let ecreatecoroutine = make_suspending_call com.basic call econtinuation in
+		let ecreatecoroutine = make_suspending_call com.basic call {econtinuation with epos = p} in
 
 		let vcororesult = alloc_var VGenerated "_hx_tmp" (com.basic.tcoro.suspension_result com.basic.tany) p in
 		let ecororesult = b#local vcororesult p in
@@ -177,7 +177,17 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 		] in
 		let ereturned = b#assign etmp (base_continuation_field_on ecororesult cont.result com.basic.tany) in
 		let ethrown = b#void_block [
-			b#assign eresult (* TODO: wrong type? *) (base_continuation_field_on ecororesult cont.result com.basic.tany);
+			begin
+				let estack = base_continuation_field_on ecororesult cont.result com.basic.tany in
+				b#if_then_else (b#op_eq estack (b#null estack.etype p))
+				(*
+				   We assume that if we get a Thrown state with result == null, it was caused by
+				   an ImmediateSuspensionResult.
+				*)
+				(start_exception (b#bool false p))
+				(b#assign eresult (* TODO: wrong type? *) estack)
+				com.basic.tvoid;
+			end;
 			b#assign etmp (base_continuation_field_on ecororesult cont.error cont.error.cf_type);
 			b#break p;
 		] in

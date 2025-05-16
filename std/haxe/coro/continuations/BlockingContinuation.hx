@@ -36,19 +36,7 @@ class BlockingContinuation<T> implements IContinuation<T> {
 
 		if (error != null) {
 			// trace((cast result : haxe.CallStack));
-			final topStack = [];
-			for (item in error.stack.asArray()) {
-				switch (item) {
-					// TODO: this needs a better check
-					case FilePos(_, _, -1, _):
-						break;
-					// this is a hack
-					case FilePos(Method(_, "invokeResume"), _):
-						break;
-					case _:
-						topStack.push(item);
-				}
-			}
+			final topStack = CallStackHelper.cullTopStack(error.stack.asArray());
 			final coroStack = (cast result : Array<StackItem>) ?? [];
 			final bottomStack = CallStack.callStack();
 			error.stack = topStack.concat(coroStack).concat(bottomStack);

@@ -14,6 +14,8 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 
     public var recursing:Bool;
 
+	var callStackOnFirstSuspension:Null<Array<StackItem>>;
+
     function new(completion:IContinuation<Any>, initialLabel:Int) {
         this.completion = completion;
 
@@ -64,6 +66,7 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 
     public function setClassFuncStackItem(cls:String, func:String, file:String, line:Int, pos:Int, pmin:Int, pmax:Int) {
         result = cast StackItem.FilePos(StackItem.Method(cls, func), file, line, pos);
+		callStackOnFirstSuspension ??= CallStack.callStack();
 		#if eval
 		eval.vm.Context.callMacroApi("associate_enum_value_pos")(result, haxe.macro.Context.makePosition({file: file, min: pmin, max: pmax}));
 		#end
@@ -71,26 +74,32 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 
     public function setLocalFuncStackItem(id:Int, file:String, line:Int, pos:Int, pmin:Int, pmax:Int) {
         result = cast StackItem.FilePos(StackItem.LocalFunction(id), file, line, pos);
+		callStackOnFirstSuspension ??= CallStack.callStack();
 		#if eval
 		eval.vm.Context.callMacroApi("associate_enum_value_pos")(result, haxe.macro.Context.makePosition({file: file, min: pmin, max: pmax}));
 		#end
     }
 
 	public function startException(fromThrow:Bool) {
+		if (callStackOnFirstSuspension != null) {
+			callStackOnFirstSuspension = CallStackHelper.cullTopStack(callStackOnFirstSuspension, 2);
+		} else {
+			callStackOnFirstSuspension = [];
+		}
 		if (fromThrow) {
 			/*
 				This comes from a coro-level throw, which pushes its position via one of the functions
 				above. In this case we turn result into the stack item array now.
 			*/
-			result = cast [result];
+			callStackOnFirstSuspension.unshift(cast result);
 		} else {
 			/*
 				This means we caught an exception, which must come from outside our current coro. We
 				don't need our current result value because if anything it points to the last
 				suspension call.
 			*/
-			result = cast [];
 		}
+		result = cast callStackOnFirstSuspension;
 	}
 
     public function buildCallStack() {
