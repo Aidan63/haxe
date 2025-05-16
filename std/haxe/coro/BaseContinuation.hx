@@ -5,6 +5,23 @@ import haxe.coro.schedulers.Scheduler;
 import haxe.CallStack.StackItem;
 import haxe.Exception;
 
+private enum abstract ExceptionMode(Int) {
+	/**
+		The exception was raised by our own coroutine.
+	**/
+	var ExceptionSelf;
+	/**
+		The exception was raised further up the call stack, e.g. from a function
+		our current coroutine called.
+	**/
+	var ExceptionTop;
+	/**
+		The exception was created (but not raised) by a suspension function further
+		up the call stack and returned to our current coroutine.
+	**/
+	var ExceptionImmediate;
+}
+
 abstract class BaseContinuation<T> extends SuspensionResult<T> implements IContinuation<T> implements IStackFrame {
     public final completion:IContinuation<Any>;
 
@@ -15,6 +32,7 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
     public var recursing:Bool;
 
 	var callStackOnFirstSuspension:Null<Array<StackItem>>;
+	var startedException:Bool;
 
     function new(completion:IContinuation<Any>, initialLabel:Int) {
         this.completion = completion;
@@ -24,6 +42,7 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
         error      = null;
         result     = null;
         recursing  = false;
+		startedException = false;
     }
 
     public final function resume(result:Any, error:Exception):Void {
@@ -80,29 +99,47 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 		#end
     }
 
-	public function startException(fromThrow:Bool) {
+	public function startException(exceptionMode:ExceptionMode) {
+		startedException = true;
 		if (callStackOnFirstSuspension != null) {
+			/*
+				On the first suspension of any coroutine we record the synchronous call stack which tells
+				us how we got here. This will ensure we don't miss synchronous stack items, such as ones
+				from a TCOed parent function.
+
+				We skip the two topmost elements because they're from the set functions above and the call
+				to them from the state machine.
+			*/
 			callStackOnFirstSuspension = CallStackHelper.cullTopStack(callStackOnFirstSuspension, 2);
 		} else {
-			callStackOnFirstSuspension = [];
+			/**
+				This can only occur in ExceptionTop mode and means we caught a foreigh exception.
+			**/
+			result = cast callStackOnFirstSuspension = [];
+			return;
 		}
-		if (fromThrow) {
-			/*
-				This comes from a coro-level throw, which pushes its position via one of the functions
-				above. In this case we turn result into the stack item array now.
-			*/
-			callStackOnFirstSuspension.unshift(cast result);
-		} else {
-			/*
-				This means we caught an exception, which must come from outside our current coro. We
-				don't need our current result value because if anything it points to the last
-				suspension call.
-			*/
+		switch (exceptionMode) {
+			case ExceptionSelf | ExceptionImmediate:
+				/*
+					In these modes we add our current stack item as the topmost element to the call-stack.
+					In both cases the value will be set:
+						* A `throw` in Self mode is always preceeded by a call to one of the set functions above.
+						* Immediate mode only occurs after a suspension call, which also calls a set function.
+				*/
+				callStackOnFirstSuspension.unshift(cast result);
+			case ExceptionTop:
 		}
 		result = cast callStackOnFirstSuspension;
 	}
 
     public function buildCallStack() {
+		if (startedException) {
+			/*
+				If we started the exception in our current coroutine then we don't need to do any additional
+				management. The caller frame will be part of the top stack added by startException.
+			*/
+			return;
+		}
         var frame = callerFrame();
         if (frame != null) {
 			var result:Array<StackItem> = cast result;

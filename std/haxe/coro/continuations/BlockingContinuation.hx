@@ -35,9 +35,24 @@ class BlockingContinuation<T> implements IContinuation<T> {
 		}
 
 		if (error != null) {
-			// trace((cast result : haxe.CallStack));
-			final topStack = CallStackHelper.cullTopStack(error.stack.asArray());
 			final coroStack = (cast result : Array<StackItem>) ?? [];
+			final coroTop = coroStack[0];
+			final topStack = [];
+			switch (coroStack[0]) {
+				case null:
+				case FilePos(_, file, line, _):
+					for (item in error.stack.asArray()) {
+						switch (item) {
+							case FilePos(_, file2, line2, _) if (file == file2 && line == line2):
+								break;
+							case FilePos(Method(_, "invokeResume"), _):
+								break;
+							case _:
+								topStack.push(item);
+						}
+					}
+				case _:
+			}
 			final bottomStack = CallStack.callStack();
 			error.stack = topStack.concat(coroStack).concat(bottomStack);
 			throw error;

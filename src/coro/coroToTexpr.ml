@@ -184,7 +184,7 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 				   We assume that if we get a Thrown state with result == null, it was caused by
 				   an ImmediateSuspensionResult.
 				*)
-				(start_exception (b#bool false p))
+				(start_exception (b#int 2 p))
 				(b#assign eresult (* TODO: wrong type? *) estack)
 				com.basic.tvoid;
 			end;
@@ -271,9 +271,9 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 			add_state (Some (-1)) [ set_control CoroReturned; b#assign eresult e; ereturn ]
 		| NextThrow e1 ->
 			if ctx.throw then
-				add_state None ([stack_item_inserter e1.epos; start_exception (b#bool true p); b#throw e1])
+				add_state None ([stack_item_inserter e1.epos; start_exception (b#int 0 p); b#throw e1])
 			else
-				add_state None ([stack_item_inserter e1.epos; start_exception (b#bool true p); b#assign etmp e1; b#break p ])
+				add_state None ([stack_item_inserter e1.epos; start_exception (b#int 0 p); b#assign etmp e1; b#break p ])
 		| NextSub (cb_sub,cb_next) ->
 			add_state (Some cb_sub.cb_id) []
 
@@ -366,7 +366,7 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 				let vcaught = alloc_var VGenerated "e" t_dynamic p in
 				let ecaught = b#local vcaught p in
 				let e = b#void_block [
-					start_exception (b#bool false p);
+					start_exception (b#int 1 p);
 					b#assign etmp ecaught
 				] in
 				(vcaught,e)

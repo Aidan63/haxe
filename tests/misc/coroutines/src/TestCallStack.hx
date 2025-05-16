@@ -17,7 +17,6 @@ class TestCallStack extends utest.Test {
 					Line(12),
 				File('callstack/CoroUpper.hx'),
 					Line(10),
-					Line(8), // TODO: I'm not sure if this should be here
 					Line(8),
 					Line(8),
 					Line(8),
@@ -54,6 +53,11 @@ class TestCallStack extends utest.Test {
 			var inspector = new CallStackInspector(stack);
 			var r = inspector.inspect([
 				File('callstack/FooBarBaz.hx'),
+				#if (cpp && coroutine.noopt)
+				// TODO: cpp has inaccurate positions which causes the top stack to be wrong
+				Line(6),
+				Line(12),
+				#end
 				Line(7),
 				Line(12),
 				Line(16)
