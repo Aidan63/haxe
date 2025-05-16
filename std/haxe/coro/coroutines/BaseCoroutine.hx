@@ -3,7 +3,6 @@ package haxe.coro.coroutines;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.context.IElement;
 import haxe.coro.context.Context;
-import haxe.exceptions.NotImplementedException;
 
 private enum abstract CoroutineState(Int) {
     final Running;
@@ -114,30 +113,39 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 	public function completeExceptionally(error : Exception) {
 		this.error = error;
 
-		if (children.length == 0 || children.length == completedChildren)
-		{
+		if (children.length == 0 || children.length == completedChildren) {
 			state = Cancelled;
 
 			for (callback in completionCallbacks) {
 				callback();
 			}
 		}
-		else
-		{
+		else {
 			state = Cancelling;
 		}
 	}
 
 	function onChildCompleted(completed : ChildCoroutine<Any>) {
-		completedChildren++;
+		if (completed.state == Cancelled && state != Cancelling) {
+			state = Cancelling;
+			error = completed.error;
+		}
+
+		if (children.length != ++completedChildren) {
+			return;
+		}
 
 		switch state {
-			case Completing if (completed.state == Completed):
-				complete(result);
-			case Completing if (completed.state == Cancelled):
-				completeExceptionally(completed.error);
+			case Cancelling:
+				state = Cancelled;
+			case Completing:
+				state = Completed;
 			case _:
 				throw new Exception("Unexpected coroutine state");
+		}
+
+		for (callback in completionCallbacks) {
+			callback();
 		}
 	}
 }
