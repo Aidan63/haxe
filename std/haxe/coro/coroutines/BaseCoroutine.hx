@@ -22,13 +22,19 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 
 	final completionCallbacks : Array<()->Void>;
 
-	var result : T;
+	var completedChildren : Int;
+
+	public var isRunning (get, never) : Bool;
+
+	public var isCancelled (get, never) : Bool;
+
+	public var isCompleted (get, never) : Bool;
+
+	public var result : T;
 
 	public var error : Exception;
 
 	public var state : CoroutineState;
-
-	var completedChildren : Int;
 
 	public function new(context : Context, parent : Null<ICoroutine<Any>>) {
 		this.context  = context;
@@ -42,11 +48,20 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 
 	@:coroutine public function await() : T {
 		return Coroutine.suspend(cont -> {
-            if (state == Completed) {
-                cont.resume(result, null);
-            } else {
-                completionCallbacks.push(() -> cont.resume(result, null));
-            }
+			switch state {
+				case Completed:
+					cont.resume(result, null);
+				case Cancelled:
+					cont.resume(null, error);
+				case _:
+					completionCallbacks.push(() -> {
+						if (error != null) {
+							cont.resume(null, error);
+						} else {
+							cont.resume(result, null);
+						}
+					});
+			}
         });
 	}
 
@@ -86,6 +101,10 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 	}
 
 	public function cancel(cause : Exception) {
+		if (isRunning == false) {
+			return;
+		}
+
 		completeExceptionally(cause, []);
 	}
 
@@ -112,7 +131,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 	}
 
 	public function completeExceptionally(error : Exception, stack:Array<StackItem>) {
-		this.error = error;
+		this.error  = error;
 		this.result = cast stack;
 
 		if (children.length == 0 || children.length == completedChildren) {
@@ -124,11 +143,18 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 		}
 		else {
 			state = Cancelling;
+
+			for (child in children) {
+				child.cancel(error);
+			}
 		}
 	}
 
 	function onChildCompleted(completed : ChildCoroutine<Any>) {
-		if (completed.state == Cancelled && state != Cancelling) {
+		// if we are not in a cancelled state, transition to one now.
+		// TODO : what should we do if we are already cancelling and another child fails,
+		// some sort of AggregateException which holds both errors?
+		if (completed.isCancelled && isCancelled == false) {
 			state = Cancelling;
 			error = completed.error;
 		}
@@ -149,5 +175,17 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 		for (callback in completionCallbacks) {
 			callback();
 		}
+	}
+
+	function get_isRunning() {
+		return state == Running;
+	}
+
+	function get_isCancelled() {
+		return state == Cancelling || state == Cancelled;
+	}
+
+	function get_isCompleted() {
+		return state == Completed || state == Cancelled;
 	}
 }
