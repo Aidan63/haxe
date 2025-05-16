@@ -73,7 +73,7 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 			case Returned:
 				cont.resume(result.result, null);
 			case Thrown:
-				cont.resume(null, result.error);
+				cont.resume(result.result, result.error);
 		}
 
 		return cont.wait();
