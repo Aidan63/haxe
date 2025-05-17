@@ -17,6 +17,8 @@ function main() {
 		#if (!coroutine.throw && (jvm || cpp || eval))
 		new TestCallStack(),
 		#end
+		new structured.TestChildScopes(),
+		new structured.TestThrowingScopes()
 		// new TestYieldBasic(),
 		// new TestYieldIf(),
 		// new TestYieldFor(),
