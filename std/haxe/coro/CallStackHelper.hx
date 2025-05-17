@@ -34,7 +34,7 @@ class CallStackHelper {
 						case FilePos(_, file2, line2, _) if (file == file2 && line == line2):
 							return ret;
 						case FilePos(Method(_, "invokeResume"), _):
-							return items;
+							return ret;
 						case _:
 							ret.push(item);
 					}
