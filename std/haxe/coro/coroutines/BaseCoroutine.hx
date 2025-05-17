@@ -168,13 +168,17 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 			return;
 		}
 
+		if (state == Running) {
+			return;
+		}
+
 		switch state {
 			case Cancelling:
 				state = Cancelled;
 			case Completing:
 				state = Completed;
 			case _:
-				throw new Exception("Unexpected coroutine state");
+				throw new Exception('Unexpected coroutine state : $state');
 		}
 
 		for (callback in completionCallbacks) {
