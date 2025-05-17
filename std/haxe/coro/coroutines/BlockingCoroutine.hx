@@ -24,20 +24,8 @@ class BlockingCoroutine<T> extends BaseCoroutine<T> {
 		}
 
 		if (error != null) {
-			final topStack = [];
-			for (item in error.stack.asArray()) {
-				switch (item) {
-					// TODO: this needs a better check
-					case FilePos(_, _, -1, _):
-						break;
-					// this is a hack
-					case FilePos(Method(_, "invokeResume"), _):
-						break;
-					case _:
-						topStack.push(item);
-				}
-			}
 			final coroStack = (cast result : Array<StackItem>) ?? [];
+			final topStack = CallStackHelper.takeStackItemsUntil(error.stack.asArray(), coroStack[0]);
 			final bottomStack = CallStack.callStack();
 			error.stack = topStack.concat(coroStack).concat(bottomStack);
 			throw error;

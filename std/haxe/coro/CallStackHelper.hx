@@ -22,4 +22,26 @@ class CallStackHelper {
 		}
 		return topStack;
 	}
+
+	static public function takeStackItemsUntil(items:Array<StackItem>, until:StackItem) {
+		final ret = [];
+		switch (until) {
+			case null:
+				return items;
+			case FilePos(_, file, line, _):
+				for (item in items) {
+					switch (item) {
+						case FilePos(_, file2, line2, _) if (file == file2 && line == line2):
+							return ret;
+						case FilePos(Method(_, "invokeResume"), _):
+							return items;
+						case _:
+							ret.push(item);
+					}
+				}
+				return ret;
+			case _:
+				return items;
+		}
+	}
 }
