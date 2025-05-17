@@ -158,6 +158,10 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 			state = Cancelling;
 			error = completed.error;
 			result = completed.result;
+
+			for (child in children) {
+				child.cancel(error);
+			}
 		}
 
 		if (children.length != ++completedChildren) {
