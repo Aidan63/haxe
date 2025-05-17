@@ -45,24 +45,39 @@ class TestCallStack extends utest.Test {
 	}
 
 	function testFooBazBaz() {
-		try {
-			Coroutine.run(callstack.FooBarBaz.foo);
-			Assert.fail("Exception expected");
-		} catch(e:Exception) {
+		function checkStack(e:Exception) {
 			final stack = e.stack.asArray();
 			var inspector = new CallStackInspector(stack);
 			var r = inspector.inspect([
 				File('callstack/FooBarBaz.hx'),
 				#if (cpp && coroutine.noopt)
 				// TODO: cpp has inaccurate positions which causes the top stack to be wrong
-				Line(6),
-				Line(12),
+				Line(6), Line(12),
 				#end
 				Line(7),
 				Line(12),
 				Line(16)
 			]);
 			checkFailure(stack, r);
+		}
+		try {
+			Coroutine.run(callstack.FooBarBaz.foo);
+			Assert.fail("Exception expected");
+		} catch(e:Exception) {
+			checkStack(e);
+		}
+
+		try {
+			Coroutine.runScoped(scope -> {
+				scope.start(scope -> {
+					scope.start(_ -> {
+						callstack.FooBarBaz.foo();
+					});
+				});
+			});
+			Assert.fail("Exception expected");
+		} catch (e:Exception) {
+			checkStack(e);
 		}
 	}
 }
