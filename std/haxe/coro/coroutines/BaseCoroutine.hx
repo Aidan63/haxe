@@ -81,7 +81,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 
 		coroutine.onCompletion(onChildCompleted.bind(coroutine));
 		coroutine.context.get(Scheduler.key).schedule(() -> {
-			// TODO: are we potentially reasing a stack track here?
+			// TODO: are we potentially ereasing a stack track here?
 			// would it be better to have the coroutine function pre-amble to check this and error "normally"?
 			if (coroutine.isCancelled) {
 				coroutine.completeExceptionally(coroutine.error, []);

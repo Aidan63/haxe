@@ -61,24 +61,20 @@ class TestThrowingScopes extends utest.Test {
 
 				throw new FooException();
 			});
-		}, FooException);	
+		}, FooException);
 	}
 
-	public function test_recursive_children_cancelled_suspending_root() {
+	public function test_catching_awaiting_child() {
 		Assert.raises(() -> {
 			Coroutine.runScoped(scope -> {
-				scope.start(scope -> {
-					scope.start(scope -> {
-						while (scope.context.get(Coroutine.key).isCancelled == false) {
-							yield();
-						}
-					});
+				final child = scope.start(scope -> {
+					yield();
+	
+					throw new FooException();
 				});
 
-				yield();
-
-				throw new FooException();
+				AssertAsync.raises(() -> child.await(), FooException);
 			});
-		}, FooException);	
+		}, FooException);
 	}
 }
