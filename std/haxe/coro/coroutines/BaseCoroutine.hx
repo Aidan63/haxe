@@ -81,6 +81,14 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 
 		coroutine.onCompletion(onChildCompleted.bind(coroutine));
 		coroutine.context.get(Scheduler.key).schedule(() -> {
+			// TODO: are we potentially reasing a stack track here?
+			// would it be better to have the coroutine function pre-amble to check this and error "normally"?
+			if (coroutine.isCancelled) {
+				coroutine.completeExceptionally(coroutine.error, []);
+
+				return;
+			}
+
 			final result = c(coroutine, coroutine);
 
 			switch result.state {
@@ -101,11 +109,19 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 	}
 
 	public function cancel(cause : Exception) {
-		if (isRunning == false) {
-			return;
-		}
+		switch state {
+			case Running:
+				completeExceptionally(cause, []);
+			case Completing:
+				state = Cancelling;
+				error = cause;
 
-		completeExceptionally(cause, []);
+				for (child in children) {
+					child.cancel(error);
+				}
+			case _:
+				//
+		}
 	}
 
 	public function toString() {

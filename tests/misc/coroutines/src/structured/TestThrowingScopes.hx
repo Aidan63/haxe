@@ -48,19 +48,37 @@ class TestThrowingScopes extends utest.Test {
 		}, FooException);
 	}
 
-	// public function test_recursive_children_cancelled() {
-	// 	Assert.raises(() -> {
-	// 		Coroutine.runScoped(scope -> {
-	// 			scope.start(scope -> {
-	// 				scope.start(scope -> {
-	// 					while (scope.context.get(Coroutine.key).isCancelled == false) {
-	// 						yield();
-	// 					}
-	// 				});
-	// 			});
+	public function test_recursive_children_cancelled_non_suspending_root() {
+		Assert.raises(() -> {
+			Coroutine.runScoped(scope -> {
+				scope.start(scope -> {
+					scope.start(scope -> {
+						while (scope.context.get(Coroutine.key).isCancelled == false) {
+							yield();
+						}
+					});
+				});
 
-	// 			throw new FooException();
-	// 		});
-	// 	}, FooException);	
-	// }
+				throw new FooException();
+			});
+		}, FooException);	
+	}
+
+	public function test_recursive_children_cancelled_suspending_root() {
+		Assert.raises(() -> {
+			Coroutine.runScoped(scope -> {
+				scope.start(scope -> {
+					scope.start(scope -> {
+						while (scope.context.get(Coroutine.key).isCancelled == false) {
+							yield();
+						}
+					});
+				});
+
+				yield();
+
+				throw new FooException();
+			});
+		}, FooException);	
+	}
 }
