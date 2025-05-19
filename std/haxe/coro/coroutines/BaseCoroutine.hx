@@ -105,7 +105,12 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 	}
 
 	public function onCompletion(c : ()->Void) {
-		completionCallbacks.push(c);
+		switch state {
+			case Completed, Cancelled:
+				c();
+			case _:
+				completionCallbacks.push(c);
+		}
 	}
 
 	public function cancel(cause : Exception) {
