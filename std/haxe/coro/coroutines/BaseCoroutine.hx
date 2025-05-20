@@ -70,7 +70,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 			case null:
 				complete(result);
 			case _:
-				completeExceptionally(error, cast result);
+				completeExceptionally(error);
 		}
 	}
 
@@ -84,7 +84,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 			// TODO: are we potentially ereasing a stack track here?
 			// would it be better to have the coroutine function pre-amble to check this and error "normally"?
 			if (coroutine.isCancelled) {
-				coroutine.completeExceptionally(coroutine.error, []);
+				coroutine.completeExceptionally(coroutine.error);
 
 				return;
 			}
@@ -97,7 +97,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 				case Returned:
 					coroutine.complete(result.result);
 				case Thrown:
-					coroutine.completeExceptionally(result.error, cast result.result);
+					coroutine.completeExceptionally(result.error);
 			}
 		});
 
@@ -116,7 +116,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 	public function cancel(cause : Exception) {
 		switch state {
 			case Running:
-				completeExceptionally(cause, []);
+				completeExceptionally(cause);
 			case Completing:
 				state = Cancelling;
 				error = cause;
@@ -151,9 +151,8 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 		}
 	}
 
-	public function completeExceptionally(error : Exception, stack:Array<StackItem>) {
+	public function completeExceptionally(error : Exception) {
 		this.error  = error;
-		this.result = cast stack;
 
 		if (children.length == 0 || children.length == completedChildren) {
 			state = Cancelled;
@@ -178,7 +177,6 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 		if (completed.isCancelled && isCancelled == false) {
 			state = Cancelling;
 			error = completed.error;
-			result = completed.result;
 
 			for (child in children) {
 				child.cancel(error);

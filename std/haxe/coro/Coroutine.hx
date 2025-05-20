@@ -75,7 +75,7 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 			case Returned:
 				cont.resume(result.result, null);
 			case Thrown:
-				cont.resume(result.result, result.error);
+				cont.resume(null, result.error);
 		}
 
 		return cont.wait();
@@ -91,7 +91,7 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 					case Completed:
 						cont.resume(coro.result, null);
 					case Cancelled:
-						cont.resume(coro.result, coro.error);
+						cont.resume(null, coro.error);
 					case _:
 						throw new Exception('Unexpected coroutine state');
 				}
