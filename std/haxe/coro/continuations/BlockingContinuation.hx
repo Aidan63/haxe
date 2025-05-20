@@ -35,10 +35,6 @@ class BlockingContinuation<T> implements IContinuation<T> {
 		}
 
 		if (error != null) {
-			final coroStack = (cast result : Array<StackItem>) ?? [];
-			final topStack = CallStackHelper.takeStackItemsUntil(error.stack.asArray(), coroStack[0]);
-			final bottomStack = CallStack.callStack();
-			error.stack = topStack.concat(coroStack).concat(bottomStack);
 			throw error;
 		} else {
 			return result;
