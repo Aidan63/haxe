@@ -57,7 +57,21 @@ class TestCoroutineScope extends utest.Test {
 		});
 	}
 
-	// function test_scope_cancelling_children() {
+	// TODO : Hangs forever
+	// function test_parent_scope_cancelling() {
+		// Coroutine.runScoped(scope -> {
 
+		// 	final child = scope.start(_ -> {
+		// 		Coroutine.scope(scope -> {
+		// 			while (scope.context.get(Coroutine.key).isCancelled == false) {
+		// 				yield();
+		// 			}
+		// 		});
+		// 	});
+			
+		// 	delay(1000);
+	
+		// 	child.cancel();
+		// });
 	// }
 }
