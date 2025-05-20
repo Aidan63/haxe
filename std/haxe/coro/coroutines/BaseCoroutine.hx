@@ -1,5 +1,6 @@
 package haxe.coro.coroutines;
 
+import haxe.exceptions.CancellationException;
 import haxe.CallStack;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.context.IElement;
@@ -16,14 +17,6 @@ private enum abstract CoroutineState(Int) {
 abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
 	public final context : Context;
 
-	public final parent : Null<ICoroutine<Any>>;
-
-	public final children : Array<ICoroutine<Any>>;
-
-	final completionCallbacks : Array<()->Void>;
-
-	var completedChildren : Int;
-
 	public var isRunning (get, never) : Bool;
 
 	public var isCancelled (get, never) : Bool;
@@ -36,9 +29,14 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 
 	public var state : CoroutineState;
 
-	public function new(context : Context, parent : Null<ICoroutine<Any>>) {
+	final children : Array<ChildCoroutine<Any>>;
+
+	final completionCallbacks : Array<()->Void>;
+
+	var completedChildren : Int;
+
+	public function new(context : Context) {
 		this.context  = context;
-		this.parent   = parent;
 		this.children = [];
 
 		completionCallbacks = [];
@@ -113,16 +111,16 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 		}
 	}
 
-	public function cancel(cause : Exception) {
+	public function cancel() {
 		switch state {
 			case Running:
-				completeExceptionally(cause);
+				completeExceptionally(new CancellationException());
 			case Completing:
 				state = Cancelling;
-				error = cause;
+				error = new CancellationException();
 
 				for (child in children) {
-					child.cancel(error);
+					child.cancel();
 				}
 			case _:
 				//
@@ -165,7 +163,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 			state = Cancelling;
 
 			for (child in children) {
-				child.cancel(error);
+				child.cancel();
 			}
 		}
 	}
@@ -179,7 +177,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 			error = completed.error;
 
 			for (child in children) {
-				child.cancel(error);
+				child.cancel();
 			}
 		}
 

@@ -8,7 +8,7 @@ class BlockingCoroutine<T> extends BaseCoroutine<T> {
 	final loop : EventLoop;
 
 	public function new(loop : EventLoop) {
-		super(Context.empty(), null);
+		super(Context.empty());
 
 		context.add(this);
 		context.add(new EventLoopScheduler(loop));

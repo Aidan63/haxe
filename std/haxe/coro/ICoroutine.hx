@@ -1,10 +1,6 @@
 package haxe.coro;
 
 interface ICoroutine<T> {
-	final parent : Null<ICoroutine<Any>>;
-
-	final children : Array<ICoroutine<Any>>;
-
 	var isRunning (get, never) : Bool;
 
 	var isCancelled (get, never) : Bool;
@@ -13,5 +9,5 @@ interface ICoroutine<T> {
 
 	@:coroutine function await() : T;
 
-	function cancel(cause : Exception) : Void;
+	function cancel() : Void;
 }

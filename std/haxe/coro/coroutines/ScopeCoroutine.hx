@@ -4,7 +4,7 @@ import haxe.coro.context.Context;
 
 class ScopeCoroutine<T> extends BaseCoroutine<T> {
 	public function new(parentContext : Context) {
-		super(parentContext.clone(), null);
+		super(parentContext.clone());
 
 		context.add(this);
 	}
