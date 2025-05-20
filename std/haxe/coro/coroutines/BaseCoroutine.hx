@@ -72,10 +72,20 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 		}
 	}
 
-	public function start<T>(c : Coroutine<ICoroutineScope->T>) : ICoroutine<T> {
+	public function child<T>() {
 		final coroutine = new ChildCoroutine<T>(context);
 
+		coroutine.onCompletion(() -> {
+			completedChildren++;
+		});
+
 		children.push(coroutine);
+
+		return coroutine;
+	}
+
+	public function start<T>(c : Coroutine<ICoroutineScope->T>) : ICoroutine<T> {
+		final coroutine : ChildCoroutine<T> = child();
 
 		coroutine.onCompletion(() -> {
 			// if we are not in a cancelled state, transition to one now.
@@ -95,7 +105,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 			}
 
 			// There are still children running, so exit.
-			if (children.length != ++completedChildren) {
+			if (children.length != completedChildren) {
 				return;
 			}
 
@@ -117,6 +127,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 				callback();
 			}
 		});
+
 		coroutine.context.get(Scheduler.key).schedule(() -> {
 			// TODO: are we potentially ereasing a stack track here?
 			// would it be better to have the coroutine function pre-amble to check this and error "normally"?

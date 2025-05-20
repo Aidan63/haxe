@@ -3,7 +3,6 @@ package haxe.coro;
 import haxe.coro.EventLoop;
 import haxe.coro.context.Key;
 import haxe.coro.coroutines.BlockingCoroutine;
-import haxe.coro.coroutines.ScopeCoroutine;
 import haxe.coro.schedulers.EventLoopScheduler;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.continuations.RacingContinuation;
@@ -83,15 +82,25 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 
 	@:coroutine public static function scope<T>(f:Coroutine<(scope : ICoroutineScope)->T>):T {
 		return Coroutine.suspend(cont -> {
-			final coro = new ScopeCoroutine(cont.context);
-			final _    = f(coro, coro);
+			final coro   = cont.context.get(key);
+			final child  = coro.child();
+			final result = f(child, child);
 
-			coro.onCompletion(() -> {
-				switch coro.state {
+			switch result.state {
+				case Pending:
+					//
+				case Returned:
+					child.complete(result.result);
+				case Thrown:
+					child.completeExceptionally(result.error);
+			}
+
+			child.onCompletion(() -> {
+				switch child.state {
 					case Completed:
-						cont.resume(coro.result, null);
+						cont.resume(child.result, null);
 					case Cancelled:
-						cont.resume(null, coro.error);
+						cont.resume(null, child.error);
 					case _:
 						throw new Exception('Unexpected coroutine state');
 				}

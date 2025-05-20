@@ -35,25 +35,29 @@ class TestCoroutineScope extends utest.Test {
 		});
 	}
 
-	// function test_scope_with_children() {
-	// 	Coroutine.runScoped(_ -> {
-	// 		final actual = [];
+	function test_scope_with_children() {
+		Coroutine.runScoped(_ -> {
+			final actual = [];
 			
-	// 		Coroutine.scope(scope -> {
-	// 			scope.start(_ -> {
-	// 				delay(500);
+			Coroutine.scope(scope -> {
+				scope.start(_ -> {
+					delay(500);
 
-	// 				actual.push(0);
-	// 			});
+					actual.push(0);
+				});
 
-	// 			scope.start(_ -> {
-	// 				delay(500);
+				scope.start(_ -> {
+					delay(500);
 
-	// 				actual.push(1);
-	// 			});
-	// 		});
+					actual.push(1);
+				});
+			});
 
-	// 		Assert.same(actual, [ 0, 1 ]);
-	// 	});
+			Assert.same(actual, [ 0, 1 ]);
+		});
+	}
+
+	// function test_scope_cancelling_children() {
+
 	// }
 }
