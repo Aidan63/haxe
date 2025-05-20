@@ -77,7 +77,46 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 
 		children.push(coroutine);
 
-		coroutine.onCompletion(onChildCompleted.bind(coroutine));
+		coroutine.onCompletion(() -> {
+			// if we are not in a cancelled state, transition to one now.
+			// TODO : what should we do if we are already cancelling and another child fails,
+			// some sort of AggregateException which holds both errors?
+			if (coroutine.isCancelled && isCancelled == false) {
+				state = Cancelling;
+				error = coroutine.error;
+
+				for (child in children) {
+					if (child == coroutine) {
+						continue;
+					}
+
+					child.cancel();
+				}
+			}
+
+			// There are still children running, so exit.
+			if (children.length != ++completedChildren) {
+				return;
+			}
+
+			// All children have completed but the scopes block is still running, so exit.
+			if (state == Running) {
+				return;
+			}
+
+			switch state {
+				case Cancelling:
+					state = Cancelled;
+				case Completing:
+					state = Completed;
+				case _:
+					throw new Exception('Unexpected coroutine state : $state');
+			}
+
+			for (callback in completionCallbacks) {
+				callback();
+			}
+		});
 		coroutine.context.get(Scheduler.key).schedule(() -> {
 			// TODO: are we potentially ereasing a stack track here?
 			// would it be better to have the coroutine function pre-amble to check this and error "normally"?
@@ -165,41 +204,6 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 			for (child in children) {
 				child.cancel();
 			}
-		}
-	}
-
-	function onChildCompleted(completed : ChildCoroutine<Any>) {
-		// if we are not in a cancelled state, transition to one now.
-		// TODO : what should we do if we are already cancelling and another child fails,
-		// some sort of AggregateException which holds both errors?
-		if (completed.isCancelled && isCancelled == false) {
-			state = Cancelling;
-			error = completed.error;
-
-			for (child in children) {
-				child.cancel();
-			}
-		}
-
-		if (children.length != ++completedChildren) {
-			return;
-		}
-
-		if (state == Running) {
-			return;
-		}
-
-		switch state {
-			case Cancelling:
-				state = Cancelled;
-			case Completing:
-				state = Completed;
-			case _:
-				throw new Exception('Unexpected coroutine state : $state');
-		}
-
-		for (callback in completionCallbacks) {
-			callback();
 		}
 	}
 

@@ -4,6 +4,7 @@ import haxe.Exception;
 import haxe.coro.Coroutine;
 import haxe.coro.Coroutine.delay;
 import haxe.coro.Coroutine.yield;
+import haxe.exceptions.CancellationException;
 
 private class FooException extends Exception {
 	public function new() {
@@ -76,5 +77,35 @@ class TestThrowingScopes extends utest.Test {
 				AssertAsync.raises(() -> child.await(), FooException);
 			});
 		}, FooException);
+	}
+
+	public function test_child_throwing_cancelling_parent() {
+		Assert.raises(() -> {
+			Coroutine.runScoped(scope -> {
+				final child = scope.start(scope -> {
+					delay(1000);
+	
+					throw new FooException();
+				});
+
+				while (scope.context.get(Coroutine.key).isCancelled == false) {
+					yield();
+				}
+			});
+		}, FooException);
+	}
+
+	public function test_manually_cancelling_child() {
+		Assert.raises(() -> {
+			Coroutine.runScoped(scope -> {
+				final child = scope.start(scope -> {
+					delay(1000);
+				});
+
+				delay(500);
+
+				child.cancel();
+			});
+		}, CancellationException);
 	}
 }
