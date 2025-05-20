@@ -31,7 +31,6 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
     public var recursing:Bool;
 
 	var stackItem:Null<StackItem>;
-	var callStackOnFirstSuspension:Null<Array<StackItem>>;
 	var startedException:Bool;
 
     function new(completion:IContinuation<Any>, initialLabel:Int) {
@@ -61,7 +60,7 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 				case Returned:
 					completion.resume(result.result, null);
 				case Thrown:
-					completion.resume(result.result, result.error);
+					completion.resume(null, result.error);
 			}
 			#if coroutine.throw
 			} catch (e:Dynamic) {
@@ -85,7 +84,6 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 
     public function setClassFuncStackItem(cls:String, func:String, file:String, line:Int, pos:Int, pmin:Int, pmax:Int) {
         stackItem = StackItem.FilePos(StackItem.Method(cls, func), file, line, pos);
-		callStackOnFirstSuspension ??= CallStack.callStack();
 		#if eval
 		eval.vm.Context.callMacroApi("associate_enum_value_pos")(stackItem, haxe.macro.Context.makePosition({file: file, min: pmin, max: pmax}));
 		#end
@@ -93,7 +91,6 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 
     public function setLocalFuncStackItem(id:Int, file:String, line:Int, pos:Int, pmin:Int, pmax:Int) {
         stackItem = StackItem.FilePos(StackItem.LocalFunction(id), file, line, pos);
-		callStackOnFirstSuspension ??= CallStack.callStack();
 		#if eval
 		eval.vm.Context.callMacroApi("associate_enum_value_pos")(stackItem, haxe.macro.Context.makePosition({file: file, min: pmin, max: pmax}));
 		#end
@@ -157,12 +154,6 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 		if (stackItem != null) {
 			final stack = error.stack.asArray();
 			stack.insert(stackTraceManager.insertIndex++, stackItem);
-			// if (callStackOnFirstSuspension != null) {
-			// 	callStackOnFirstSuspension = CallStackHelper.cullTopStack(callStackOnFirstSuspension, 2);
-			// 	for (item in callStackOnFirstSuspension) {
-			// 		stack.insert(stackTraceManager.insertIndex++, item);
-			// 	}
-			// }
 			error.stack = stack;
 		}
     }
