@@ -97,6 +97,9 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
     }
 
 	public function startException(exception:Exception) {
+		#if js
+		return;
+		#end
 		var stack = [];
 		var skipping = 0;
 		var insertIndex = 0;
@@ -112,6 +115,7 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 				stackItem = callerFrame.getStackItem();
 			}
 		}
+
 		switch (stackItem) {
 			case null:
 				return;
@@ -142,6 +146,9 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 	}
 
     public function buildCallStack() {
+		#if js
+		return;
+		#end
 		if (startedException) {
 			return;
 		}
