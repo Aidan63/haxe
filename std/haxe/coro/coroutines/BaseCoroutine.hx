@@ -5,6 +5,7 @@ import haxe.CallStack;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.context.IElement;
 import haxe.coro.context.Context;
+import haxe.coro.scopes.ScopeComponent;
 
 private enum abstract CoroutineState(Int) {
     final Running;
@@ -87,46 +88,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 	public function start<T>(c : Coroutine<ICoroutineScope->T>) : ICoroutine<T> {
 		final coroutine : ChildCoroutine<T> = child();
 
-		coroutine.onCompletion(() -> {
-			// if we are not in a cancelled state, transition to one now.
-			// TODO : what should we do if we are already cancelling and another child fails,
-			// some sort of AggregateException which holds both errors?
-			if (coroutine.isCancelled && isCancelled == false) {
-				state = Cancelling;
-				error = coroutine.error;
-
-				for (child in children) {
-					if (child == coroutine) {
-						continue;
-					}
-
-					child.cancel();
-				}
-			}
-
-			// There are still children running, so exit.
-			if (children.length != completedChildren) {
-				return;
-			}
-
-			// All children have completed but the scopes block is still running, so exit.
-			if (state == Running) {
-				return;
-			}
-
-			switch state {
-				case Cancelling:
-					state = Cancelled;
-				case Completing:
-					state = Completed;
-				case _:
-					throw new Exception('Unexpected coroutine state : $state');
-			}
-
-			for (callback in completionCallbacks) {
-				callback();
-			}
-		});
+		coroutine.onCompletion(() -> context.get(ScopeComponent.key).onCompletion(this, coroutine));
 
 		coroutine.context.get(Scheduler.key).schedule(() -> {
 			// TODO: are we potentially ereasing a stack track here?
@@ -162,19 +124,7 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 	}
 
 	public function cancel() {
-		switch state {
-			case Running:
-				completeExceptionally(new CancellationException());
-			case Completing:
-				state = Cancelling;
-				error = new CancellationException();
-
-				for (child in children) {
-					child.cancel();
-				}
-			case _:
-				//
-		}
+		context.get(ScopeComponent.key).cancel(this);
 	}
 
 	public function toString() {
