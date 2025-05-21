@@ -8,10 +8,7 @@ class BlockingCoroutine<T> extends BaseCoroutine<T> {
 	final loop : EventLoop;
 
 	public function new(loop : EventLoop) {
-		super(Context.empty());
-
-		context.add(this);
-		context.add(new EventLoopScheduler(loop));
+		super(Context.create(this, new EventLoopScheduler(loop), new BaseContinuation.StackTraceManager()));
 
 		this.loop = loop;
 
