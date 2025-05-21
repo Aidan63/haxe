@@ -29,20 +29,12 @@ class ElementTree extends BalancedTree<Key<Any>, IElement<Any>> {
 }
 
 abstract Context(ElementTree) {
-	public function new(tree:ElementTree) {
+	public inline function new(tree:ElementTree) {
 		this = tree;
 	}
 
 	public function clone() {
-		return new Context(this.copy());
-	}
-
-	public function with(...elements:IElement<Any>) {
-		var tree = this.copy();
-		for (element in elements) {
-			tree.set(element.getKey(), element);
-		}
-		return new Context(tree);
+		return new AdjustableContext(this.copy());
 	}
 
 	public function get<T>(key:Key<T>):T {
@@ -53,11 +45,24 @@ abstract Context(ElementTree) {
 		return this.toString();
 	}
 
-	static public function empty() {
-		return new Context(new ElementTree());
+	static public function create(...elements:IElement<Any>) {
+		return new AdjustableContext(new ElementTree()).with(...elements);
+	}
+}
+
+abstract AdjustableContext(ElementTree) {
+	public inline function new(tree:ElementTree) {
+		this = tree;
 	}
 
-	static public function create(...elements:IElement<Any>) {
-		return empty().with(...elements);
+	public function with(...elements:IElement<Any>) {
+		for (element in elements) {
+			this.set(element.getKey(), element);
+		}
+		return abstract;
+	}
+
+	@:to function toContext():Context {
+		return new Context(this);
 	}
 }
