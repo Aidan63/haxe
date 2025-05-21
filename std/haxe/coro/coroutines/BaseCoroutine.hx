@@ -55,8 +55,8 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 
 	var completedChildren : Int;
 
-	public function new(context : Context) {
-		this.context  = context;
+	public function new(context : AdjustableContext) {
+		this.context  = context.with(this);
 		this.children = [];
 
 		completionCallbacks = [];
