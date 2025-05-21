@@ -83,7 +83,7 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 	@:coroutine public static function scope<T>(f:Coroutine<(scope : ICoroutineScope)->T>):T {
 		return Coroutine.suspend(cont -> {
 			final coro   = cont.context.get(key);
-			final child  = coro.child();
+			final child  = coro.child(cont.context);
 			final result = f(child, child);
 
 			switch result.state {
