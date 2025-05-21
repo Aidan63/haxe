@@ -108,4 +108,20 @@ class TestThrowingScopes extends utest.Test {
 			});
 		}, CancellationException);
 	}
+
+	public function test_manually_cancelling_polling_child() {
+		Assert.raises(() -> {
+			Coroutine.runScoped(scope -> {
+				final child = scope.start(scope -> {
+					while (scope.context.get(Coroutine.key).isCancelled == false) {
+						yield();
+					}
+				});
+
+				delay(500);
+
+				child.cancel();
+			});
+		}, CancellationException);
+	}
 }
