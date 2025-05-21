@@ -33,16 +33,16 @@ abstract Context(ElementTree) {
 		this = tree;
 	}
 
-	public function add<T:IElement<Any>>(value:T) {
-		this.set(value.getKey(), value);
-	}
-
-	public function clone():Context {
+	public function clone() {
 		return new Context(this.copy());
 	}
 
-	public function set<T:IElement<V>, V>(key:Key<T>, value:T):Void {
-		this.set(key, value);
+	public function with(...elements:IElement<Any>) {
+		var tree = this.copy();
+		for (element in elements) {
+			tree.set(element.getKey(), element);
+		}
+		return new Context(tree);
 	}
 
 	public function get<T>(key:Key<T>):T {
@@ -55,5 +55,9 @@ abstract Context(ElementTree) {
 
 	static public function empty() {
 		return new Context(new ElementTree());
+	}
+
+	static public function create(...elements:IElement<Any>) {
+		return empty().with(...elements);
 	}
 }
