@@ -38,7 +38,7 @@ class TestCoroutineScope extends utest.Test {
 	function test_scope_with_children() {
 		Coroutine.runScoped(_ -> {
 			final actual = [];
-			
+
 			Coroutine.scope(scope -> {
 				scope.start(_ -> {
 					delay(500);
@@ -57,21 +57,24 @@ class TestCoroutineScope extends utest.Test {
 		});
 	}
 
-	// TODO : Hangs forever
-	// function test_parent_scope_cancelling() {
-		// Coroutine.runScoped(scope -> {
+	function test_parent_scope_cancelling() {
+		final acc = [];
+		Coroutine.runScoped(scope -> {
+			final child = scope.start(_ -> {
+				Coroutine.scope(scope -> {
+					while (scope.context.get(Coroutine.key).isCancelled == false) {
+						yield();
+					}
+					acc.push("scope 1");
+				});
+				acc.push("scope 2");
+			});
 
-		// 	final child = scope.start(_ -> {
-		// 		Coroutine.scope(scope -> {
-		// 			while (scope.context.get(Coroutine.key).isCancelled == false) {
-		// 				yield();
-		// 			}
-		// 		});
-		// 	});
-			
-		// 	delay(1000);
-	
-		// 	child.cancel();
-		// });
-	// }
+			delay(1000);
+
+			child.cancel();
+			acc.push("scope 3");
+		});
+		Assert.equals("scope 3, scope 1, scope 2", acc.join(", "));
+	}
 }
