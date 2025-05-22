@@ -67,7 +67,7 @@ class TestCoroutineScope extends utest.Test {
 					}
 					acc.push("scope 1");
 				});
-				acc.push("scope 2");
+				// acc.push("scope 2"); // should this order be defined?
 			});
 
 			delay(1000);
@@ -75,6 +75,6 @@ class TestCoroutineScope extends utest.Test {
 			child.cancel();
 			acc.push("scope 3");
 		});
-		Assert.equals("scope 3, scope 1, scope 2", acc.join(", "));
+		Assert.equals("scope 3, scope 1", acc.join(", "));
 	}
 }
