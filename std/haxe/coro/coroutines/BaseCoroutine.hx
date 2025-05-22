@@ -51,7 +51,7 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 
 	final children : Array<BaseCoroutine<Any>>;
 
-	final completionCallbacks : Array<()->Void>;
+	var completionCallbacks : Array<()->Void>;
 
 	var completedChildren : Int;
 
@@ -161,15 +161,23 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 		return Coroutine.key;
 	}
 
+	function handleCompletionCallbacks() {
+		while (completionCallbacks.length > 0) {
+			final callbacks = completionCallbacks;
+			completionCallbacks = [];
+			for (callback in callbacks) {
+				callback();
+			}
+		}
+	}
+
 	public function complete(result : T) {
 		this.result = result;
 
 		if (children.length == 0 || children.length == completedChildren) {
 			state = Completed;
 
-			for (callback in completionCallbacks) {
-				callback();
-			}
+			handleCompletionCallbacks();
 		} else {
 			state = Completing;
 		}
@@ -181,9 +189,7 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 		if (children.length == 0 || children.length == completedChildren) {
 			state = Cancelled;
 
-			for (callback in completionCallbacks) {
-				callback();
-			}
+			handleCompletionCallbacks();
 		}
 		else {
 			state = Cancelling;
