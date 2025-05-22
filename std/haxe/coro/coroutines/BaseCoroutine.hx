@@ -15,7 +15,26 @@ private enum abstract CoroutineState(Int) {
 	final Cancelled;
 }
 
-abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
+class AdjustedContext<T> implements ICoroutineScope {
+	public final context:Context;
+	final coroutine:BaseCoroutine<T>;
+
+	public function new(context:Context, coroutine:BaseCoroutine<T>) {
+		this.context = context;
+		this.coroutine = coroutine;
+	}
+
+	@:access(haxe.coro.coroutines.BaseCoroutine)
+	public function start<T>(c:Coroutine<ICoroutineScope->T>):ICoroutine<T> {
+		return coroutine.startChild(c, coroutine.child(context));
+	}
+
+	public function with(...elements:IElement<Any>) {
+		return new AdjustedContext(context.clone().with(...elements), coroutine);
+	}
+}
+
+class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
 	public final context : Context;
 
 	public var isRunning (get, never) : Bool;
@@ -30,14 +49,14 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 
 	public var state : CoroutineState;
 
-	final children : Array<ChildCoroutine<Any>>;
+	final children : Array<BaseCoroutine<Any>>;
 
 	final completionCallbacks : Array<()->Void>;
 
 	var completedChildren : Int;
 
 	public function new(context : Context) {
-		this.context  = context;
+		this.context  = context.clone().with(this);
 		this.children = [];
 
 		completionCallbacks = [];
@@ -73,8 +92,8 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 		}
 	}
 
-	public function child<T>() {
-		final coroutine = new ChildCoroutine<T>(context);
+	public function child<T>(context:Context) {
+		final coroutine = new BaseCoroutine<T>(context);
 
 		coroutine.onCompletion(() -> {
 			completedChildren++;
@@ -85,8 +104,15 @@ abstract class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements 
 		return coroutine;
 	}
 
-	public function start<T>(c : Coroutine<ICoroutineScope->T>) : ICoroutine<T> {
-		final coroutine : ChildCoroutine<T> = child();
+	public function with(...elements:IElement<Any>) {
+		return new AdjustedContext(context.clone().with(...elements), this);
+	}
+
+	public function start<T>(c:Coroutine<ICoroutineScope->T>):ICoroutine<T> {
+		return startChild(c, child(context));
+	}
+
+	function startChild<T>(c:Coroutine<ICoroutineScope->T>, coroutine:BaseCoroutine<T>):ICoroutine<T> {
 
 		coroutine.onCompletion(() -> context.get(ScopeComponent.key).onCompletion(this, coroutine));
 
