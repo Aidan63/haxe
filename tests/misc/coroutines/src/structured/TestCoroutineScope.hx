@@ -1,5 +1,6 @@
 package structured;
 
+import haxe.exceptions.CancellationException;
 import haxe.Exception;
 import haxe.coro.Coroutine;
 import haxe.coro.Coroutine.delay;
@@ -61,20 +62,22 @@ class TestCoroutineScope extends utest.Test {
 		final acc = [];
 		Coroutine.runScoped(scope -> {
 			final child = scope.start(_ -> {
-				Coroutine.scope(scope -> {
-					while (scope.context.get(Coroutine.key).isCancelled == false) {
-						yield();
-					}
-					acc.push("scope 1");
-				});
-				// acc.push("scope 2"); // should this order be defined?
+				try {
+					Coroutine.scope(scope -> {
+						while (scope.context.get(Coroutine.key).isCancelled == false) {
+							yield();
+						}
+						acc.push("scope 1");
+					});
+				} catch (e:CancellationException) {
+					acc.push("scope 2");
+				}
 			});
 
 			delay(1000);
-
 			child.cancel();
 			acc.push("scope 3");
 		});
-		Assert.equals("scope 3, scope 1", acc.join(", "));
+		Assert.equals("scope 3, scope 1, scope 2", acc.join(", "));
 	}
 }

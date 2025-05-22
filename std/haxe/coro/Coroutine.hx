@@ -98,9 +98,9 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 			child.onCompletion(() -> {
 				switch child.state {
 					case Completed:
-						cont.resume(child.result, child.error);
+						cont.resume(child.result, null);
 					case Cancelled:
-						cont.resume(null, null);
+						cont.resume(null, child.error);
 					case _:
 						throw new Exception('Unexpected coroutine state');
 				}
