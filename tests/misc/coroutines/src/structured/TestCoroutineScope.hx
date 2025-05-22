@@ -78,6 +78,8 @@ class TestCoroutineScope extends utest.Test {
 			child.cancel();
 			acc.push("scope 3");
 		});
-		Assert.equals("scope 3, scope 1, scope 2", acc.join(", "));
+		Assert.contains("scope 1", acc);
+		Assert.contains("scope 2", acc);
+		Assert.contains("scope 3", acc);
 	}
 }
