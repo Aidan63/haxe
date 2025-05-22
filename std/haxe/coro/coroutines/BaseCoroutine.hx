@@ -8,10 +8,25 @@ import haxe.coro.context.Context;
 import haxe.coro.scopes.ScopeComponent;
 
 private enum abstract CoroutineState(Int) {
+	/**
+		The coroutine itself is still running.
+	**/
     final Running;
+	/**
+		The coroutine itself has completed, but some of its children are still running.
+	**/
     final Completing;
+	/**
+		The coroutine itself and all of its children are completed.
+	**/
     final Completed;
+	/**
+		The coroutine itself has been cancelled, but some of its children are still running.
+	**/
 	final Cancelling;
+	/**
+		The coroutine itself and all of its children have been cancelled.
+	**/
 	final Cancelled;
 }
 
@@ -201,14 +216,27 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 	}
 
 	function get_isRunning() {
-		return state == Running;
+		return switch state {
+			case Running: true;
+			case _: false;
+		}
 	}
 
 	function get_isCancelled() {
-		return state == Cancelling || state == Cancelled;
+		return switch state {
+			case Cancelling | Cancelled:
+				true;
+			case _:
+				false;
+		}
 	}
 
 	function get_isCompleted() {
-		return state == Completed || state == Cancelled;
+		return switch state {
+			case Completed | Cancelled:
+				true;
+			case _:
+				false;
+		}
 	}
 }
