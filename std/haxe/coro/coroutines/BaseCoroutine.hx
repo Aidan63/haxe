@@ -55,8 +55,8 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 
 	var completedChildren : Int;
 
-	public function new(context : AdjustableContext) {
-		this.context  = context.with(this);
+	public function new(context : Context) {
+		this.context  = context.clone().with(this);
 		this.children = [];
 
 		completionCallbacks = [];
@@ -93,7 +93,7 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 	}
 
 	public function child<T>(context:Context) {
-		final coroutine = new BaseCoroutine<T>(context.clone());
+		final coroutine = new BaseCoroutine<T>(context);
 
 		coroutine.onCompletion(() -> {
 			completedChildren++;
