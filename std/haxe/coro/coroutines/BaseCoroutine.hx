@@ -7,6 +7,8 @@ import haxe.coro.context.IElement;
 import haxe.coro.context.Context;
 import haxe.coro.scopes.ScopeComponent;
 
+typedef ScopedCoroutine<T> = Coroutine<(scope:ICoroutineScope) -> T>;
+
 private enum abstract CoroutineState(Int) {
 	/**
 		The coroutine itself is still running.
@@ -30,6 +32,22 @@ private enum abstract CoroutineState(Int) {
 	final Cancelled;
 }
 
+interface ICoroutineHost {
+	function childCompletes<T>(child:ICoroutine<T>, result:T):Void;
+	function childErrors(child:ICoroutine<Any>, error:Exception):Void;
+	function childCancels(child:ICoroutine<Any>, error:Exception):Void;
+}
+
+class ChildAwait {
+	public final continuation:IContinuation<Any>;
+	public final child:ICoroutine<Any>;
+
+	public function new(continuation:IContinuation<Any>, child:ICoroutine<Any>) {
+		this.continuation = continuation;
+		this.child = child;
+	}
+}
+
 class AdjustedContext<T> implements ICoroutineScope {
 	public final context:Context;
 	final coroutine:BaseCoroutine<T>;
@@ -40,8 +58,10 @@ class AdjustedContext<T> implements ICoroutineScope {
 	}
 
 	@:access(haxe.coro.coroutines.BaseCoroutine)
-	public function start<T>(c:Coroutine<ICoroutineScope->T>):ICoroutine<T> {
-		return coroutine.startChild(c, coroutine.child(context));
+	public function start<T>(c:ScopedCoroutine<T>) {
+		final child = coroutine.child(context);
+		coroutine.startChild(child, c);
+		return child;
 	}
 
 	public function with(...elements:IElement<Any>) {
@@ -49,12 +69,10 @@ class AdjustedContext<T> implements ICoroutineScope {
 	}
 }
 
-class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> {
+class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> implements ICoroutineHost {
 	public final context : Context;
 
-	public var isRunning (get, never) : Bool;
-
-	public var isCancelled (get, never) : Bool;
+	public var isCancellable (get, never) : Bool;
 
 	public var isCompleted (get, never) : Bool;
 
@@ -64,19 +82,21 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 
 	public var state : CoroutineState;
 
+	public final parent:Null<ICoroutineHost>;
+
 	final children : Array<BaseCoroutine<Any>>;
-
-	var completionCallbacks : Array<()->Void>;
-
+	var childAwait : Null<ChildAwait>;
 	var completedChildren : Int;
+	var isCancelling : Bool;
 
-	public function new(context : Context) {
+	public function new(context : Context, ?parent : ICoroutineHost) {
 		this.context  = context.clone().with(this);
+		this.parent   = parent;
 		this.children = [];
 
-		completionCallbacks = [];
 		completedChildren   = 0;
 		state               = Running;
+		isCancelling        = false;
 	}
 
 	@:coroutine public function await() : T {
@@ -87,85 +107,116 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 				case Cancelled:
 					cont.resume(null, error);
 				case _:
-					completionCallbacks.push(() -> {
-						if (error != null) {
-							cont.resume(null, error);
-						} else {
-							cont.resume(result, null);
-						}
-					});
+					// TODO: this is a hack
+					(cast cont.context.get(Coroutine.key) : BaseCoroutine<Any>).childAwait = new ChildAwait(cont, this);
 			}
-        });
+		});
 	}
 
-	public function resume(result : T, error : Exception) : Void {
-		switch error {
-			case null:
-				complete(result);
+	public function resume(result:T, error:Exception) {
+		this.result = result;
+		this.error = error;
+		if (error == null) {
+			state = Completing;
+		} else {
+			state = Cancelling;
+			final cancellationException = if (error is CancellationException) {
+				isCancelling = true;
+				(cast error : CancellationException);
+			} else {
+				new CancellationException();
+			}
+			for (child in children) {
+				child.cancel(cancellationException);
+			}
+		}
+		checkCompletion();
+	}
+
+	function checkCompletion() {
+		switch (state) {
+			case Completing:
+				if (completedChildren == children.length) {
+					state = Completed;
+					parent?.childCompletes(this, result);
+				}
+			case Cancelling:
+				if (completedChildren == children.length) {
+					state = Cancelled;
+					if (isCancelling) {
+						parent?.childCancels(this, error);
+					} else {
+						parent?.childErrors(this, error);
+					}
+				}
 			case _:
-				completeExceptionally(error);
 		}
 	}
 
+	// children
+
 	public function child<T>(context:Context) {
-		final coroutine = new BaseCoroutine<T>(context);
-
-		coroutine.onCompletion(() -> {
-			completedChildren++;
-		});
-
-		children.push(coroutine);
-
-		return coroutine;
+		final childCoro = new BaseCoroutine<T>(context, this);
+		children.push(childCoro);
+		return childCoro;
 	}
 
 	public function with(...elements:IElement<Any>) {
 		return new AdjustedContext(context.clone().with(...elements), this);
 	}
 
-	public function start<T>(c:Coroutine<ICoroutineScope->T>):ICoroutine<T> {
-		return startChild(c, child(context));
+	public function start<T>(c:ScopedCoroutine<T>):ICoroutine<T> {
+		final child = child(context);
+		startChild(child, c);
+		return child;
 	}
 
-	function startChild<T>(c:Coroutine<ICoroutineScope->T>, coroutine:BaseCoroutine<T>):ICoroutine<T> {
-
-		coroutine.onCompletion(() -> context.get(ScopeComponent.key).onCompletion(this, coroutine));
-
-		coroutine.context.get(Scheduler.key).schedule(() -> {
-			// TODO: are we potentially ereasing a stack track here?
-			// would it be better to have the coroutine function pre-amble to check this and error "normally"?
-			if (coroutine.isCancelled) {
-				coroutine.completeExceptionally(coroutine.error);
-
-				return;
-			}
-
-			final result = c(coroutine, coroutine);
-
+	public function startChild<T, C:ICoroutine<T> & ICoroutineScope & IContinuation<T>>(childCoro:C, f:ScopedCoroutine<T>) {
+		childCoro.context.get(Scheduler.key).schedule(() -> {
+			final result = f(childCoro, childCoro);
 			switch result.state {
 				case Pending:
 					return;
 				case Returned:
-					coroutine.complete(result.result);
+					childCoro.resume(result.result, null);
 				case Thrown:
-					coroutine.completeExceptionally(result.error);
+					childCoro.resume(null, result.error);
 			}
 		});
-
-		return coroutine;
 	}
 
-	public function onCompletion(c : ()->Void) {
-		switch state {
-			case Completed, Cancelled:
-				c();
-			case _:
-				completionCallbacks.push(c);
+	public function childCompletes<T>(child:ICoroutine<T>, result:T) {
+		completedChildren++;
+		if (childAwait?.child == child) {
+			childAwait.continuation.resume(result, null);
 		}
+		checkCompletion();
 	}
 
-	public function cancel() {
-		context.get(ScopeComponent.key).cancel(this);
+	public function childErrors(child:ICoroutine<Any>, error:Exception) {
+		completedChildren++;
+		if (childAwait?.child == child) {
+			childAwait.continuation.resume(null, error);
+		} else {
+			context.get(ScopeComponent.key).childErrors(this, child, error);
+		}
+		checkCompletion();
+	}
+
+	public function childCancels(child:ICoroutine<Any>, error:Exception) {
+		completedChildren++;
+		if (childAwait?.child == child) {
+			childAwait.continuation.resume(null, error);
+		} else {
+			context.get(ScopeComponent.key).childCancels(this, child, error);
+		}
+		checkCompletion();
+	}
+
+	public function cancel(?error:CancellationException) {
+		if (isCancellable) {
+			resume(null, error ?? new CancellationException());
+		}
 	}
 
 	public function toString() {
@@ -176,66 +227,20 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 		return Coroutine.key;
 	}
 
-	function handleCompletionCallbacks() {
-		while (completionCallbacks.length > 0) {
-			final callbacks = completionCallbacks;
-			completionCallbacks = [];
-			for (callback in callbacks) {
-				callback();
-			}
-		}
-	}
-
-	public function complete(result : T) {
-		this.result = result;
-
-		if (children.length == 0 || children.length == completedChildren) {
-			state = Completed;
-
-			handleCompletionCallbacks();
-		} else {
-			state = Completing;
-		}
-	}
-
-	public function completeExceptionally(error : Exception) {
-		this.error  = error;
-
-		if (children.length == 0 || children.length == completedChildren) {
-			state = Cancelled;
-
-			handleCompletionCallbacks();
-		}
-		else {
-			state = Cancelling;
-
-			for (child in children) {
-				child.cancel();
-			}
-		}
-	}
-
-	function get_isRunning() {
-		return switch state {
-			case Running: true;
-			case _: false;
-		}
-	}
-
-	function get_isCancelled() {
-		return switch state {
-			case Cancelling | Cancelled:
+	function get_isCancellable() {
+		return switch (state) {
+			case Running | Completing:
 				true;
-			case _:
+			case Cancelling | Cancelled | Completed:
 				false;
 		}
 	}
 
 	function get_isCompleted() {
-		return switch state {
+		return switch (state) {
 			case Completed | Cancelled:
 				true;
-			case _:
+			case Completing | Cancelling | Running:
 				false;
 		}
 	}

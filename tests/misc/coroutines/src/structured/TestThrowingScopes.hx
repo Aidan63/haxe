@@ -39,7 +39,7 @@ class TestThrowingScopes extends utest.Test {
 		Assert.raises(() -> {
 			Coroutine.runScoped(scope -> {
 				scope.start(_ -> {
-					while (scope.context.get(Coroutine.key).isCancelled == false) {
+					while (scope.context.get(Coroutine.key).isCompleted == false) {
 						yield();
 					}
 				});
@@ -54,7 +54,7 @@ class TestThrowingScopes extends utest.Test {
 			Coroutine.runScoped(scope -> {
 				scope.start(scope -> {
 					scope.start(scope -> {
-						while (scope.context.get(Coroutine.key).isCancelled == false) {
+						while (scope.context.get(Coroutine.key).isCompleted == false) {
 							yield();
 						}
 					});
@@ -70,7 +70,7 @@ class TestThrowingScopes extends utest.Test {
 			Coroutine.runScoped(scope -> {
 				final child = scope.start(scope -> {
 					yield();
-	
+
 					throw new FooException();
 				});
 
@@ -84,11 +84,11 @@ class TestThrowingScopes extends utest.Test {
 			Coroutine.runScoped(scope -> {
 				final child = scope.start(scope -> {
 					delay(1000);
-	
+
 					throw new FooException();
 				});
 
-				while (scope.context.get(Coroutine.key).isCancelled == false) {
+				while (scope.context.get(Coroutine.key).isCompleted == false) {
 					yield();
 				}
 			});
@@ -96,32 +96,30 @@ class TestThrowingScopes extends utest.Test {
 	}
 
 	public function test_manually_cancelling_child() {
-		Assert.raises(() -> {
-			Coroutine.runScoped(scope -> {
-				final child = scope.start(scope -> {
-					delay(1000);
-				});
-
-				delay(500);
-
-				child.cancel();
+		Coroutine.runScoped(scope -> {
+			final child = scope.start(scope -> {
+				delay(1000);
 			});
-		}, CancellationException);
+
+			delay(500);
+
+			child.cancel();
+			Assert.pass();
+		});
 	}
 
 	public function test_manually_cancelling_polling_child() {
-		Assert.raises(() -> {
-			Coroutine.runScoped(scope -> {
-				final child = scope.start(scope -> {
-					while (scope.context.get(Coroutine.key).isCancelled == false) {
-						yield();
-					}
-				});
-
-				delay(500);
-
-				child.cancel();
+		Coroutine.runScoped(scope -> {
+			final child = scope.start(scope -> {
+				while (scope.context.get(Coroutine.key).isCompleted == false) {
+					yield();
+				}
 			});
-		}, CancellationException);
+
+			delay(500);
+
+			child.cancel();
+			Assert.pass();
+		});
 	}
 }

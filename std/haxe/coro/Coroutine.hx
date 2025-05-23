@@ -1,12 +1,14 @@
 package haxe.coro;
 
 import haxe.coro.EventLoop;
+import haxe.coro.context.Context;
 import haxe.coro.context.Key;
-import haxe.coro.coroutines.BlockingCoroutine;
+import haxe.coro.coroutines.BaseCoroutine;
 import haxe.coro.schedulers.EventLoopScheduler;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.continuations.RacingContinuation;
 import haxe.coro.continuations.BlockingContinuation;
+import haxe.coro.scopes.DefaultScopeComponent;
 import haxe.exceptions.NotImplementedException;
 
 private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
@@ -64,47 +66,32 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 	}
 
 	public static function runScoped<T>(f:Coroutine<(scope : ICoroutineScope)->T>):T {
-		final loop   = new EventLoop();
-		final cont   = new BlockingCoroutine(loop);
-		final result = f(cont, cont);
-
+		final loop = new EventLoop();
+		final schedulerComponent = new EventLoopScheduler(loop);
+		final scopeComponent = new DefaultScopeComponent();
+		final stackTraceManagerComponent = new haxe.coro.BaseContinuation.StackTraceManager();
+		final coro = new BaseCoroutine(Context.create(scopeComponent, schedulerComponent, stackTraceManagerComponent));
+		final result = f(coro, coro);
 		switch (result.state) {
 			case Pending:
 				//
 			case Returned:
-				cont.resume(result.result, null);
+				coro.resume(result.result, null);
 			case Thrown:
-				cont.resume(null, result.error);
+				coro.resume(null, result.error);
 		}
-
-		return cont.wait();
-	}
-
-	@:coroutine public static function scope<T>(f:Coroutine<(scope : ICoroutineScope)->T>):T {
-		return Coroutine.suspend(cont -> {
-			final coro   = cont.context.get(key);
-			final child  = coro.child(cont.context);
-			final result = f(child, child);
-
-			switch result.state {
-				case Pending:
-					//
-				case Returned:
-					child.complete(result.result);
-				case Thrown:
-					child.completeExceptionally(result.error);
+		while (loop.tick()) {
+			switch (coro.state) {
+				case Completed | Cancelled:
+					break;
+				case _:
 			}
-
-			child.onCompletion(() -> {
-				switch child.state {
-					case Completed:
-						cont.resume(child.result, null);
-					case Cancelled:
-						cont.resume(null, child.error);
-					case _:
-						throw new Exception('Unexpected coroutine state');
-				}
-			});
-		});
+			// Busy wait
+		}
+		if (coro.error != null) {
+			throw coro.error;
+		} else {
+			return coro.result;
+		}
 	}
 }

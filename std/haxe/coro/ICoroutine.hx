@@ -2,17 +2,17 @@ package haxe.coro;
 
 import haxe.coro.context.Context;
 import haxe.coro.coroutines.BaseCoroutine;
+import haxe.exceptions.CancellationException;
 
 interface ICoroutine<T> {
-	var isRunning (get, never) : Bool;
 
-	var isCancelled (get, never) : Bool;
+	var isCancellable(get,null):Bool;
 
-	var isCompleted (get, never) : Bool;
+	var isCompleted(get,null):Bool;
 
 	@:coroutine function await() : T;
 
-	function cancel() : Void;
+	function cancel(?error:CancellationException):Void;
 
 	function child(context:Context) : BaseCoroutine<T>;
 }
