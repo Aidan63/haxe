@@ -1,6 +1,6 @@
 package haxe.exceptions;
 
-class CancellationException extends Exception {
+class CancellationException extends CoroutineException {
 	public function new() {
 		super('Cancellation exception');
 	}

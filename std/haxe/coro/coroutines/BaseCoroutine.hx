@@ -1,7 +1,7 @@
 package haxe.coro.coroutines;
 
 import haxe.exceptions.CancellationException;
-import haxe.CallStack;
+import haxe.exceptions.CoroutineException;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.context.IElement;
 import haxe.coro.context.Context;
@@ -32,17 +32,18 @@ private enum abstract CoroutineState(Int) {
 	final Cancelled;
 }
 
-interface ICoroutineHost {
+private interface ICoroutineHost<T> extends ICoroutine<T> {
+	function awaitChild<T>(child:ICoroutine<T>, continuation:IContinuation<T>):Void;
 	function childCompletes<T>(child:ICoroutine<T>, result:T):Void;
 	function childErrors(child:ICoroutine<Any>, error:Exception):Void;
 	function childCancels(child:ICoroutine<Any>, error:Exception):Void;
 }
 
-class ChildAwait {
-	public final continuation:IContinuation<Any>;
-	public final child:ICoroutine<Any>;
+private class ChildAwait<T> {
+	public final continuation:IContinuation<T>;
+	public final child:ICoroutine<T>;
 
-	public function new(continuation:IContinuation<Any>, child:ICoroutine<Any>) {
+	public function new(continuation:IContinuation<T>, child:ICoroutine<T>) {
 		this.continuation = continuation;
 		this.child = child;
 	}
@@ -69,7 +70,7 @@ class AdjustedContext<T> implements ICoroutineScope {
 	}
 }
 
-class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> implements ICoroutineHost {
+class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutine<T> implements ICoroutineScope implements IContinuation<T> implements ICoroutineHost<T> {
 	public final context : Context;
 
 	public var isCancellable (get, never) : Bool;
@@ -82,14 +83,14 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 
 	public var state : CoroutineState;
 
-	public final parent:Null<ICoroutineHost>;
+	public final parent:Null<ICoroutineHost<Any>>;
 
 	final children : Array<BaseCoroutine<Any>>;
-	var childAwait : Null<ChildAwait>;
+	var childAwait : Null<ChildAwait<Any>>;
 	var completedChildren : Int;
 	var isCancelling : Bool;
 
-	public function new(context : Context, ?parent : ICoroutineHost) {
+	public function new(context : Context, ?parent : ICoroutineHost<Any>) {
 		this.context  = context.clone().with(this);
 		this.parent   = parent;
 		this.children = [];
@@ -107,8 +108,11 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 				case Cancelled:
 					cont.resume(null, error);
 				case _:
-					// TODO: this is a hack
-					(cast cont.context.get(Coroutine.key) : BaseCoroutine<Any>).childAwait = new ChildAwait(cont, this);
+					final current = cont.context.get(Coroutine.key);
+					if (current != parent) {
+						throw new CoroutineException("Can only await a direct child");
+					}
+					parent.awaitChild(this, cont);
 			}
 		});
 	}
@@ -183,6 +187,10 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 					childCoro.resume(null, result.error);
 			}
 		});
+	}
+
+	public function awaitChild<T>(child:ICoroutine<T>, continuation:IContinuation<T>) {
+		childAwait = new ChildAwait(continuation, child);
 	}
 
 	public function childCompletes<T>(child:ICoroutine<T>, result:T) {
