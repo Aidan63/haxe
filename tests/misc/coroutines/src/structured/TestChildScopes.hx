@@ -3,6 +3,7 @@ package structured;
 import haxe.coro.Coroutine;
 import haxe.coro.Coroutine.delay;
 import haxe.coro.Coroutine.yield;
+import structured.TestThrowingScopes.FooException;
 
 class TestChildScopes extends utest.Test {
 	function test_waiting_for_child() {
@@ -148,5 +149,42 @@ class TestChildScopes extends utest.Test {
 		});
 
 		Assert.equals(expected, result);
+	}
+
+	function test_create_return() {
+		final result = Coroutine.runScoped(scope -> {
+			final child = scope.create(_ -> return "foo");
+			return child.await();
+		});
+		Assert.equals("foo", result);
+	}
+
+	function test_create_throw() {
+		Assert.raises(() -> Coroutine.runScoped(scope -> {
+			final child = scope.create(_ -> throw new FooException());
+			AssertAsync.raises(() -> child.await(), FooException);
+		}), FooException);
+	}
+
+	function test_create_nothrow() {
+		Coroutine.runScoped(scope -> {
+			final child = scope.create(_ -> throw new FooException());
+			yield();
+		});
+		// no throw because no await
+		Assert.pass();
+	}
+
+	function test_create_catch() {
+		final result = Coroutine.runScoped(scope -> {
+			final child = scope.create(_ -> throw new FooException());
+			try {
+				child.await();
+				return "wrong";
+			} catch(exc:FooException) {
+				return exc.message;
+			}
+		});
+		Assert.equals("foo", result);
 	}
 }

@@ -6,7 +6,7 @@ import haxe.coro.Coroutine.delay;
 import haxe.coro.Coroutine.yield;
 import haxe.exceptions.CancellationException;
 
-private class FooException extends Exception {
+class FooException extends Exception {
 	public function new() {
 		super('foo');
 	}
