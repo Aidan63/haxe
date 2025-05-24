@@ -1,5 +1,6 @@
 package structured;
 
+import haxe.coro.scopes.SupervisorScopeComponent;
 import haxe.coro.Coroutine;
 import haxe.coro.Coroutine.delay;
 import haxe.coro.Coroutine.yield;
@@ -65,7 +66,7 @@ class TestChildScopes extends utest.Test {
 			scope.start(scope -> {
 				scope.start(_ -> {
 					delay(500);
-	
+
 					result.push(0);
 				});
 			});
@@ -107,7 +108,7 @@ class TestChildScopes extends utest.Test {
 							return expected;
 						})
 						.await();
-				
+
 			});
 
 			return child.await();
@@ -186,5 +187,25 @@ class TestChildScopes extends utest.Test {
 			}
 		});
 		Assert.equals("foo", result);
+	}
+
+	function test_supervisor_scope() {
+		final result = Coroutine.runScoped(scope -> {
+			scope.with(new SupervisorScopeComponent()).start(scope -> {
+				scope.start(_ -> throw "immediately");
+				scope.start(_ -> { yield(); throw "after yield"; });
+				"this is fine";
+			}).await();
+		});
+		Assert.equals("this is fine", result);
+	}
+
+	function test_supervisor_scope_await() {
+		Assert.raises(() -> Coroutine.runScoped(scope -> {
+			scope.with(new SupervisorScopeComponent()).start(scope -> {
+				final child = scope.start(_ -> throw new FooException());
+				AssertAsync.raises(() -> child.await(), FooException);
+			}).await();
+		}), FooException);
 	}
 }
