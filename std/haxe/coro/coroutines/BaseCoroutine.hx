@@ -59,13 +59,15 @@ class AdjustedContext<T> implements ICoroutineScope {
 	}
 
 	public function create<T>(c:Coroutine<ICoroutineScope->T>) {
-		return new CreatedChild(coroutine, coroutine.child(context), c);
+		return new CreatedCoroutine(coroutine.child(context), c);
 	}
 
 	@:access(haxe.coro.coroutines.BaseCoroutine)
-	public function start<T>(c:ScopedCoroutine<T>) {
+	public function start<T>(f:ScopedCoroutine<T>) {
 		final child = coroutine.child(context);
-		coroutine.startChild(child, c);
+		child.context.get(Scheduler.key).schedule(() -> {
+			Coroutine.startCoroutine(child, f);
+		});
 		return child;
 	}
 
@@ -173,28 +175,16 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 		return new AdjustedContext(context.clone().with(...elements), this);
 	}
 
-	public function create<T>(c:ScopedCoroutine<T>) {
-		return new CreatedChild(this, child(context), c);
+	public function create<T>(f:ScopedCoroutine<T>) {
+		return new CreatedCoroutine(child(context), f);
 	}
 
-	public function start<T>(c:ScopedCoroutine<T>):ICoroutine<T> {
+	public function start<T>(f:ScopedCoroutine<T>):ICoroutine<T> {
 		final child = child(context);
-		startChild(child, c);
-		return child;
-	}
-
-	public function startChild<T, C:ICoroutine<T> & ICoroutineScope & IContinuation<T>>(childCoro:C, f:ScopedCoroutine<T>) {
-		childCoro.context.get(Scheduler.key).schedule(() -> {
-			final result = f(childCoro, childCoro);
-			switch result.state {
-				case Pending:
-					return;
-				case Returned:
-					childCoro.resume(result.result, null);
-				case Thrown:
-					childCoro.resume(null, result.error);
-			}
+		child.context.get(Scheduler.key).schedule(() -> {
+			Coroutine.startCoroutine(child, f);
 		});
+		return child;
 	}
 
 	public function awaitChild<T>(child:ICoroutine<T>, continuation:IContinuation<T>) {

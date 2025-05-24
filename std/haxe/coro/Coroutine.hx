@@ -50,6 +50,18 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		});
 	}
 
+	static public function startCoroutine<T, C:ICoroutine<T> & ICoroutineScope & IContinuation<T>>(coroutine:C, f:ScopedCoroutine<T>) {
+		final result = f(coroutine, coroutine);
+		switch result.state {
+			case Pending:
+				return;
+			case Returned:
+				coroutine.resume(result.result, null);
+			case Thrown:
+				coroutine.resume(null, result.error);
+		}
+	}
+
 	public static function run<T>(f:Coroutine<() -> T>):T {
 		final loop    = new EventLoop();
 		final cont    = new BlockingContinuation<T>(loop, new EventLoopScheduler(loop));
@@ -71,21 +83,8 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		final scopeComponent = new DefaultScopeComponent();
 		final stackTraceManagerComponent = new haxe.coro.BaseContinuation.StackTraceManager();
 		final coro = new BaseCoroutine(Context.create(scopeComponent, schedulerComponent, stackTraceManagerComponent));
-		final result = f(coro, coro);
-		switch (result.state) {
-			case Pending:
-				//
-			case Returned:
-				coro.resume(result.result, null);
-			case Thrown:
-				coro.resume(null, result.error);
-		}
-		while (loop.tick()) {
-			switch (coro.state) {
-				case Completed | Cancelled:
-					break;
-				case _:
-			}
+		startCoroutine(coro, f);
+		while (loop.tick() && !coro.isCompleted) {
 			// Busy wait
 		}
 		if (coro.error != null) {
