@@ -33,20 +33,9 @@ private enum abstract CoroutineState(Int) {
 }
 
 private interface ICoroutineHost<T> extends ICoroutine<T> {
-	function awaitChild<T>(child:ICoroutine<T>, continuation:IContinuation<T>):Void;
 	function childCompletes<T>(child:ICoroutine<T>, result:T):Void;
 	function childErrors(child:ICoroutine<Any>, error:Exception):Void;
 	function childCancels(child:ICoroutine<Any>, error:Exception):Void;
-}
-
-private class ChildAwait<T> {
-	public final continuation:IContinuation<T>;
-	public final child:ICoroutine<T>;
-
-	public function new(continuation:IContinuation<T>, child:ICoroutine<T>) {
-		this.continuation = continuation;
-		this.child = child;
-	}
 }
 
 class AdjustedContext<T> implements ICoroutineScope {
@@ -88,7 +77,7 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 	public final parent:Null<ICoroutineHost<Any>>;
 
 	final children : Array<BaseCoroutine<Any>>;
-	var childAwait : Null<ChildAwait<Any>>;
+	var completionCallbacks:Array<() -> Void>;
 	var completedChildren : Int;
 	var isCancelling : Bool;
 
@@ -97,6 +86,7 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 		this.parent   = parent;
 		this.children = [];
 
+		completionCallbacks = [];
 		completedChildren   = 0;
 		state               = Running;
 		isCancelling        = false;
@@ -110,13 +100,25 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 				case Cancelled:
 					cont.resume(null, error);
 				case _:
-					final current = cont.context.get(Coroutine.key);
-					if (current != parent) {
-						throw new CoroutineException("Can only await a direct child");
-					}
-					parent.awaitChild(this, cont);
+					completionCallbacks.push(() -> {
+						if (error != null) {
+							cont.resume(null, error);
+						} else {
+							cont.resume(result, null);
+						}
+					});
 			}
 		});
+	}
+
+	function handleCompletionCallbacks() {
+		while (completionCallbacks.length > 0) {
+			final callbacks = completionCallbacks;
+			completionCallbacks = [];
+			for (callback in callbacks) {
+				callback();
+			}
+		}
 	}
 
 	public function resume(result:T, error:Exception) {
@@ -145,6 +147,7 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 				if (completedChildren == children.length) {
 					state = Completed;
 					parent?.childCompletes(this, result);
+					handleCompletionCallbacks();
 				}
 			case Cancelling:
 				if (completedChildren == children.length) {
@@ -154,8 +157,18 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 					} else {
 						parent?.childErrors(this, error);
 					}
+					handleCompletionCallbacks();
 				}
 			case _:
+		}
+	}
+
+	public function onCompletion(c:() -> Void) {
+		switch state {
+			case Completed, Cancelled:
+				c();
+			case _:
+				completionCallbacks.push(c);
 		}
 	}
 
@@ -179,35 +192,20 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 		return child;
 	}
 
-	public function awaitChild<T>(child:ICoroutine<T>, continuation:IContinuation<T>) {
-		childAwait = new ChildAwait(continuation, child);
-	}
-
 	public function childCompletes<T>(child:ICoroutine<T>, result:T) {
 		completedChildren++;
-		if (childAwait?.child == child) {
-			childAwait.continuation.resume(result, null);
-		}
 		checkCompletion();
 	}
 
 	public function childErrors(child:ICoroutine<Any>, error:Exception) {
 		completedChildren++;
-		if (childAwait?.child == child) {
-			childAwait.continuation.resume(null, error);
-		} else {
-			context.get(ScopeComponent.key).childErrors(this, child, error);
-		}
+		context.get(ScopeComponent.key).childErrors(this, child, error);
 		checkCompletion();
 	}
 
 	public function childCancels(child:ICoroutine<Any>, error:Exception) {
 		completedChildren++;
-		if (childAwait?.child == child) {
-			childAwait.continuation.resume(null, error);
-		} else {
-			context.get(ScopeComponent.key).childCancels(this, child, error);
-		}
+		context.get(ScopeComponent.key).childCancels(this, child, error);
 		checkCompletion();
 	}
 
