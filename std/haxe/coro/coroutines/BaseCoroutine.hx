@@ -58,10 +58,6 @@ class AdjustedContext<T> implements ICoroutineScope {
 		this.coroutine = coroutine;
 	}
 
-	public function create<T>(c:Coroutine<ICoroutineScope->T>) {
-		return new CreatedCoroutine(coroutine.child(context), c);
-	}
-
 	@:access(haxe.coro.coroutines.BaseCoroutine)
 	public function start<T>(f:ScopedCoroutine<T>) {
 		final child = coroutine.child(context);
@@ -173,10 +169,6 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 
 	public function with(...elements:IElement<Any>) {
 		return new AdjustedContext(context.clone().with(...elements), this);
-	}
-
-	public function create<T>(f:ScopedCoroutine<T>) {
-		return new CreatedCoroutine(child(context), f);
 	}
 
 	public function start<T>(f:ScopedCoroutine<T>):ICoroutine<T> {
