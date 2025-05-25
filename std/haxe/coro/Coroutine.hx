@@ -93,4 +93,23 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 			return coro.result;
 		}
 	}
+
+	@:coroutine public static function scope<T>(f:Coroutine<(scope:ICoroutineScope) -> T>):T {
+		return Coroutine.suspend(cont -> {
+			final coro = cont.context.get(key);
+			final child = coro.child(cont.context);
+			startCoroutine(child, f);
+
+			child.onCompletion(() -> {
+				switch child.state {
+					case Completed:
+						cont.resume(child.result, null);
+					case Cancelled:
+						cont.resume(null, child.error);
+					case _:
+						throw new Exception('Unexpected coroutine state');
+				}
+			});
+		});
+	}
 }

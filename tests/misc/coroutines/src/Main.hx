@@ -19,7 +19,7 @@ function main() {
 		#end
 		new structured.TestChildScopes(),
 		new structured.TestThrowingScopes(),
-		// new structured.TestCoroutineScope()
+		new structured.TestCoroutineScope()
 		// new TestYieldBasic(),
 		// new TestYieldIf(),
 		// new TestYieldFor(),

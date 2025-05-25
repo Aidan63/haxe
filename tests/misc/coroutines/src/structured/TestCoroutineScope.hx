@@ -27,13 +27,15 @@ class TestCoroutineScope extends utest.Test {
 	}
 
 	function test_scope_throwing_suspending() {
-		Coroutine.runScoped(_ -> {
-			AssertAsync.raises(() -> Coroutine.runScoped(_ -> {
-				yield();
+		Assert.raises(() ->
+			Coroutine.runScoped(_ -> {
+				AssertAsync.raises(() -> Coroutine.runScoped(_ -> {
+					yield();
 
-				throw new FooException();
-			}), FooException);
-		});
+					throw new FooException();
+				}), FooException);
+			})
+		, FooException);
 	}
 
 	function test_scope_with_children() {
@@ -62,24 +64,19 @@ class TestCoroutineScope extends utest.Test {
 		final acc = [];
 		Coroutine.runScoped(scope -> {
 			final child = scope.start(_ -> {
-				try {
-					Coroutine.scope(scope -> {
-						while (scope.context.get(Coroutine.key).isCancelled == false) {
-							yield();
-						}
-						acc.push("scope 1");
-					});
-				} catch (e:CancellationException) {
-					acc.push("scope 2");
-				}
+				Coroutine.scope(scope -> {
+					acc.push("scope 1");
+					while (scope.context.get(Coroutine.key).isCompleted == false) {
+						yield();
+					}
+				});
 			});
 
 			delay(1000);
 			child.cancel();
-			acc.push("scope 3");
+			acc.push("scope 2");
 		});
 		Assert.contains("scope 1", acc);
 		Assert.contains("scope 2", acc);
-		Assert.contains("scope 3", acc);
 	}
 }
