@@ -122,4 +122,69 @@ class TestThrowingScopes extends utest.Test {
 			Assert.pass();
 		});
 	}
+
+	public function test_catching_child_throw() {
+		final result = Coroutine.runScoped(scope -> {
+			final child = scope.start(_ -> {
+				yield();
+				throw new FooException();
+			});
+			try {
+				child.await();
+				"not caught";
+			} catch(e:FooException) {
+				"caught";
+			}
+		});
+		Assert.equals("caught", result);
+	}
+
+	public function test_catching_child_throw_but_still_throwing() {
+		Assert.raises(() ->
+			Coroutine.runScoped(scope -> {
+				final child = scope.start(_ -> {
+					yield();
+					throw new FooException();
+				});
+				final child2 = scope.start(_ -> {
+					yield();
+					child.await();
+				});
+				/* The parent itself catches child's exception, but because
+				   child2 doesn't the parent will receive the exception from
+				   it and throw accordingly.
+				*/
+				try {
+					child.await();
+				} catch (e:FooException) {}
+			})
+		, FooException);
+	}
+
+	public function test_catching_multiple_awaits() {
+		var counter = 0;
+		final result = Coroutine.runScoped(scope -> {
+			final child = scope.start(_ -> {
+				yield();
+				throw new FooException();
+			});
+			for (i in 0...5) {
+				scope.start(_ -> {
+					try {
+						child.await();
+					} catch (e:FooException) {
+						counter++;
+					}
+				});
+			}
+			try {
+				child.await();
+				"not caught";
+			} catch(e:FooException) {
+				"caught";
+			}
+		});
+		Assert.equals("caught", result);
+		Assert.equals(5, counter);
+	}
 }

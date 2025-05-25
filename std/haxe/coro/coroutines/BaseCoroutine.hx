@@ -33,9 +33,20 @@ private enum abstract CoroutineState(Int) {
 }
 
 private interface ICoroutineHost<T> extends ICoroutine<T> {
+	function awaitChild<T>(child:ICoroutine<T>, continuation:IContinuation<T>):Void;
 	function childCompletes<T>(child:ICoroutine<T>, result:T):Void;
 	function childErrors(child:ICoroutine<Any>, error:Exception):Void;
 	function childCancels(child:ICoroutine<Any>, error:Exception):Void;
+}
+
+private class ChildAwait<T> {
+	public final continuation:IContinuation<T>;
+	public final child:ICoroutine<T>;
+
+	public function new(continuation:IContinuation<T>, child:ICoroutine<T>) {
+		this.continuation = continuation;
+		this.child = child;
+	}
 }
 
 class AdjustedContext<T> implements ICoroutineScope {
@@ -77,6 +88,7 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 	public final parent:Null<ICoroutineHost<Any>>;
 
 	final children : Array<BaseCoroutine<Any>>;
+	var childAwait:Null<ChildAwait<Any>>;
 	var completionCallbacks:Array<() -> Void>;
 	var completedChildren : Int;
 	var isCancelling : Bool;
@@ -100,13 +112,18 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 				case Cancelled:
 					cont.resume(null, error);
 				case _:
-					completionCallbacks.push(() -> {
-						if (error != null) {
-							cont.resume(null, error);
-						} else {
-							cont.resume(result, null);
-						}
-					});
+					final current = cont.context.get(Coroutine.key);
+					if (current == parent) {
+						parent.awaitChild(this, cont);
+					} else {
+						completionCallbacks.push(() -> {
+							if (error != null) {
+								cont.resume(null, error);
+							} else {
+								cont.resume(result, null);
+							}
+						});
+					}
 			}
 		});
 	}
@@ -192,20 +209,35 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 		return child;
 	}
 
+	public function awaitChild<T>(child:ICoroutine<T>, continuation:IContinuation<T>) {
+		childAwait = new ChildAwait(continuation, child);
+	}
+
 	public function childCompletes<T>(child:ICoroutine<T>, result:T) {
 		completedChildren++;
+		if (childAwait?.child == child) {
+			childAwait.continuation.resume(result, null);
+		}
 		checkCompletion();
 	}
 
 	public function childErrors(child:ICoroutine<Any>, error:Exception) {
 		completedChildren++;
-		context.get(ScopeComponent.key).childErrors(this, child, error);
+		if (childAwait?.child == child) {
+			childAwait.continuation.resume(null, error);
+		} else {
+			context.get(ScopeComponent.key).childErrors(this, child, error);
+		}
 		checkCompletion();
 	}
 
 	public function childCancels(child:ICoroutine<Any>, error:Exception) {
 		completedChildren++;
-		context.get(ScopeComponent.key).childCancels(this, child, error);
+		if (childAwait?.child == child) {
+			childAwait.continuation.resume(null, error);
+		} else {
+			context.get(ScopeComponent.key).childCancels(this, child, error);
+		}
 		checkCompletion();
 	}
 
