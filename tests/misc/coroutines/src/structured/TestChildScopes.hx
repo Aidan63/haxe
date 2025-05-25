@@ -152,6 +152,74 @@ class TestChildScopes extends utest.Test {
 		Assert.equals(expected, result);
 	}
 
+	function test_create_return() {
+		final result = Coroutine.runScoped(scope -> {
+			final child = scope.create(_ -> return "foo");
+			return child.await();
+		});
+		Assert.equals("foo", result);
+	}
+
+	function test_create_throw() {
+		Assert.raises(() -> Coroutine.runScoped(scope -> {
+			final child = scope.create(_ -> throw new FooException());
+			AssertAsync.raises(() -> child.await(), FooException);
+		}), FooException);
+	}
+
+	function test_create_unlaunched() {
+		Assert.raises(() -> Coroutine.runScoped(scope -> {
+			scope.create(_ -> {
+				throw new FooException();
+			});
+		}), FooException);
+	}
+
+	function test_create_unlaunched_nested() {
+		Assert.raises(() -> Coroutine.runScoped(scope -> {
+			scope.create(scope -> {
+				scope.create(scope -> {
+					throw new FooException();
+				});
+			});
+		}), FooException);
+	}
+
+	function test_create_unlaunched_yield() {
+		Assert.raises(() -> Coroutine.runScoped(scope -> {
+			scope.create(_ -> {
+				yield();
+				throw new FooException();
+			});
+		}), FooException);
+	}
+
+	function test_create_unlaunched_yield_nested() {
+		Assert.raises(() -> Coroutine.runScoped(scope -> {
+			scope.create(scope -> {
+				yield();
+				scope.create(scope -> {
+					yield();
+					throw new FooException();
+				});
+			});
+		}), FooException);
+	}
+
+	function test_create_catch() {
+		final result = Coroutine.runScoped(scope -> {
+			final child = scope.create(_ -> throw new FooException());
+			try {
+				child.await();
+				return "wrong";
+			} catch (exc:FooException) {
+				return exc.message;
+			}
+		});
+		Assert.equals("foo", result);
+	}
+
+
 	function test_supervisor_scope() {
 		final result = Coroutine.runScoped(scope -> {
 			scope.with(new SupervisorScopeComponent()).start(scope -> {

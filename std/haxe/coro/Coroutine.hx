@@ -9,7 +9,8 @@ import haxe.coro.schedulers.Scheduler;
 import haxe.coro.continuations.RacingContinuation;
 import haxe.coro.continuations.BlockingContinuation;
 import haxe.coro.scopes.DefaultScopeComponent;
-import haxe.exceptions.NotImplementedException;
+
+typedef ScopedCoroutine<T> = Coroutine<(scope:ICoroutineScope) -> T>;
 
 private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
 	public function new(completion:haxe.coro.IContinuation<T>) {
@@ -50,18 +51,6 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		});
 	}
 
-	static public function startCoroutine<T, C:ICoroutine<T> & ICoroutineScope & IContinuation<T>>(coroutine:C, f:ScopedCoroutine<T>) {
-		final result = f(coroutine, coroutine);
-		switch result.state {
-			case Pending:
-				return;
-			case Returned:
-				coroutine.resume(result.result, null);
-			case Thrown:
-				coroutine.resume(null, result.error);
-		}
-	}
-
 	public static function run<T>(f:Coroutine<() -> T>):T {
 		final loop    = new EventLoop();
 		final cont    = new BlockingContinuation<T>(loop, new EventLoopScheduler(loop));
@@ -82,11 +71,19 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		final schedulerComponent = new EventLoopScheduler(loop);
 		final scopeComponent = new DefaultScopeComponent();
 		final stackTraceManagerComponent = new haxe.coro.BaseContinuation.StackTraceManager();
-		final coro = new BaseCoroutine(Context.create(scopeComponent, schedulerComponent, stackTraceManagerComponent));
-		startCoroutine(coro, f);
-		while (loop.tick() && !coro.isCompleted) {
-			// Busy wait
+		final coro = new BaseCoroutine(Context.create(scopeComponent, schedulerComponent, stackTraceManagerComponent), f);
+		coro.launch();
+		while (true) {
+			while (loop.tick() && !coro.isCompleted) {
+				// Busy wait
+			}
+			if (!coro.isCompleted) {
+				coro.awaitChildren();
+			} else {
+				break;
+			}
 		}
+
 		if (coro.error != null) {
 			throw coro.error;
 		} else {
@@ -97,19 +94,8 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 	@:coroutine public static function scope<T>(f:Coroutine<(scope:ICoroutineScope) -> T>):T {
 		return Coroutine.suspend(cont -> {
 			final coro = cont.context.get(key);
-			final child = coro.child(cont.context);
-			startCoroutine(child, f);
-
-			child.onCompletion(() -> {
-				switch child.state {
-					case Completed:
-						cont.resume(child.result, null);
-					case Cancelled:
-						cont.resume(null, child.error);
-					case _:
-						throw new Exception('Unexpected coroutine state');
-				}
-			});
+			final child = coro.start(f);
+			child.await(cont);
 		});
 	}
 }

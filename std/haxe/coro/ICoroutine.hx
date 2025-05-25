@@ -1,8 +1,7 @@
 package haxe.coro;
 
-import haxe.coro.context.Context;
-import haxe.coro.coroutines.BaseCoroutine;
 import haxe.exceptions.CancellationException;
+import haxe.coro.Coroutine.ScopedCoroutine;
 
 interface ICoroutine<T> {
 
@@ -14,5 +13,7 @@ interface ICoroutine<T> {
 
 	function cancel(?error:CancellationException):Void;
 
-	function child(context:Context) : BaseCoroutine<T>;
+	function create<T>(lambda:ScopedCoroutine<T>) : ICoroutine<T>;
+
+	function start<T>(lambda:ScopedCoroutine<T>) : ICoroutine<T>;
 }

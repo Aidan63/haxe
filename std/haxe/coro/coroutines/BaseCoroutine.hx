@@ -1,15 +1,17 @@
 package haxe.coro.coroutines;
 
 import haxe.exceptions.CancellationException;
-import haxe.exceptions.CoroutineException;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.context.IElement;
 import haxe.coro.context.Context;
 import haxe.coro.scopes.ScopeComponent;
-
-typedef ScopedCoroutine<T> = Coroutine<(scope:ICoroutineScope) -> T>;
+import haxe.coro.Coroutine.ScopedCoroutine;
 
 private enum abstract CoroutineState(Int) {
+	/**
+		The coroutine was created but is not running yet.
+	**/
+	final Created;
 	/**
 		The coroutine itself is still running.
 	**/
@@ -58,11 +60,14 @@ class AdjustedContext<T> implements ICoroutineScope {
 		this.coroutine = coroutine;
 	}
 
-	@:access(haxe.coro.coroutines.BaseCoroutine)
+	public function create<T>(f:ScopedCoroutine<T>) {
+		return coroutine.createChild(context, f);
+	}
+
 	public function start<T>(f:ScopedCoroutine<T>) {
-		final child = coroutine.child(context);
+		final child = coroutine.createChild(context, f);
 		child.context.get(Scheduler.key).schedule(() -> {
-			Coroutine.startCoroutine(child, f);
+			child.launch();
 		});
 		return child;
 	}
@@ -87,20 +92,22 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 
 	public final parent:Null<ICoroutineHost<Any>>;
 
+	final lambda:ScopedCoroutine<T>;
 	final children : Array<BaseCoroutine<Any>>;
 	var childAwait:Null<ChildAwait<Any>>;
 	var completionCallbacks:Array<() -> Void>;
 	var completedChildren : Int;
 	var isCancelling : Bool;
 
-	public function new(context : Context, ?parent : ICoroutineHost<Any>) {
+	public function new(context : Context, lambda:ScopedCoroutine<T>, ?parent : ICoroutineHost<Any>) {
 		this.context  = context.clone().with(this);
 		this.parent   = parent;
 		this.children = [];
 
+		this.lambda         = lambda;
 		completionCallbacks = [];
 		completedChildren   = 0;
-		state               = Running;
+		state               = Created;
 		isCancelling        = false;
 	}
 
@@ -124,6 +131,7 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 							}
 						});
 					}
+					launch();
 			}
 		});
 	}
@@ -189,12 +197,48 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 		}
 	}
 
+	public function launch() {
+		switch (state) {
+			case Created:
+				state = Running;
+				final result = lambda(this, this);
+				switch result.state {
+					case Pending:
+						return;
+					case Returned:
+						resume(result.result, null);
+					case Thrown:
+						resume(null, result.error);
+				}
+			case _:
+				// Is is okay to silently ignore this for all states?
+		}
+	}
+
 	// children
 
-	public function child<T>(context:Context) {
-		final childCoro = new BaseCoroutine<T>(context, this);
+	public function createChild<T>(context:Context, f:ScopedCoroutine<T>) {
+		final childCoro = new BaseCoroutine<T>(context, f, this);
 		children.push(childCoro);
 		return childCoro;
+	}
+
+	public function awaitChildren() {
+		for (child in children) {
+			switch (child.state) {
+				case Created:
+					child.context.get(Scheduler.key).schedule(() -> {
+						child.launch();
+					});
+				case Completing:
+					child.awaitChildren();
+				case _:
+			}
+		}
+	}
+
+	public function create<T>(f:ScopedCoroutine<T>) {
+		return createChild(context, f);
 	}
 
 	public function with(...elements:IElement<Any>) {
@@ -202,9 +246,9 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 	}
 
 	public function start<T>(f:ScopedCoroutine<T>):ICoroutine<T> {
-		final child = child(context);
+		final child = create(f);
 		child.context.get(Scheduler.key).schedule(() -> {
-			Coroutine.startCoroutine(child, f);
+			child.launch();
 		});
 		return child;
 	}
@@ -257,7 +301,7 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 
 	function get_isCancellable() {
 		return switch (state) {
-			case Running | Completing:
+			case Created | Running | Completing:
 				true;
 			case Cancelling | Cancelled | Completed:
 				false;
@@ -268,7 +312,7 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 		return switch (state) {
 			case Completed | Cancelled:
 				true;
-			case Completing | Cancelling | Running:
+			case Created | Completing | Cancelling | Running:
 				false;
 		}
 	}
