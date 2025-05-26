@@ -2,6 +2,7 @@ package haxe.coro;
 
 import haxe.coro.context.Context;
 import haxe.coro.coroutines.BaseCoroutine;
+import haxe.coro.Coroutine;
 
 interface ICoroutine<T> {
 	var isRunning (get, never) : Bool;
@@ -14,5 +15,5 @@ interface ICoroutine<T> {
 
 	function cancel() : Void;
 
-	function child(context:Context) : BaseCoroutine<T>;
+	function child(context:Context, lambda:ScopedCoroutine<T>) : BaseCoroutine<T>;
 }

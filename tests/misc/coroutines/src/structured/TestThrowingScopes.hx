@@ -70,7 +70,7 @@ class TestThrowingScopes extends utest.Test {
 			Coroutine.runScoped(scope -> {
 				final child = scope.start(scope -> {
 					yield();
-	
+
 					throw new FooException();
 				});
 
@@ -84,7 +84,7 @@ class TestThrowingScopes extends utest.Test {
 			Coroutine.runScoped(scope -> {
 				final child = scope.start(scope -> {
 					delay(1000);
-	
+
 					throw new FooException();
 				});
 
@@ -123,5 +123,18 @@ class TestThrowingScopes extends utest.Test {
 				child.cancel();
 			});
 		}, CancellationException);
+	}
+
+	function test_catching_child_exception() {
+		var caught = false;
+		Assert.raises(() -> Coroutine.runScoped(function(scope) {
+			final child = scope.start(_ -> throw new FooException());
+			try {
+				child.await();
+			} catch (e:FooException) {
+				caught = true;
+			}
+		}), FooException);
+		Assert.isTrue(caught);
 	}
 }

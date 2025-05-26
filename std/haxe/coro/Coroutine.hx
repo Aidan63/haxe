@@ -9,6 +9,8 @@ import haxe.coro.continuations.RacingContinuation;
 import haxe.coro.continuations.BlockingContinuation;
 import haxe.exceptions.NotImplementedException;
 
+typedef ScopedCoroutine<T> = Coroutine<(scope:ICoroutineScope) -> T>;
+
 private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
 	public function new(completion:haxe.coro.IContinuation<T>) {
 		super(completion, 1);
@@ -65,17 +67,8 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 
 	public static function runScoped<T>(f:Coroutine<(scope : ICoroutineScope)->T>):T {
 		final loop   = new EventLoop();
-		final cont   = new BlockingCoroutine(loop);
-		final result = f(cont, cont);
-
-		switch (result.state) {
-			case Pending:
-				//
-			case Returned:
-				cont.resume(result.result, null);
-			case Thrown:
-				cont.resume(null, result.error);
-		}
+		final cont   = new BlockingCoroutine(loop, f);
+		cont.launch();
 
 		return cont.wait();
 	}
@@ -83,17 +76,8 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 	@:coroutine public static function scope<T>(f:Coroutine<(scope : ICoroutineScope)->T>):T {
 		return Coroutine.suspend(cont -> {
 			final coro   = cont.context.get(key);
-			final child  = coro.child(cont.context);
-			final result = f(child, child);
-
-			switch result.state {
-				case Pending:
-					//
-				case Returned:
-					child.complete(result.result);
-				case Thrown:
-					child.completeExceptionally(result.error);
-			}
+			final child  = coro.child(cont.context, f);
+			child.launch();
 
 			child.onCompletion(() -> {
 				switch child.state {

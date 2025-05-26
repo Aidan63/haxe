@@ -6,8 +6,13 @@ import haxe.coro.schedulers.Scheduler;
 import haxe.coro.context.IElement;
 import haxe.coro.context.Context;
 import haxe.coro.scopes.ScopeComponent;
+import haxe.coro.Coroutine;
 
 private enum abstract CoroutineState(Int) {
+	/**
+		The coroutine itself is still running.
+	**/
+	final Created;
 	/**
 		The coroutine itself is still running.
 	**/
@@ -41,7 +46,7 @@ class AdjustedContext<T> implements ICoroutineScope {
 
 	@:access(haxe.coro.coroutines.BaseCoroutine)
 	public function start<T>(c:Coroutine<ICoroutineScope->T>):ICoroutine<T> {
-		return coroutine.startChild(c, coroutine.child(context));
+		return coroutine.startChild(coroutine.child(context, c));
 	}
 
 	public function with(...elements:IElement<Any>) {
@@ -64,19 +69,39 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 
 	public var state : CoroutineState;
 
+	var lambda : ScopedCoroutine<T>;
+
 	final children : Array<BaseCoroutine<Any>>;
 
 	var completionCallbacks : Array<()->Void>;
 
 	var completedChildren : Int;
 
-	public function new(context : Context) {
+	public function new(context : Context, lambda : ScopedCoroutine<T>) {
 		this.context  = context.clone().with(this);
 		this.children = [];
 
+		this.lambda         = lambda;
 		completionCallbacks = [];
 		completedChildren   = 0;
-		state               = Running;
+		state               = Created;
+	}
+
+	public function launch() {
+		switch (state) {
+			case Created:
+				state = Running;
+				final result = lambda(this, this);
+				switch result.state {
+					case Pending:
+						return;
+					case Returned:
+						resume(result.result, null);
+					case Thrown:
+						resume(null, result.error);
+				}
+			case _:
+		}
 	}
 
 	@:coroutine public function await() : T {
@@ -107,8 +132,8 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 		}
 	}
 
-	public function child<T>(context:Context) {
-		final coroutine = new BaseCoroutine<T>(context);
+	public function child<T>(context:Context, lambda:ScopedCoroutine<T>) {
+		final coroutine = new BaseCoroutine<T>(context, lambda);
 
 		coroutine.onCompletion(() -> {
 			completedChildren++;
@@ -124,10 +149,10 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 	}
 
 	public function start<T>(c:Coroutine<ICoroutineScope->T>):ICoroutine<T> {
-		return startChild(c, child(context));
+		return startChild(child(context, c));
 	}
 
-	function startChild<T>(c:Coroutine<ICoroutineScope->T>, coroutine:BaseCoroutine<T>):ICoroutine<T> {
+	function startChild<T>(coroutine:BaseCoroutine<T>):ICoroutine<T> {
 
 		coroutine.onCompletion(() -> context.get(ScopeComponent.key).onCompletion(this, coroutine));
 
@@ -140,16 +165,7 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 				return;
 			}
 
-			final result = c(coroutine, coroutine);
-
-			switch result.state {
-				case Pending:
-					return;
-				case Returned:
-					coroutine.complete(result.result);
-				case Thrown:
-					coroutine.completeExceptionally(result.error);
-			}
+			coroutine.launch();
 		});
 
 		return coroutine;
@@ -217,7 +233,7 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 
 	function get_isRunning() {
 		return switch state {
-			case Running: true;
+			case Created | Running: true;
 			case _: false;
 		}
 	}

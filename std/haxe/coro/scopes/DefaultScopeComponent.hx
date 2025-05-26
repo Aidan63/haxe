@@ -9,7 +9,7 @@ class DefaultScopeComponent extends ScopeComponent {
 
 	public function cancel(coroutine:BaseCoroutine<Any>) {
 		switch coroutine.state {
-			case Running:
+			case Created | Running:
 				coroutine.completeExceptionally(new CancellationException());
 			case Completing:
 				coroutine.state = Cancelling;
@@ -46,7 +46,7 @@ class DefaultScopeComponent extends ScopeComponent {
 		}
 
 		// All children have completed but the scopes block is still running, so exit.
-		if (coroutine.state == Running) {
+		if (coroutine.isRunning) {
 			return;
 		}
 
