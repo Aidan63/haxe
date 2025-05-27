@@ -1,10 +1,14 @@
 package haxe.coro;
 
+import haxe.coro.schedulers.Scheduler;
+import haxe.coro.IContinuation;
+import haxe.coro.SuspensionResult;
+import haxe.coro.context.Context;
 import haxe.coro.EventLoop;
 import haxe.coro.schedulers.EventLoopScheduler;
-import haxe.coro.schedulers.Scheduler;
-import haxe.coro.continuations.RacingContinuation;
-import haxe.coro.continuations.BlockingContinuation;
+import haxe.exceptions.CancellationException;
+import hxcoro.ScopedLambda;
+import hxcoro.CoroScope;
 
 private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
 	public function new(completion:haxe.coro.IContinuation<T>) {
@@ -16,9 +20,6 @@ private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
 	}
 }
 
-/**
-	Coroutine function.
-**/
 @:callable
 @:coreType
 abstract Coroutine<T:haxe.Constraints.Function> {
@@ -31,30 +32,47 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		return cast continuation;
 	}
 
+	static function cancellationRequested(cont:IContinuation<Any>) {
+		return cont.context.get(hxcoro.CoroTask.key)?.cancellationRequested();
+	}
+
 	@:coroutine @:coroutine.nothrow public static function delay(ms:Int):Void {
-		Coroutine.suspend(cont -> {
-			cont.context.get(Scheduler.key).scheduleIn(() -> cont.resume(null, null), ms);
+		suspend(cont -> {
+			cont.context.get(Scheduler.key).scheduleIn(() -> {
+				cont.resume(null, cancellationRequested(cont) ? new CancellationException() : null);
+			}, ms);
 		});
 	}
 
 	@:coroutine @:coroutine.nothrow public static function yield():Void {
-		Coroutine.suspend(cont -> {
-			cont.context.get(Scheduler.key).schedule(() -> cont.resume(null, null));
+		suspend(cont -> {
+			cont.context.get(Scheduler.key).schedule(() -> {
+				cont.resume(null, cancellationRequested(cont) ? new CancellationException() : null);
+			});
 		});
 	}
 
-	public static function run<T>(f:Coroutine<() -> T>):T {
-		final loop = new EventLoop();
-		final cont = new BlockingContinuation<T>(loop, new EventLoopScheduler(loop));
-		final result = f(cont);
+	static public function run<T>(lambda:Coroutine<() -> T>):T {
+		return runScoped(_ -> lambda());
+	}
 
-		return switch (result.state) {
-			case Pending:
-				cont.wait();
-			case Returned:
-				result.result;
-			case Thrown:
-				throw result.error;
-		}
+	static public function runScoped<T>(lambda:ScopedLambda<T>):T {
+		final loop = new EventLoop();
+		final schedulerComponent = new EventLoopScheduler(loop);
+		final stackTraceManagerComponent = new haxe.coro.BaseContinuation.StackTraceManager();
+		final context = Context.create(schedulerComponent, stackTraceManagerComponent);
+		final scope = new CoroScope(context);
+		final task = scope.async(lambda);
+		scope.join();
+		return task.get();
+	}
+
+	@:coroutine static public function scope<T>(lambda:ScopedLambda<T>):T {
+		return suspend(cont -> {
+			final scope = new CoroScope(cont.context, cont.context.get(hxcoro.CoroTask.key));
+			final task = scope.async(lambda);
+			task.await(cont);
+			scope.join();
+		});
 	}
 }

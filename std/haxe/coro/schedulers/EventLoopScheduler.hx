@@ -3,20 +3,23 @@ package haxe.coro.schedulers;
 import haxe.coro.EventLoop;
 
 class EventLoopScheduler extends Scheduler {
+	final loop:EventLoop;
 
-    final loop : EventLoop;
-
-    public function new(loop:EventLoop) {
+	public function new(loop:EventLoop) {
 		super();
-        this.loop = loop;
-    }
+		this.loop = loop;
+	}
 
-    public function schedule(func : ()->Void) {
-        loop.run(func);
-    }
+	public function schedule(func:() -> Void) {
+		loop.run(func);
+	}
 
-	public function scheduleIn(func : ()->Void, ms:Int) {
+	public function scheduleIn(func:() -> Void, ms:Int) {
 		loop.runIn(func, ms);
+	}
+
+	public function tick() {
+		return loop.tick();
 	}
 
 	public function toString() {

@@ -45,10 +45,7 @@ class TestCallStack extends utest.Test {
 	}
 
 	function testFooBazBaz() {
-		try {
-			Coroutine.run(callstack.FooBarBaz.foo);
-			Assert.fail("Exception expected");
-		} catch(e:Exception) {
+		function checkStack(e:Exception) {
 			final stack = e.stack.asArray();
 			var inspector = new CallStackInspector(stack);
 			var r = inspector.inspect([
@@ -67,6 +64,25 @@ class TestCallStack extends utest.Test {
 				// Line(16)
 			]);
 			checkFailure(stack, r);
+		}
+		try {
+			Coroutine.run(callstack.FooBarBaz.foo);
+			Assert.fail("Exception expected");
+		} catch(e:Exception) {
+			checkStack(e);
+		}
+
+		try {
+			Coroutine.runScoped(scope -> {
+				scope.async(scope -> {
+					scope.async(_ -> {
+						callstack.FooBarBaz.foo();
+					});
+				});
+			});
+			Assert.fail("Exception expected");
+		} catch (e:Exception) {
+			checkStack(e);
 		}
 	}
 }
