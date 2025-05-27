@@ -30,8 +30,7 @@ class CoroScope extends AbstractTask implements ICoroScope implements IElement<C
 
 	public function join() {
 		start();
-		// checkCompletion starts any lingering tasks, so let's call it here
-		checkCompletion();
+		startChildren();
 		final loop = context.get(Scheduler.key);
 		while (loop.tick()) {
 			if (!isRunning()) {

@@ -83,24 +83,28 @@ abstract class AbstractTask {
 		}
 	}
 
+	function startChildren() {
+		var hasUnfinishedChild = false;
+		for (child in children) {
+			switch (child.state) {
+				case Created:
+					child.start();
+					hasUnfinishedChild = true;
+				case Cancelled | Completed:
+				case Running | Completing | Cancelling:
+					hasUnfinishedChild = true;
+			}
+		}
+		return hasUnfinishedChild;
+	}
+
 	function checkCompletion() {
 		switch (state) {
 			case Created | Running | Completed | Cancelled:
 				return;
 			case _:
 		}
-		var unfinishedChild = false;
-		for (child in children) {
-			switch (child.state) {
-				case Created:
-					child.start();
-					unfinishedChild = true;
-				case Cancelled | Completed:
-				case Running | Completing | Cancelling:
-					unfinishedChild = true;
-			}
-		}
-		if (unfinishedChild) {
+		if (startChildren()) {
 			return;
 		}
 		switch (state) {
