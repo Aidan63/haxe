@@ -67,7 +67,7 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 				completion.resume(null, @:privateAccess Exception.thrown(e));
 			}
 			#end
-        });
+        }, 0);
     }
 
     public function callerFrame():Null<IStackFrame> {

@@ -6,19 +6,19 @@ import haxe.CallStack.StackItem;
 import haxe.coro.schedulers.EventLoopScheduler;
 
 class BlockingCoroutine<T> extends BaseCoroutine<T> {
-	final loop : EventLoop;
+	final scheduler : EventLoopScheduler;
 
-	public function new(loop : EventLoop) {
-		super(Context.create(new DefaultScopeComponent(), new EventLoopScheduler(loop), new BaseContinuation.StackTraceManager()));
+	public function new(scheduler : EventLoopScheduler) {
+		super(Context.create(new DefaultScopeComponent(), scheduler, new BaseContinuation.StackTraceManager()));
 
-		this.loop = loop;
+		this.scheduler = scheduler;
 
 		error = null;
 	}
 
 	public function wait():T {
-		while (loop.tick() || (state != Completed && state != Cancelled)) {
-			// Busy wait
+		while (state != Completed && state != Cancelled) {
+			scheduler.run();
 		}
 
 		if (error != null) {

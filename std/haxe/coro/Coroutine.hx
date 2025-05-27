@@ -38,34 +38,34 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 
 	@:coroutine @:coroutine.nothrow public static function delay(ms:Int):Void {
 		Coroutine.suspend(cont -> {
-			cont.context.get(Scheduler.key).scheduleIn(() -> cont.resume(null, null), ms);
+			cont.context.get(Scheduler.key).schedule(() -> cont.resume(null, null), ms);
 		});
 	}
 
 	@:coroutine @:coroutine.nothrow public static function yield():Void {
 		Coroutine.suspend(cont -> {
-			cont.context.get(Scheduler.key).schedule(() -> cont.resume(null, null));
+			cont.context.get(Scheduler.key).schedule(() -> cont.resume(null, null), 0);
 		});
 	}
 
 	public static function run<T>(f:Coroutine<() -> T>):T {
-		final loop    = new EventLoop();
-		final cont    = new BlockingContinuation<T>(loop, new EventLoopScheduler(loop));
-		final result  = f(cont);
+		throw new haxe.Exception('');
+		// final loop    = new EventLoop();
+		// final cont    = new BlockingContinuation<T>(loop, new EventLoopScheduler(loop));
+		// final result  = f(cont);
 
-		return switch (result.state) {
-			case Pending:
-				cont.wait();
-			case Returned:
-				result.result;
-			case Thrown:
-				throw result.error;
-		}
+		// return switch (result.state) {
+		// 	case Pending:
+		// 		cont.wait();
+		// 	case Returned:
+		// 		result.result;
+		// 	case Thrown:
+		// 		throw result.error;
+		// }
 	}
 
 	public static function runScoped<T>(f:Coroutine<(scope : ICoroutineScope)->T>):T {
-		final loop   = new EventLoop();
-		final cont   = new BlockingCoroutine(loop);
+		final cont   = new BlockingCoroutine(new EventLoopScheduler());
 		final result = f(cont, cont);
 
 		switch (result.state) {

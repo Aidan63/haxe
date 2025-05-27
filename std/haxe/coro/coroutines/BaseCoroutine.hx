@@ -150,7 +150,7 @@ class BaseCoroutine<T> implements IElement<ICoroutine<Any>> implements ICoroutin
 				case Thrown:
 					coroutine.completeExceptionally(result.error);
 			}
-		});
+		}, 0);
 
 		return coroutine;
 	}
