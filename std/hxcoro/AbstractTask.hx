@@ -1,5 +1,6 @@
 package hxcoro;
 
+import hxcoro.ICoroTask.IStartableCoroTask;
 import haxe.coro.context.Context;
 import haxe.exceptions.CancellationException;
 import haxe.coro.schedulers.Scheduler;
@@ -53,11 +54,11 @@ abstract class AbstractTask {
 		}
 	}
 
-	public function lazy<T>(lambda:ScopedLambda<T>) {
+	public function lazy<T>(lambda:ScopedLambda<T>):IStartableCoroTask<T> {
 		return new CoroTask(context, lambda, this);
 	}
 
-	public function async<T>(lambda:ScopedLambda<T>) {
+	public function async<T>(lambda:ScopedLambda<T>):ICoroTask<T> {
 		final child = lazy(lambda);
 		context.get(Scheduler.key).schedule(() -> {
 			child.start();
