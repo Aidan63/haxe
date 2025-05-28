@@ -18,10 +18,6 @@ class EventLoopScheduler extends Scheduler {
 		loop.runIn(func, ms);
 	}
 
-	public function tick() {
-		return loop.tick();
-	}
-
 	public function toString() {
 		return '[EventLoopScheduler: $loop]';
 	}

@@ -12,8 +12,6 @@ abstract class Scheduler implements IElement<Scheduler> {
 
 	public abstract function scheduleIn(func:() -> Void, ms:Int):Void;
 
-	public abstract function tick():Bool;
-
 	public function getKey() {
 		return key;
 	}

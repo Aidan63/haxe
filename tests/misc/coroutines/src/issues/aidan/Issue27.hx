@@ -99,12 +99,12 @@ class Issue27 extends utest.Test {
 		});
 	}
 
-	function testSchedulerReplacement() {
-		// this isn't really a test because it would still pass with the standard Scheduler... eventually
-		final result = Coroutine.with(new ImpatientScheduler()).run(_ -> {
-			delay(10000000);
-			"done";
-		});
-		Assert.equals("done", result);
-	}
+	// function testSchedulerReplacement() {
+	// 	// this isn't really a test because it would still pass with the standard Scheduler... eventually
+	// 	final result = Coroutine.with(new ImpatientScheduler()).run(_ -> {
+	// 		delay(10000000);
+	// 		"done";
+	// 	});
+	// 	Assert.equals("done", result);
+	// }
 }

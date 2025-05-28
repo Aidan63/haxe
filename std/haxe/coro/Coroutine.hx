@@ -77,10 +77,8 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		if (defaultContext != null) {
 			return defaultContext;
 		}
-		final loop = new EventLoop();
-		final schedulerComponent = new EventLoopScheduler(loop);
 		final stackTraceManagerComponent = new haxe.coro.BaseContinuation.StackTraceManager();
-		defaultContext = Context.create(schedulerComponent, stackTraceManagerComponent);
+		defaultContext = Context.create(stackTraceManagerComponent);
 		return defaultContext;
 	}
 
@@ -97,9 +95,10 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 	}
 
 	static public function runIn<T>(context:Context, lambda:ScopedLambda<T>):T {
-		final scope = new CoroScopeTask(context, lambda, null);
+		final loop = new EventLoop();
+		final schedulerComponent = new EventLoopScheduler(loop);
+		final scope = new CoroScopeTask(context.clone().with(schedulerComponent), lambda, null);
 		scope.start();
-		final loop = context.get(Scheduler.key);
 		while (loop.tick()) {
 			if (!scope.isRunning()) {
 				break;
