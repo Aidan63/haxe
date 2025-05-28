@@ -15,25 +15,25 @@ class VirtualTimeScheduler extends EventLoopScheduler {
 		return currentTime;
 	}
 
-	public function advanceBy(ms:Float) {
+	public function advanceBy(ms:Int) {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
 		}
 
-		currentTime += ms;
+		currentTime += (ms / 1000);
 
 		run();
 	}
 
-	public function advanceTo(ms:Float) {
+	public function advanceTo(ms:Int) {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
 		}
-		if (ms < currentTime) {
+		if ((ms / 1000) < currentTime) {
 			throw new ArgumentException("Cannot travel back in time");
 		}
 
-		currentTime = ms;
+		currentTime = (ms / 1000);
 
 		run();
 	}
