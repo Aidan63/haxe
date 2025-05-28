@@ -22,9 +22,12 @@ abstract class AbstractTask {
 
 	var error:Null<Exception>;
 
+	var wasCancelled:Bool;
+
 	public function new(?parent:AbstractTask) {
 		state = Created;
 		children = [];
+		wasCancelled = false;
 		if (parent != null) {
 			this.parent = parent;
 			parent.addChild(this);
@@ -32,15 +35,24 @@ abstract class AbstractTask {
 	}
 
 	public function cancel(?cause:CancellationException) {
-		switch (state) {
-			case Created | Running | Completing:
-				cause ??= new CancellationException();
-				error = cause;
-				state = Cancelling;
-				cancelChildren(cause);
-				checkCompletion();
-			case _:
+		if (wasCancelled) {
+			checkCompletion();
+			return;
 		}
+		wasCancelled = true;
+		cause ??= new CancellationException();
+		if (error == null) {
+			error = cause;
+		}
+		switch (state) {
+			case Created | Completing:
+				state = Cancelling;
+			case Running:
+				// we have to let this finish, will be set in checkCompletion
+			case Cancelling | Completed | Cancelled:
+		}
+		cancelChildren(cause);
+		checkCompletion();
 	}
 
 	function cancelChildren(?cause:CancellationException) {
@@ -59,12 +71,7 @@ abstract class AbstractTask {
 	}
 
 	public function cancellationRequested() {
-		return switch (state) {
-			case Cancelling | Cancelled:
-				true;
-			case _:
-				false;
-		}
+		return wasCancelled;
 	}
 
 	function startChildren() {
@@ -87,6 +94,9 @@ abstract class AbstractTask {
 			case Created | Running | Completed | Cancelled:
 				return;
 			case _:
+		}
+		if (wasCancelled) {
+			state = Cancelling;
 		}
 		if (startChildren()) {
 			return;

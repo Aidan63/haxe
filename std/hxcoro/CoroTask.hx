@@ -134,15 +134,12 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 			state = Completing;
 			checkCompletion();
 		} else {
-			this.error = error;
-			selfError();
+			if (this.error == null) {
+				this.error = error;
+			}
+			state = Cancelling;
+			cancel();
 		}
-	}
-
-	function selfError() {
-		state = Cancelling;
-		cancelChildren();
-		checkCompletion();
 	}
 
 	// called from parent
@@ -154,7 +151,7 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 			case Created | Running | Completing:
 				// inherit child error
 				this.error = error;
-				selfError();
+				cancel();
 			case Cancelling:
 				// not sure about this one, what if we cancel normally and then get a real exception?
 			case Completed | Cancelled:

@@ -24,7 +24,7 @@ class CoroScopeTask<T> extends CoroTask<T> {
 	override function childErrors(_, error:Exception) {
 		if (this.error == null) {
 			this.error = error;
-			selfError();
+			cancel();
 		}
 	}
 

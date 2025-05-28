@@ -120,28 +120,28 @@ class TestCoroutineScope extends utest.Test {
 		has(acc, ["before yield", "after yield", "at exit"], ["after throw"]);
 	}
 
-	// function test_parent_scope_cancelling() {
-	// 	final acc = [];
-	// 	Coroutine.runScoped(scope -> {
-	// 		final child = scope.async(_ -> {
-	// 			try {
-	// 				Coroutine.scope(scope -> {
-	// 					while (true) {
-	// 						yield();
-	// 					}
-	// 					acc.push("scope 1");
-	// 				});
-	// 			} catch (e:CancellationException) {
-	// 				acc.push("scope 2");
-	// 			}
-	// 		});
+	function test_parent_scope_cancelling() {
+		final acc = [];
+		Coroutine.runScoped(scope -> {
+			final child = scope.async(_ -> {
+				try {
+					Coroutine.scope(scope -> {
+						while (true) {
+							yield();
+						}
+						acc.push("scope 1");
+					});
+				} catch (e:CancellationException) {
+					acc.push("scope 2");
+				}
+			});
 
-	// 		delay(1000);
-	// 		child.cancel();
-	// 		acc.push("scope 3");
-	// 	});
-	// 	has(acc, ["scope 2", "scope 3"], ["scope 1"]);
-	// }
+			delay(1000);
+			child.cancel();
+			acc.push("scope 3");
+		});
+		has(acc, ["scope 2", "scope 3"], ["scope 1"]);
+	}
 
 	function test_cancel_due_to_sibling_exception() {
 		final acc = [];
