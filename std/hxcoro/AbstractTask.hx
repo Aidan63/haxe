@@ -1,9 +1,7 @@
 package hxcoro;
 
 import hxcoro.ICoroTask.IStartableCoroTask;
-import haxe.coro.context.Context;
 import haxe.exceptions.CancellationException;
-import haxe.coro.schedulers.Scheduler;
 import haxe.Exception;
 
 enum abstract TaskState(Int) {
@@ -18,16 +16,13 @@ enum abstract TaskState(Int) {
 class TaskException extends Exception {}
 
 abstract class AbstractTask {
-	public final context:Context;
-
 	var state:TaskState;
 	final children:Array<AbstractTask>;
 	final parent:Null<AbstractTask>;
 
 	var error:Null<Exception>;
 
-	public function new(context:Context, ?parent:AbstractTask) {
-		this.context = context;
+	public function new(?parent:AbstractTask) {
 		state = Created;
 		children = [];
 		if (parent != null) {
@@ -52,18 +47,6 @@ abstract class AbstractTask {
 		for (child in children) {
 			child.cancel(cause);
 		}
-	}
-
-	public function lazy<T>(lambda:ScopedLambda<T>):IStartableCoroTask<T> {
-		return new CoroTask(context, lambda, this);
-	}
-
-	public function async<T>(lambda:ScopedLambda<T>):ICoroTask<T> {
-		final child = lazy(lambda);
-		context.get(Scheduler.key).schedule(() -> {
-			child.start();
-		});
-		return child;
 	}
 
 	public function isRunning() {

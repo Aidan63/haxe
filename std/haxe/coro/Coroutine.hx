@@ -8,7 +8,7 @@ import haxe.coro.EventLoop;
 import haxe.coro.schedulers.EventLoopScheduler;
 import haxe.exceptions.CancellationException;
 import hxcoro.ScopedLambda;
-import hxcoro.CoroScope;
+import hxcoro.CoroScopeTask;
 
 private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
 	public function new(completion:haxe.coro.IContinuation<T>) {
@@ -61,17 +61,15 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		final schedulerComponent = new EventLoopScheduler(loop);
 		final stackTraceManagerComponent = new haxe.coro.BaseContinuation.StackTraceManager();
 		final context = Context.create(schedulerComponent, stackTraceManagerComponent);
-		final scope = new CoroScope(context);
-		final task = scope.async(lambda);
+		final scope = new CoroScopeTask(context, lambda, null);
 		scope.join();
-		return task.get();
+		return scope.get();
 	}
 
 	@:coroutine static public function scope<T>(lambda:ScopedLambda<T>):T {
 		return suspend(cont -> {
-			final scope = new CoroScope(cont.context, cont.context.get(hxcoro.CoroTask.key));
-			final task = scope.async(lambda);
-			task.await(cont);
+			final scope = new CoroScopeTask(cont.context, lambda, cont.context.get(hxcoro.CoroTask.key));
+			scope.await(cont);
 			scope.join();
 		});
 	}

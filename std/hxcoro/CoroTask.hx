@@ -8,19 +8,21 @@ import haxe.coro.context.Context;
 import haxe.coro.context.Key;
 import haxe.coro.context.IElement;
 import haxe.coro.IContinuation;
+import haxe.coro.schedulers.Scheduler;
 import haxe.Exception;
 
 class CoroTask<T> extends AbstractTask implements IContinuation<T> implements ICoroScope implements IStartableCoroTask<T> implements IElement<CoroTask<Any>> {
 	public static final key:Key<CoroTask<Any>> = Key.createNew('Task');
 
+	public final context:Context;
 	public final lambda:ScopedLambda<T>;
 
 	var result:Null<T>;
 
 	var completionCallbacks:Array<() -> Void>;
 
-	public function new(context:Context, lambda:ScopedLambda<T>, parent:AbstractTask) {
-		super(context, parent);
+	public function new(context:Context, lambda:ScopedLambda<T>, parent:Null<AbstractTask>) {
+		super(parent);
 		this.context = context.clone().with(this);
 		this.lambda = lambda;
 		completionCallbacks = [];
@@ -55,6 +57,18 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 			case Thrown:
 				resume(null, result.error);
 		}
+	}
+
+	public function lazy<T>(lambda:ScopedLambda<T>):IStartableCoroTask<T> {
+		return new CoroTask(context, lambda, this);
+	}
+
+	public function async<T>(lambda:ScopedLambda<T>):ICoroTask<T> {
+		final child = lazy(lambda);
+		context.get(Scheduler.key).schedule(() -> {
+			child.start();
+		});
+		return child;
 	}
 
 	@:coroutine public function await():T {
@@ -111,7 +125,7 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 	}
 
 	function childCancels(_, cause:CancellationException) {
-		// Cancellation is often issues from the parent anyway, but I don't know if that's always the case
+		// Cancellation is often issued from the parent anyway, but I don't know if that's always the case
 		// Calling cancel is fine because it won't do anything if we're already cancelling
 		cancel(cause);
 	}
