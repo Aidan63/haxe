@@ -51,12 +51,14 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 	var result:Null<T>;
 
 	var completionCallbacks:Array<() -> Void>;
+	var wasResumed:Bool;
 
 	public function new(context:Context, lambda:ScopedLambda<T>, parent:Null<AbstractTask>) {
 		super(parent);
 		this.context = context.clone().with(this);
 		this.lambda = lambda;
 		completionCallbacks = [];
+		wasResumed = false;
 	}
 
 	public function get() {
@@ -124,20 +126,31 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 		}
 	}
 
+	override function checkCompletion() {
+		if (!wasResumed) {
+			return;
+		}
+		super.checkCompletion();
+	}
+
 	@:coroutine public function await():T {
 		return Coroutine.suspend(maybeContinue);
 	}
 
 	public function resume(result:T, error:Exception) {
+		wasResumed = true;
 		if (error == null) {
-			this.result = result;
-			state = Completing;
+			switch (state) {
+				case Running:
+					this.result = result;
+					state = Completing;
+				case _:
+			}
 			checkCompletion();
 		} else {
 			if (this.error == null) {
 				this.error = error;
 			}
-			state = Cancelling;
 			cancel();
 		}
 	}
@@ -150,7 +163,9 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 		switch (state) {
 			case Created | Running | Completing:
 				// inherit child error
-				this.error = error;
+				if (this.error == null) {
+					this.error = error;
+				}
 				cancel();
 			case Cancelling:
 				// not sure about this one, what if we cancel normally and then get a real exception?
