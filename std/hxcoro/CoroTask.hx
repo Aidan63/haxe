@@ -11,6 +11,37 @@ import haxe.coro.IContinuation;
 import haxe.coro.schedulers.Scheduler;
 import haxe.Exception;
 
+private class CoroTaskWith<T> implements ICoroScope {
+	public final context:Context;
+
+	final task:CoroTask<T>;
+
+	public function new(context:Context, task:CoroTask<T>) {
+		this.context = context;
+		this.task = task;
+	}
+
+	public function async<T>(lambda:ScopedLambda<T>) {
+		final child = lazy(lambda);
+		context.get(Scheduler.key).schedule(() -> {
+			child.start();
+		});
+		return child;
+	}
+
+	public function lazy<T>(lambda:ScopedLambda<T>) {
+		return new CoroTask(context, lambda, task);
+	}
+
+	public function cancel(?cause:CancellationException) {
+		task.cancel();
+	}
+
+	public function with(...elements:IElement<Any>) {
+		return task.with(...elements);
+	}
+}
+
 class CoroTask<T> extends AbstractTask implements IContinuation<T> implements ICoroScope implements IStartableCoroTask<T> implements IElement<CoroTask<Any>> {
 	public static final key:Key<CoroTask<Any>> = Key.createNew('Task');
 
@@ -69,6 +100,10 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 			child.start();
 		});
 		return child;
+	}
+
+	public function with(...elements:IElement<Any>) {
+		return new CoroTaskWith(context.clone().with(...elements), this);
 	}
 
 	@:coroutine public function await():T {
