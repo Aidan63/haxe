@@ -10,6 +10,7 @@ function main() {
 		new TestHoisting(),
 		new TestMisc(),
 		new TestMutex(),
+		new TestTexpr(),
 		// new TestGenerator(),
 		#if js
 		new TestJsPromise(),
@@ -21,13 +22,6 @@ function main() {
 		new structured.TestLazyScopes(),
 		new structured.TestThrowingScopes(),
 		new structured.TestCoroutineScope()
-		// new TestYieldBasic(),
-		// new TestYieldIf(),
-		// new TestYieldFor(),
-		// new TestYieldClosure(),
-		// new TestYieldSwitch(),
-		// new TestYieldTryCatch(),
-		// new TestYieldWhile(),
 	];
 
 	var runner = new utest.Runner();
