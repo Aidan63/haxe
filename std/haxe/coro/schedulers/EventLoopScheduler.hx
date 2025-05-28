@@ -78,11 +78,11 @@ class EventLoopScheduler extends Scheduler {
 				current.func();
 				current = current.next;
 			} else {
-				events = current;
-
-				return;
+				break;
 			}
 		}
+
+		events = current;
 	}
 
 	public function toString() {
