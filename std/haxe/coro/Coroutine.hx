@@ -1,6 +1,5 @@
 package haxe.coro;
 
-import haxe.coro.EventLoop;
 import haxe.coro.context.Key;
 import haxe.coro.coroutines.BlockingCoroutine;
 import haxe.coro.schedulers.EventLoopScheduler;

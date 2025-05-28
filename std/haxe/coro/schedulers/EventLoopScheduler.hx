@@ -1,7 +1,6 @@
 package haxe.coro.schedulers;
 
 import haxe.exceptions.ArgumentException;
-import haxe.coro.EventLoop;
 
 private class ScheduledEvent {
 	public final func : ()->Void;
