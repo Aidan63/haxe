@@ -17,6 +17,6 @@ class CoroScopeTask<T> extends CoroTask<T> {
 
 	override function complete() {
 		// don't notify parent
-		handleCompletionCallbacks();
+		handleAwaitingContinuations();
 	}
 }

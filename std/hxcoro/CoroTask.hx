@@ -50,14 +50,14 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 
 	var result:Null<T>;
 
-	var completionCallbacks:Array<() -> Void>;
+	var awaitingContinuations:Array<IContinuation<T>>;
 	var wasResumed:Bool;
 
 	public function new(context:Context, lambda:ScopedLambda<T>, parent:Null<AbstractTask>) {
 		super(parent);
 		this.context = context.clone().with(this);
 		this.lambda = lambda;
-		completionCallbacks = [];
+		awaitingContinuations = [];
 		wasResumed = false;
 	}
 
@@ -80,7 +80,6 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 			case _:
 				return;
 		}
-		// TODO: don't do this if we're already cancelling
 		final result = lambda(this, this);
 		switch result.state {
 			case Pending:
@@ -115,13 +114,7 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 			case Cancelled:
 				cont.resume(null, error);
 			case _:
-				completionCallbacks.push(() -> {
-					if (error != null) {
-						cont.resume(null, error);
-					} else {
-						cont.resume(result, null);
-					}
-				});
+				awaitingContinuations.push(cont);
 				start();
 		}
 	}
@@ -181,15 +174,21 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 
 	function complete() {
 		parent?.childCompletes(this);
-		handleCompletionCallbacks();
+		handleAwaitingContinuations();
 	}
 
-	function handleCompletionCallbacks() {
-		while (completionCallbacks.length > 0) {
-			final callbacks = completionCallbacks;
-			completionCallbacks = [];
-			for (callback in callbacks) {
-				callback();
+	function handleAwaitingContinuations() {
+		while (awaitingContinuations.length > 0) {
+			final continuations = awaitingContinuations;
+			awaitingContinuations = [];
+			if (error != null) {
+				for (cont in continuations) {
+					cont.resume(null, error);
+				}
+			} else {
+				for (cont in continuations) {
+					cont.resume(result, null);
+				}
 			}
 		}
 	}
