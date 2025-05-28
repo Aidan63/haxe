@@ -106,24 +106,26 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 		return new CoroTaskWith(context.clone().with(...elements), this);
 	}
 
+	public function maybeContinue(cont:IContinuation<T>) {
+		switch state {
+			case Completed:
+				cont.resume(result, null);
+			case Cancelled:
+				cont.resume(null, error);
+			case _:
+				completionCallbacks.push(() -> {
+					if (error != null) {
+						cont.resume(null, error);
+					} else {
+						cont.resume(result, null);
+					}
+				});
+				start();
+		}
+	}
+
 	@:coroutine public function await():T {
-		return Coroutine.suspend(cont -> {
-			switch state {
-				case Completed:
-					cont.resume(result, null);
-				case Cancelled:
-					cont.resume(null, error);
-				case _:
-					completionCallbacks.push(() -> {
-						if (error != null) {
-							cont.resume(null, error);
-						} else {
-							cont.resume(result, null);
-						}
-					});
-					start();
-			}
-		});
+		return Coroutine.suspend(maybeContinue);
 	}
 
 	public function resume(result:T, error:Exception) {

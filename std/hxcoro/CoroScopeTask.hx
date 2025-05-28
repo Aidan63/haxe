@@ -23,9 +23,8 @@ class CoroScopeTask<T> extends CoroTask<T> {
 
 	override function childErrors(_, error:Exception) {
 		if (this.error == null) {
-			// remember first child error by default
 			this.error = error;
-			state = Cancelling;
+			selfError();
 		}
 	}
 
