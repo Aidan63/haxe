@@ -98,8 +98,19 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 
 	static public function runIn<T>(context:Context, lambda:ScopedLambda<T>):T {
 		final scope = new CoroScopeTask(context, lambda, null);
-		scope.join();
-		return scope.get();
+		scope.start();
+		final loop = context.get(Scheduler.key);
+		while (loop.tick()) {
+			if (!scope.isRunning()) {
+				break;
+			}
+		}
+		switch (scope.getException()) {
+			case null:
+				return scope.get();
+			case error:
+				throw error;
+		}
 	}
 
 	@:coroutine static public function scope<T>(lambda:ScopedLambda<T>):T {
