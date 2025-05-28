@@ -79,8 +79,9 @@ class EventLoopScheduler extends Scheduler {
 				current.func();
 				current = current.next;
 			} else {
-				current.previous = null;
 				events = current;
+
+				return;
 			}
 		}
 	}

@@ -49,19 +49,17 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 	}
 
 	public static function run<T>(f:Coroutine<() -> T>):T {
-		throw new haxe.Exception('');
-		// final loop    = new EventLoop();
-		// final cont    = new BlockingContinuation<T>(loop, new EventLoopScheduler(loop));
-		// final result  = f(cont);
+		final cont    = new BlockingContinuation<T>(new EventLoopScheduler());
+		final result  = f(cont);
 
-		// return switch (result.state) {
-		// 	case Pending:
-		// 		cont.wait();
-		// 	case Returned:
-		// 		result.result;
-		// 	case Thrown:
-		// 		throw result.error;
-		// }
+		return switch (result.state) {
+			case Pending:
+				cont.wait();
+			case Returned:
+				result.result;
+			case Thrown:
+				throw result.error;
+		}
 	}
 
 	public static function runScoped<T>(f:Coroutine<(scope : ICoroutineScope)->T>):T {

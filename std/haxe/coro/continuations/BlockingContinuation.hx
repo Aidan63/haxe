@@ -2,21 +2,21 @@ package haxe.coro.continuations;
 
 import haxe.CallStack;
 import haxe.coro.context.Context;
-import haxe.coro.schedulers.Scheduler;
+import haxe.coro.schedulers.EventLoopScheduler;
 
 class BlockingContinuation<T> implements IContinuation<T> {
 	public final context:Context;
 
-	final loop:EventLoop;
+	final scheduler:EventLoopScheduler;
 
 	var running:Bool;
 	var result:T;
 	var error:Exception;
 
-	public function new(loop:EventLoop, scheduler:Scheduler) {
-		this.loop = loop;
+	public function new(scheduler:EventLoopScheduler) {
+		this.scheduler = scheduler;
 
-		this.context = Context.create(scheduler, new BaseContinuation.StackTraceManager());
+		context = Context.create(scheduler, new BaseContinuation.StackTraceManager());
 		running = true;
 		error   = null;
 	}
@@ -29,8 +29,8 @@ class BlockingContinuation<T> implements IContinuation<T> {
 	}
 
 	public function wait():T {
-		while (loop.tick() || running) {
-			// Busy wait
+		while (running) {
+			scheduler.run();
 		}
 
 		if (error != null) {
