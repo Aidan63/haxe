@@ -4,6 +4,7 @@ import haxe.coro.schedulers.Scheduler;
 import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
 import haxe.coro.context.Context;
+import haxe.coro.context.IElement;
 import haxe.coro.EventLoop;
 import haxe.coro.schedulers.EventLoopScheduler;
 import haxe.exceptions.CancellationException;
@@ -17,6 +18,24 @@ private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
 
 	public function invokeResume():SuspensionResult<T> {
 		return Coroutine.suspend(null, this);
+	}
+}
+
+private abstract RunnableContext(ElementTree) {
+	inline function new(tree:ElementTree) {
+		this = tree;
+	}
+
+	public function run<T>(lambda:ScopedLambda<T>):T {
+		return Coroutine.runIn(new Context(this), lambda);
+	}
+
+	@:from static function fromAdjustableContext(context:AdjustableContext) {
+		return new RunnableContext(cast context);
+	}
+
+	public function with(...elements:IElement<Any>):RunnableContext {
+		return new AdjustableContext(this.copy()).with(...elements);
 	}
 }
 
@@ -52,15 +71,32 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		});
 	}
 
+	static var defaultContext(get, null):Context;
+
+	static function get_defaultContext() {
+		if (defaultContext != null) {
+			return defaultContext;
+		}
+		final loop = new EventLoop();
+		final schedulerComponent = new EventLoopScheduler(loop);
+		final stackTraceManagerComponent = new haxe.coro.BaseContinuation.StackTraceManager();
+		defaultContext = Context.create(schedulerComponent, stackTraceManagerComponent);
+		return defaultContext;
+	}
+
+	public static function with(...elements:IElement<Any>):RunnableContext {
+		return defaultContext.clone().with(...elements);
+	}
+
 	static public function run<T>(lambda:Coroutine<() -> T>):T {
 		return runScoped(_ -> lambda());
 	}
 
 	static public function runScoped<T>(lambda:ScopedLambda<T>):T {
-		final loop = new EventLoop();
-		final schedulerComponent = new EventLoopScheduler(loop);
-		final stackTraceManagerComponent = new haxe.coro.BaseContinuation.StackTraceManager();
-		final context = Context.create(schedulerComponent, stackTraceManagerComponent);
+		return runIn(defaultContext, lambda);
+	}
+
+	static public function runIn<T>(context:Context, lambda:ScopedLambda<T>):T {
 		final scope = new CoroScopeTask(context, lambda, null);
 		scope.join();
 		return scope.get();
@@ -68,7 +104,8 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 
 	@:coroutine static public function scope<T>(lambda:ScopedLambda<T>):T {
 		return suspend(cont -> {
-			final scope = new CoroScopeTask(cont.context, lambda, cont.context.get(hxcoro.CoroTask.key));
+			final context = cont.context;
+			final scope = new CoroScopeTask(context, lambda, context.get(hxcoro.CoroTask.key));
 			scope.await(cont);
 			scope.join();
 		});

@@ -1,8 +1,10 @@
 package issues.aidan;
 
+import haxe.coro.schedulers.Scheduler;
 import haxe.coro.context.Key;
 import haxe.coro.context.IElement;
 import haxe.coro.Coroutine;
+import haxe.coro.Coroutine.delay;
 import hxcoro.ICoroScope;
 
 class DebugName implements IElement<DebugName> {
@@ -20,6 +22,25 @@ class DebugName implements IElement<DebugName> {
 
 	public function toString() {
 		return '[DebugName: $name]';
+	}
+}
+
+class ImpatientScheduler extends Scheduler {
+
+	public function new() {
+		super();
+	}
+
+	public function schedule(func:() -> Void) {
+		func();
+	}
+
+	public function scheduleIn(func:() -> Void, _) {
+		func();
+	}
+
+	public function tick() {
+		return true;
 	}
 }
 
@@ -59,5 +80,31 @@ class Issue27 extends utest.Test {
 				});
 			});
 		});
+	}
+
+	function testEntrypoint() {
+		Coroutine.with(new DebugName("first name")).run(scope -> {
+			Assert.equals("first name", logDebug());
+			modifyDebug("second name");
+			Assert.equals("second name", logDebug());
+		});
+
+		Coroutine
+			.with(new DebugName("wrong name"))
+			.with(new DebugName("first name"))
+			.run(scope -> {
+				Assert.equals("first name", logDebug());
+				modifyDebug("second name");
+				Assert.equals("second name", logDebug());
+		});
+	}
+
+	function testSchedulerReplacement() {
+		// this isn't really a test because it would still pass with the standard Scheduler... eventually
+		final result = Coroutine.with(new ImpatientScheduler()).run(_ -> {
+			delay(10000000);
+			"done";
+		});
+		Assert.equals("done", result);
 	}
 }
