@@ -116,7 +116,6 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		return suspend(cont -> {
 			final context = cont.context;
 			final scope = new CoroScopeTask(context, lambda);
-			@:privateAccess context.get(hxcoro.CoroTask.key)?.addChild(scope);
 			scope.awaitContinuation(cont);
 		});
 	}
