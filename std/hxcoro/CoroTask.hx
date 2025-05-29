@@ -67,7 +67,7 @@ abstract class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> i
 		this.context = context.clone().with(this);
 		this.lambda = lambda;
 		awaitingContinuations = [];
-		wasResumed = false;
+		wasResumed = true;
 	}
 
 	public function get() {
@@ -85,6 +85,7 @@ abstract class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> i
 		switch (state) {
 			case Created:
 				beginRunning();
+				wasResumed = false;
 			case _:
 				return;
 		}
