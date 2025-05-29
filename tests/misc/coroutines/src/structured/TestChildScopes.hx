@@ -46,7 +46,7 @@ class TestChildScopes extends utest.Test {
 		});
 
 		task.start();
-		
+
 		scheduler.advanceTo(999);
 		Assert.isTrue(task.isActive());
 		Assert.equals(result, 0);
@@ -191,6 +191,7 @@ class TestChildScopes extends utest.Test {
 
 		task.start();
 
+		scheduler.advanceBy(0);
 		scheduler.advanceTo(499);
 		Assert.isTrue(task.isActive());
 		Assert.equals(result, 0);
