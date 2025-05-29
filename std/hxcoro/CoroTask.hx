@@ -42,18 +42,29 @@ private class CoroTaskWith<T> implements ICoroScope {
 	}
 }
 
-class CoroTask<T> extends AbstractTask implements IContinuation<T> implements ICoroScope implements IStartableCoroTask<T> implements IElement<CoroTask<Any>> {
+/**
+	CoroTask provides the basic functionality for coroutine tasks.
+**/
+class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> implements ICoroScope implements IStartableCoroTask<T>
+		implements IElement<CoroTask<Any>> {
 	public static final key:Key<CoroTask<Any>> = Key.createNew('Task');
 
+	/**
+		This task's immutable `Context`.
+	**/
 	public final context:Context;
-	public final lambda:ScopedLambda<T>;
 
+	final lambda:ScopedLambda<T>;
 	var result:Null<T>;
-
 	var awaitingContinuations:Array<IContinuation<T>>;
 	var wasResumed:Bool;
 
-	public function new(context:Context, lambda:ScopedLambda<T>, parent:Null<AbstractTask>) {
+	/**
+		Creates a new task using the provided `context` in order to execute `lambda`.
+
+		Coroutine tasks always have a `parent` because they are created in a scope.
+	**/
+	public function new(context:Context, lambda:ScopedLambda<T>, parent:AbstractTask<Any>) {
 		super(parent);
 		this.context = context.clone().with(this);
 		this.lambda = lambda;
@@ -65,18 +76,17 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 		return result;
 	}
 
-	public function getException() {
-		return error;
-	}
-
 	public function getKey() {
 		return key;
 	}
 
+	/**
+		Starts executing this task's `lambda`. Has no effect if the task is already active or has completed.
+	**/
 	public function start() {
 		switch (state) {
 			case Created:
-				state = Running;
+				beginRunning();
 			case _:
 				return;
 		}
@@ -91,10 +101,17 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 		}
 	}
 
+	/**
+		Creates a lazy child task to execute `lambda`. The child task does not execute until its `start`
+		method is called. This occurrs automatically once this task has finished execution.
+	**/
 	public function lazy<T>(lambda:ScopedLambda<T>):IStartableCoroTask<T> {
 		return new CoroTask(context, lambda, this);
 	}
 
+	/**
+		Creates a child task to execute `lambda` and starts it automatically.
+	**/
 	public function async<T>(lambda:ScopedLambda<T>):ICoroTask<T> {
 		final child = lazy(lambda);
 		context.get(Scheduler.key).schedule(() -> {
@@ -103,11 +120,22 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 		return child;
 	}
 
+	/**
+		Returns a copy of this tasks `Context` with `elements` added, which can be used to start child tasks.
+	**/
 	public function with(...elements:IElement<Any>) {
 		return new CoroTaskWith(context.clone().with(...elements), this);
 	}
 
-	public function maybeContinue(cont:IContinuation<T>) {
+	/**
+		Resumes `cont` with this task's outcome.
+
+		If this task is no longer active, the continuation is resumed immediately. Otherwise, it is registered
+		to be resumed upon completion.
+
+		This function also starts this task if it has not been started yet.
+	**/
+	public function awaitContinuation(cont:IContinuation<T>) {
 		switch state {
 			case Completed:
 				cont.resume(result, null);
@@ -119,24 +147,23 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 		}
 	}
 
-	override function checkCompletion() {
-		if (!wasResumed) {
-			return;
-		}
-		super.checkCompletion();
-	}
-
+	/**
+		Suspends this task until it completes.
+	**/
 	@:coroutine public function await():T {
-		return Coroutine.suspend(maybeContinue);
+		return Coroutine.suspend(awaitContinuation);
 	}
 
+	/**
+		Resumes the task with the provided `result` and `error`.
+	**/
 	public function resume(result:T, error:Exception) {
 		wasResumed = true;
 		if (error == null) {
 			switch (state) {
 				case Running:
 					this.result = result;
-					state = Completing;
+					beginCompleting();
 				case _:
 			}
 			checkCompletion();
@@ -148,11 +175,18 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 		}
 	}
 
+	override function checkCompletion() {
+		if (!wasResumed) {
+			return;
+		}
+		super.checkCompletion();
+	}
+
 	// called from parent
 
-	function childSucceeds(_) {}
+	function childSucceeds(child:AbstractTask<Any>) {}
 
-	function childErrors(_, error:Exception) {
+	function childErrors(child:AbstractTask<Any>, error:Exception) {
 		switch (state) {
 			case Created | Running | Completing:
 				// inherit child error
@@ -166,7 +200,7 @@ class CoroTask<T> extends AbstractTask implements IContinuation<T> implements IC
 		}
 	}
 
-	function childCancels(_, cause:CancellationException) {
+	function childCancels(child:AbstractTask<Any>, cause:CancellationException) {
 		// Cancellation is often issued from the parent anyway, but I don't know if that's always the case
 		// Calling cancel is fine because it won't do anything if we're already cancelling
 		cancel(cause);

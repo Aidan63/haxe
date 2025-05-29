@@ -27,7 +27,7 @@ private abstract RunnableContext(ElementTree) {
 	}
 
 	public function run<T>(lambda:ScopedLambda<T>):T {
-		return Coroutine.runIn(new Context(this), lambda);
+		return Coroutine.runWith(new Context(this), lambda);
 	}
 
 	@:from static function fromAdjustableContext(context:AdjustableContext) {
@@ -91,20 +91,20 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 	}
 
 	static public function runScoped<T>(lambda:ScopedLambda<T>):T {
-		return runIn(defaultContext, lambda);
+		return runWith(defaultContext, lambda);
 	}
 
-	static public function runIn<T>(context:Context, lambda:ScopedLambda<T>):T {
+	static public function runWith<T>(context:Context, lambda:ScopedLambda<T>):T {
 		final loop = new EventLoop();
 		final schedulerComponent = new EventLoopScheduler(loop);
 		final scope = new CoroScopeTask(context.clone().with(schedulerComponent), lambda, null);
 		scope.start();
 		while (loop.tick()) {
-			if (!scope.isRunning()) {
+			if (!scope.isActive()) {
 				break;
 			}
 		}
-		switch (scope.getException()) {
+		switch (scope.getError()) {
 			case null:
 				return scope.get();
 			case error:
@@ -116,7 +116,7 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		return suspend(cont -> {
 			final context = cont.context;
 			final scope = new CoroScopeTask(context, lambda, context.get(hxcoro.CoroTask.key));
-			scope.maybeContinue(cont);
+			scope.awaitContinuation(cont);
 		});
 	}
 }
