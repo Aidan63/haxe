@@ -5,7 +5,7 @@ import haxe.coro.context.Key;
 import haxe.coro.context.IElement;
 import haxe.coro.Coroutine;
 import haxe.coro.Coroutine.delay;
-import hxcoro.ICoroScope;
+import hxcoro.ICoroTask;
 
 class DebugName implements IElement<DebugName> {
 	static public var key:Key<DebugName> = Key.createNew("DebugName");
@@ -39,8 +39,17 @@ class ImpatientScheduler extends Scheduler {
 		func();
 	}
 
-	public function tick() {
-		return true;
+	public function runTask<T>(task:IStartableCoroTask<T>) {
+		task.start();
+		while (task.isActive()) {
+
+		}
+		switch (task.getError()) {
+			case null:
+				return task.get();
+			case error:
+				throw error;
+		}
 	}
 }
 
@@ -99,12 +108,18 @@ class Issue27 extends utest.Test {
 		});
 	}
 
-	// function testSchedulerReplacement() {
-	// 	// this isn't really a test because it would still pass with the standard Scheduler... eventually
-	// 	final result = Coroutine.with(new ImpatientScheduler()).run(_ -> {
-	// 		delay(10000000);
-	// 		"done";
-	// 	});
-	// 	Assert.equals("done", result);
-	// }
+	function testSchedulerReplacement() {
+		final scheduler = new ImpatientScheduler();
+		final task = Coroutine.with(scheduler).create(_ -> {
+			delay(10000000);
+			"done";
+		});
+		Assert.equals("done", scheduler.runTask(task));
+
+		final raisingTask = Coroutine.with(scheduler).create(_ -> {
+			delay(10000000);
+			throw "oh no";
+		});
+		Assert.raises(scheduler.runTask.bind(raisingTask), String);
+	}
 }

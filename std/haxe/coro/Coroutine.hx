@@ -10,6 +10,7 @@ import haxe.coro.schedulers.EventLoopScheduler;
 import haxe.exceptions.CancellationException;
 import hxcoro.ScopedLambda;
 import hxcoro.CoroScopeTask;
+import hxcoro.ICoroTask;
 
 private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
 	public function new(completion:haxe.coro.IContinuation<T>) {
@@ -24,6 +25,10 @@ private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
 private abstract RunnableContext(ElementTree) {
 	inline function new(tree:ElementTree) {
 		this = tree;
+	}
+
+	public function create<T>(lambda:ScopedLambda<T>):IStartableCoroTask<T> {
+		return new CoroScopeTask(new Context(this), lambda);
 	}
 
 	public function run<T>(lambda:ScopedLambda<T>):T {
