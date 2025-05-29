@@ -2,8 +2,10 @@ package haxe.coro.schedulers;
 
 import haxe.exceptions.ArgumentException;
 
+private typedef Lambda = ()->Void;
+
 private class ScheduledEvent {
-	public final func : ()->Void;
+	public final func : Lambda;
 	public final runTime : Float;
 	public var next : Null<ScheduledEvent>;
 	public var previous : Null<ScheduledEvent>;
@@ -17,17 +19,48 @@ private class ScheduledEvent {
 	}
 }
 
+private class DoubleBuffer {
+	final a : Array<Lambda>;
+	final b : Array<Lambda>;
+
+	var current : Array<Lambda>;
+
+	public function new() {
+		a       = [];
+		b       = [];
+		current = a;
+	}
+
+	public function flip() {
+		final returning = current;
+
+		current = if (current == a) b else a;
+		current.resize(0);
+
+		return returning;
+	}
+
+	public function push(l : Lambda) {
+		current.push(l);
+	}
+
+	public function empty() {
+		return current.length == 0;
+	}
+}
+
 class EventLoopScheduler extends Scheduler {
 	var first : Null<ScheduledEvent>;
 	var last : Null<ScheduledEvent>;
-	var zeroEvents : Array<() -> Void>;
+
+	final zeroEvents : DoubleBuffer;
 
 	public function new() {
 		super();
 
 		first = null;
 		last = null;
-		zeroEvents = [];
+		zeroEvents = new DoubleBuffer();
 	}
 
     public function schedule(func:()->Void, ms:Int) {
@@ -75,9 +108,7 @@ class EventLoopScheduler extends Scheduler {
 	public function run() {
 
 		while (true) {
-			final events = zeroEvents;
-			zeroEvents = [];
-			for (event in events) {
+			for (event in zeroEvents.flip()) {
 				event();
 			}
 
@@ -98,7 +129,7 @@ class EventLoopScheduler extends Scheduler {
 					break;
 				}
 			}
-			if (zeroEvents.length == 0) {
+			if (zeroEvents.empty()) {
 				return;
 			}
 		}
