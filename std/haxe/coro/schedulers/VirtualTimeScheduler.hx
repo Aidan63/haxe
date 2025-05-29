@@ -20,9 +20,7 @@ class VirtualTimeScheduler extends EventLoopScheduler {
 			throw new ArgumentException("Time must be greater or equal to zero");
 		}
 
-		currentTime += (ms / 1000);
-
-		run();
+		virtualRun(currentTime + (ms / 1000));
 	}
 
 	public function advanceTo(ms:Int) {
@@ -33,8 +31,37 @@ class VirtualTimeScheduler extends EventLoopScheduler {
 			throw new ArgumentException("Cannot travel back in time");
 		}
 
-		currentTime = (ms / 1000);
+		virtualRun(ms / 1000);
+	}
 
-		run();
+	function virtualRun(endTime : Float) {
+		while (true) {
+			for (event in zeroEvents.flip()) {
+				event();
+			}
+
+			while (true) {
+				if (first == null) {
+					last = null;
+					break;
+				}
+				if (first.runTime <= endTime) {
+					final func = first.func;
+					currentTime = first.runTime;
+					first = first.next;
+					if (first != null) {
+						first.previous = null;
+					}
+					func();
+				} else {
+					break;
+				}
+			}
+			if (zeroEvents.empty()) {
+				break;
+			}
+		}
+
+		currentTime = endTime;
 	}
 }

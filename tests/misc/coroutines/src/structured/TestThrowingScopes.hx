@@ -80,27 +80,27 @@ class TestThrowingScopes extends utest.Test {
 		}, FooException);
 	}
 
-	// public function test_child_throwing_cancelling_parent() {
-	// 	final scheduler = new VirtualTimeScheduler();
-	// 	final task      = Coroutine.with(scheduler).create(scope -> {
-	// 		final child = scope.async(scope -> {
-	// 			delay(1000);
+	public function test_child_throwing_cancelling_parent() {
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(scope -> {
+			final child = scope.async(scope -> {
+				delay(1000);
 
-	// 			throw new FooException();
-	// 		});
+				throw new FooException();
+			});
 
-	// 		while (true) {
-	// 			yield();
-	// 		}
-	// 	});
+			while (true) {
+				yield();
+			}
+		});
 
-	// 	task.start();
+		task.start();
 
-	// 	scheduler.advanceBy(1000);
+		scheduler.advanceBy(1000);
 
-	// 	Assert.isFalse(task.isActive());
-	// 	Assert.isOfType(task.getError(), FooException);
-	// }
+		Assert.isFalse(task.isActive());
+		Assert.isOfType(task.getError(), FooException);
+	}
 
 	public function test_manually_cancelling_child() {
 		final scheduler = new VirtualTimeScheduler();
@@ -118,7 +118,6 @@ class TestThrowingScopes extends utest.Test {
 
 		task.start();
 
-		scheduler.advanceBy(0);
 		scheduler.advanceBy(1000);
 
 		Assert.isFalse(task.isActive());
