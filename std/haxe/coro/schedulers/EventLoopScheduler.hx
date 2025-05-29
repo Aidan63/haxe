@@ -20,17 +20,22 @@ private class ScheduledEvent {
 class EventLoopScheduler extends Scheduler {
 	var first : Null<ScheduledEvent>;
 	var last : Null<ScheduledEvent>;
+	var zeroEvents : Array<() -> Void>;
 
 	public function new() {
 		super();
 
 		first = null;
 		last = null;
+		zeroEvents = [];
 	}
 
     public function schedule(func:()->Void, ms:Int) {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
+		} else if (ms == 0) {
+			zeroEvents.push(func);
+			return;
 		}
 
 		final event = new ScheduledEvent(func, now() + (ms / 1000));
@@ -68,22 +73,33 @@ class EventLoopScheduler extends Scheduler {
 	}
 
 	public function run() {
-		final currentTime = now();
 
 		while (true) {
-			if (first == null) {
-				last = null;
-				break;
+			final events = zeroEvents;
+			zeroEvents = [];
+			for (event in events) {
+				event();
 			}
-			if (first.runTime <= currentTime) {
-				final func = first.func;
-				first = first.next;
-				if (first != null) {
-					first.previous = null;
+
+			final currentTime = now();
+			while (true) {
+				if (first == null) {
+					last = null;
+					break;
 				}
-				func();
-			} else {
-				break;
+				if (first.runTime <= currentTime) {
+					final func = first.func;
+					first = first.next;
+					if (first != null) {
+						first.previous = null;
+					}
+					func();
+				} else {
+					break;
+				}
+			}
+			if (zeroEvents.length == 0) {
+				return;
 			}
 		}
 	}
