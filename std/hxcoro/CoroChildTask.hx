@@ -38,7 +38,7 @@ class CoroChildTask<T> extends CoroTask<T> {
 	}
 
 	function complete() {
-		parent?.childCompletes(this);
+		parent?.childCompletes(this, true);
 		handleAwaitingContinuations();
 	}
 }
