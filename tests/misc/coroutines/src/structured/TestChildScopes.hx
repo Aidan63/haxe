@@ -1,5 +1,6 @@
 package structured;
 
+import haxe.coro.schedulers.VirtualTimeScheduler;
 import haxe.coro.Coroutine;
 import haxe.coro.Coroutine.delay;
 import haxe.coro.Coroutine.yield;
@@ -38,9 +39,9 @@ class TestChildScopes extends utest.Test {
 	}
 
 	function test_waiting_for_many_children() {
-		final result = [];
-
-		Coroutine.runScoped(scope -> {
+		final result    = [];
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(scope -> {
 			scope.async(_ -> {
 				delay(500);
 
@@ -54,7 +55,21 @@ class TestChildScopes extends utest.Test {
 			});
 		});
 
-		Assert.same(result, [ 0, 1 ]);
+		task.start();
+
+		scheduler.advanceTo(499);
+		Assert.same([], result);
+
+		scheduler.advanceTo(500);
+		Assert.same([ 0 ], result);
+
+		scheduler.advanceTo(999);
+		Assert.same([ 0 ], result);
+
+		scheduler.advanceTo(1000);
+		Assert.same([ 0, 1 ], result);
+
+		Assert.isFalse(task.isActive());
 	}
 
 	function test_waiting_for_many_nested_children() {

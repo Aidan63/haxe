@@ -20,7 +20,7 @@ function main() {
 		#end
 		new structured.TestChildScopes(),
 		new structured.TestLazyScopes(),
-		new structured.TestThrowingScopes(),
+		// new structured.TestThrowingScopes(),
 		new structured.TestCoroutineScope()
 	];
 

@@ -63,7 +63,7 @@ private class Thread {
 
 				lock.release();
 			}
-		});
+		}, 0);
 	}
 
 	public function resolve():Void {

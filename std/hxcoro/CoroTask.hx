@@ -25,7 +25,7 @@ private class CoroTaskWith<T> implements ICoroScope {
 		final child = lazy(lambda);
 		context.get(Scheduler.key).schedule(() -> {
 			child.start();
-		});
+		}, 0);
 		return child;
 	}
 
@@ -114,7 +114,7 @@ abstract class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> i
 		final child = lazy(lambda);
 		context.get(Scheduler.key).schedule(() -> {
 			child.start();
-		});
+		}, 0);
 		return child;
 	}
 
