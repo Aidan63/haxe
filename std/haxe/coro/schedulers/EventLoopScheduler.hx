@@ -18,12 +18,14 @@ private class ScheduledEvent {
 }
 
 class EventLoopScheduler extends Scheduler {
-	var events : Null<ScheduledEvent>;
+	var first : Null<ScheduledEvent>;
+	var last : Null<ScheduledEvent>;
 
 	public function new() {
 		super();
 
-		events = null;
+		first = null;
+		last = null;
 	}
 
     public function schedule(func:()->Void, ms:Int) {
@@ -32,35 +34,31 @@ class EventLoopScheduler extends Scheduler {
 		}
 
 		final event = new ScheduledEvent(func, now() + (ms / 1000));
-
-		if (events == null) {
-			events = event;
-
+		if (first == null) {
+			first = event;
+			last = event;
 			return;
 		}
-		
-		var current  = events;
-		var previous = null;
+
+		var current = last;
 		while (true) {
 			if (current == null) {
-				previous.next  = event;
-				event.previous = previous;
+				event.next = first;
+				first = event;
 				break;
-			} else if (event.runTime < current.runTime) {
-				event.next = current;
-				current.previous = event;
-				switch previous {
-					case null:
-						events = event;
-					case _:
-						event.previous   = previous;
-						previous.next    = event;
-						current.previous = event;
+			} else if (event.runTime >= current.runTime) {
+				final next = current.next;
+				current.next = event;
+				event.previous = current;
+				if (next != null) {
+					event.next = next;
+					next.previous = event;
+				} else {
+					last = event;
 				}
 				break;
 			} else {
-				previous = current;
-				current = current.next;
+				current = current.previous;
 			}
 		}
     }
@@ -72,17 +70,22 @@ class EventLoopScheduler extends Scheduler {
 	public function run() {
 		final currentTime = now();
 
-		var current = events;
-		while (current != null) {
-			if (current.runTime <= currentTime) {
-				current.func();
-				current = current.next;
+		while (true) {
+			if (first == null) {
+				last = null;
+				break;
+			}
+			if (first.runTime <= currentTime) {
+				final func = first.func;
+				first = first.next;
+				if (first != null) {
+					first.previous = null;
+				}
+				func();
 			} else {
 				break;
 			}
 		}
-
-		events = current;
 	}
 
 	public function toString() {
