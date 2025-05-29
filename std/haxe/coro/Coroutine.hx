@@ -97,7 +97,7 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 	static public function runWith<T>(context:Context, lambda:ScopedLambda<T>):T {
 		final loop = new EventLoop();
 		final schedulerComponent = new EventLoopScheduler(loop);
-		final scope = new CoroScopeTask(context.clone().with(schedulerComponent), lambda, null);
+		final scope = new CoroScopeTask(context.clone().with(schedulerComponent), lambda);
 		scope.start();
 		while (loop.tick()) {
 			if (!scope.isActive()) {
@@ -115,7 +115,8 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 	@:coroutine static public function scope<T>(lambda:ScopedLambda<T>):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroScopeTask(context, lambda, context.get(hxcoro.CoroTask.key));
+			final scope = new CoroScopeTask(context, lambda);
+			@:privateAccess context.get(hxcoro.CoroTask.key)?.addChild(scope);
 			scope.awaitContinuation(cont);
 		});
 	}

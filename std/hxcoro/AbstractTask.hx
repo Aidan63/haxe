@@ -23,20 +23,15 @@ class TaskException extends Exception {}
 **/
 abstract class AbstractTask<T> {
 	final children:Array<AbstractTask<Any>>;
-	final parent:Null<AbstractTask<Any>>;
 	var state:TaskState;
 	var error:Null<Exception>;
 
 	/**
-		Creates a new task. If `parent` is provided, this task becomes its child.
+		Creates a new task.
 	**/
-	public function new(?parent:AbstractTask<Any>) {
+	public function new() {
 		state = Created;
 		children = [];
-		if (parent != null) {
-			this.parent = parent;
-			parent.addChild(this);
-		}
 	}
 
 	/**

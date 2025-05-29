@@ -30,7 +30,7 @@ private class CoroTaskWith<T> implements ICoroScope {
 	}
 
 	public function lazy<T>(lambda:ScopedLambda<T>) {
-		return new CoroTask(context, lambda, task);
+		return new CoroChildTask(context, lambda, task);
 	}
 
 	public function cancel(?cause:CancellationException) {
@@ -45,7 +45,7 @@ private class CoroTaskWith<T> implements ICoroScope {
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
-class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> implements ICoroScope implements IStartableCoroTask<T>
+abstract class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> implements ICoroScope implements IStartableCoroTask<T>
 		implements IElement<CoroTask<Any>> {
 	public static final key:Key<CoroTask<Any>> = Key.createNew('Task');
 
@@ -61,11 +61,9 @@ class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> implements
 
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`.
-
-		Coroutine tasks always have a `parent` because they are created in a scope.
 	**/
-	public function new(context:Context, lambda:ScopedLambda<T>, parent:AbstractTask<Any>) {
-		super(parent);
+	public function new(context:Context, lambda:ScopedLambda<T>) {
+		super();
 		this.context = context.clone().with(this);
 		this.lambda = lambda;
 		awaitingContinuations = [];
@@ -106,7 +104,7 @@ class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> implements
 		method is called. This occurrs automatically once this task has finished execution.
 	**/
 	public function lazy<T>(lambda:ScopedLambda<T>):IStartableCoroTask<T> {
-		return new CoroTask(context, lambda, this);
+		return new CoroChildTask(context, lambda, this);
 	}
 
 	/**
@@ -180,35 +178,6 @@ class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> implements
 			return;
 		}
 		super.checkCompletion();
-	}
-
-	// called from parent
-
-	function childSucceeds(child:AbstractTask<Any>) {}
-
-	function childErrors(child:AbstractTask<Any>, error:Exception) {
-		switch (state) {
-			case Created | Running | Completing:
-				// inherit child error
-				if (this.error == null) {
-					this.error = error;
-				}
-				cancel();
-			case Cancelling:
-				// not sure about this one, what if we cancel normally and then get a real exception?
-			case Completed | Cancelled:
-		}
-	}
-
-	function childCancels(child:AbstractTask<Any>, cause:CancellationException) {
-		// Cancellation is often issued from the parent anyway, but I don't know if that's always the case
-		// Calling cancel is fine because it won't do anything if we're already cancelling
-		cancel(cause);
-	}
-
-	function complete() {
-		parent?.childCompletes(this);
-		handleAwaitingContinuations();
 	}
 
 	function handleAwaitingContinuations() {
