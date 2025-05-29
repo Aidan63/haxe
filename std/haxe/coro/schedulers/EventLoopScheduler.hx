@@ -63,7 +63,7 @@ class EventLoopScheduler extends Scheduler {
 		zeroEvents = new DoubleBuffer();
 	}
 
-    public function schedule(func:()->Void, ms:Int) {
+    public function schedule(ms:Int, func:()->Void) {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
 		} else if (ms == 0) {

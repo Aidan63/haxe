@@ -50,7 +50,7 @@ private class Thread {
 	}
 
 	public function resume(result:T, error:Exception):Void {
-		context.get(Scheduler.key).schedule(() -> {
+		context.get(Scheduler.key).schedule(0, () -> {
 			lock.acquire();
 
 			if (assigned) {
@@ -63,7 +63,7 @@ private class Thread {
 
 				lock.release();
 			}
-		}, 0);
+		});
 	}
 
 	public function resolve():Void {

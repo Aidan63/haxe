@@ -61,17 +61,17 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 
 	@:coroutine @:coroutine.nothrow public static function delay(ms:Int):Void {
 		suspend(cont -> {
-			cont.context.get(Scheduler.key).schedule(() -> {
+			cont.context.get(Scheduler.key).schedule(ms, () -> {
 				cont.resume(null, cancellationRequested(cont) ? new CancellationException() : null);
-			}, ms);
+			});
 		});
 	}
 
 	@:coroutine @:coroutine.nothrow public static function yield():Void {
 		suspend(cont -> {
-			cont.context.get(Scheduler.key).schedule(() -> {
+			cont.context.get(Scheduler.key).schedule(0, () -> {
 				cont.resume(null, cancellationRequested(cont) ? new CancellationException() : null);
-			}, 0);
+			});
 		});
 	}
 

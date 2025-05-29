@@ -8,7 +8,7 @@ abstract class Scheduler implements IElement<Scheduler> {
 
 	function new() {}
 
-	public abstract function schedule(func:() -> Void, ms:Int):Void;
+	public abstract function schedule(ms:Int, func:() -> Void):Void;
 
 	public abstract function now():Float;
 
