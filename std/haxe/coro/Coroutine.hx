@@ -5,7 +5,6 @@ import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
-import haxe.coro.EventLoop;
 import haxe.coro.schedulers.EventLoopScheduler;
 import haxe.exceptions.CancellationException;
 import hxcoro.ScopedLambda;
@@ -62,15 +61,15 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 
 	@:coroutine @:coroutine.nothrow public static function delay(ms:Int):Void {
 		suspend(cont -> {
-			cont.context.get(Scheduler.key).scheduleIn(() -> {
+			cont.context.get(Scheduler.key).schedule(ms, () -> {
 				cont.resume(null, cancellationRequested(cont) ? new CancellationException() : null);
-			}, ms);
+			});
 		});
 	}
 
 	@:coroutine @:coroutine.nothrow public static function yield():Void {
 		suspend(cont -> {
-			cont.context.get(Scheduler.key).schedule(() -> {
+			cont.context.get(Scheduler.key).schedule(0, () -> {
 				cont.resume(null, cancellationRequested(cont) ? new CancellationException() : null);
 			});
 		});
@@ -100,14 +99,11 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 	}
 
 	static public function runWith<T>(context:Context, lambda:ScopedLambda<T>):T {
-		final loop = new EventLoop();
-		final schedulerComponent = new EventLoopScheduler(loop);
+		final schedulerComponent = new EventLoopScheduler();
 		final scope = new CoroScopeTask(context.clone().with(schedulerComponent), lambda);
 		scope.start();
-		while (loop.tick()) {
-			if (!scope.isActive()) {
-				break;
-			}
+		while (scope.isActive()) {
+			schedulerComponent.run();
 		}
 		switch (scope.getError()) {
 			case null:

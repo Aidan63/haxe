@@ -47,7 +47,7 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
     public final function resume(result:Any, error:Exception):Void {
         this.result = result;
         this.error  = error;
-        context.get(Scheduler.key).schedule(() -> {
+        context.get(Scheduler.key).schedule(0, () -> {
 			recursing = false;
 
 			#if coroutine.throw

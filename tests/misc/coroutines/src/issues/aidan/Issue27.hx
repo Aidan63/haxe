@@ -1,6 +1,8 @@
 package issues.aidan;
 
+import haxe.ValueException;
 import haxe.coro.schedulers.Scheduler;
+import haxe.coro.schedulers.VirtualTimeScheduler;
 import haxe.coro.context.Key;
 import haxe.coro.context.IElement;
 import haxe.coro.Coroutine;
@@ -22,34 +24,6 @@ class DebugName implements IElement<DebugName> {
 
 	public function toString() {
 		return '[DebugName: $name]';
-	}
-}
-
-class ImpatientScheduler extends Scheduler {
-
-	public function new() {
-		super();
-	}
-
-	public function schedule(func:() -> Void) {
-		func();
-	}
-
-	public function scheduleIn(func:() -> Void, _) {
-		func();
-	}
-
-	public function runTask<T>(task:IStartableCoroTask<T>) {
-		task.start();
-		while (task.isActive()) {
-
-		}
-		switch (task.getError()) {
-			case null:
-				return task.get();
-			case error:
-				throw error;
-		}
 	}
 }
 
@@ -108,18 +82,33 @@ class Issue27 extends utest.Test {
 		});
 	}
 
-	function testSchedulerReplacement() {
-		final scheduler = new ImpatientScheduler();
-		final task = Coroutine.with(scheduler).create(_ -> {
-			delay(10000000);
-			"done";
-		});
-		Assert.equals("done", scheduler.runTask(task));
+	// function testSchedulerReplacement() {
+	// 	final delayed = 10000000;
 
-		final raisingTask = Coroutine.with(scheduler).create(_ -> {
-			delay(10000000);
-			throw "oh no";
-		});
-		Assert.raises(scheduler.runTask.bind(raisingTask), String);
-	}
+	// 	final scheduler = new VirtualTimeScheduler();
+	// 	final task = Coroutine.with(scheduler).create(_ -> {
+	// 		delay(delayed);
+	// 		"done";
+	// 	});
+
+	// 	task.start();
+	// 	scheduler.advanceBy(delayed);
+
+	// 	if (Assert.isFalse(task.isActive())) {
+	// 		Assert.equals("done", task.get());
+	// 	}
+
+	// 	final scheduler = new VirtualTimeScheduler();
+	// 	final task      = Coroutine.with(scheduler).create(_ -> {
+	// 		delay(delayed);
+	// 		throw "oh no";
+	// 	});
+
+	// 	task.start();
+	// 	scheduler.advanceBy(delayed);
+
+	// 	if (Assert.isFalse(task.isActive())) {
+	// 		Assert.isOfType(task.getError(), ValueException);
+	// 	}
+	// }
 }

@@ -3,12 +3,14 @@ package structured;
 import haxe.coro.Coroutine;
 import haxe.coro.Coroutine.delay;
 import haxe.coro.Coroutine.yield;
+import haxe.coro.schedulers.VirtualTimeScheduler;
 
 class TestChildScopes extends utest.Test {
 	function test_waiting_for_child() {
 		var result = 0;
 
-		Coroutine.runScoped(scope -> {
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(scope -> {
 			scope.async(_ -> {
 				delay(1000);
 
@@ -16,13 +18,22 @@ class TestChildScopes extends utest.Test {
 			});
 		});
 
+		task.start();
+
+		scheduler.advanceTo(999);
+		Assert.isTrue(task.isActive());
+		Assert.equals(result, 0);
+
+		scheduler.advanceTo(1000);
+		Assert.isFalse(task.isActive());
 		Assert.equals(result, 1);
 	}
 
 	function test_deeply_nested_child() {
 		var result = 0;
 
-		Coroutine.runScoped(scope -> {
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(scope -> {
 			scope.async(scope -> {
 				scope.async(scope -> {
 					scope.async(_ -> {
@@ -34,13 +45,21 @@ class TestChildScopes extends utest.Test {
 			});
 		});
 
+		task.start();
+
+		scheduler.advanceTo(999);
+		Assert.isTrue(task.isActive());
+		Assert.equals(result, 0);
+
+		scheduler.advanceTo(1000);
+		Assert.isFalse(task.isActive());
 		Assert.equals(result, 1);
 	}
 
 	function test_waiting_for_many_children() {
-		final result = [];
-
-		Coroutine.runScoped(scope -> {
+		final result    = [];
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(scope -> {
 			scope.async(_ -> {
 				delay(500);
 
@@ -54,13 +73,28 @@ class TestChildScopes extends utest.Test {
 			});
 		});
 
-		Assert.same(result, [ 0, 1 ]);
+		task.start();
+
+		scheduler.advanceTo(499);
+		Assert.same([], result);
+
+		scheduler.advanceTo(500);
+		Assert.same([ 0 ], result);
+
+		scheduler.advanceTo(999);
+		Assert.same([ 0 ], result);
+
+		scheduler.advanceTo(1000);
+		Assert.same([ 0, 1 ], result);
+
+		Assert.isFalse(task.isActive());
 	}
 
 	function test_waiting_for_many_nested_children() {
 		final result = [];
 
-		Coroutine.runScoped(scope -> {
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(scope -> {
 			scope.async(scope -> {
 				scope.async(_ -> {
 					delay(500);
@@ -76,12 +110,27 @@ class TestChildScopes extends utest.Test {
 			});
 		});
 
-		Assert.same(result, [ 0, 1 ]);
+		task.start();
+
+		scheduler.advanceTo(499);
+		Assert.same([], result);
+
+		scheduler.advanceTo(500);
+		Assert.same([ 0 ], result);
+
+		scheduler.advanceTo(999);
+		Assert.same([ 0 ], result);
+
+		scheduler.advanceTo(1000);
+		Assert.same([ 0, 1 ], result);
+
+		Assert.isFalse(task.isActive());
 	}
 
 	function test_awaiting_child() {
 		final expected = 'Hello, World';
-		final result   = Coroutine.runScoped(scope -> {
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(scope -> {
 			final child = scope.async(_ -> {
 				delay(1000);
 
@@ -91,12 +140,17 @@ class TestChildScopes extends utest.Test {
 			return child.await();
 		});
 
-		Assert.equals(result, expected);
+		task.start();
+
+		scheduler.advanceTo(1000);
+		Assert.isFalse(task.isActive());
+		Assert.equals(expected, task.get());
 	}
 
 	function test_awaiting_nested_child() {
 		final expected = 'Hello, World';
-		final result   = Coroutine.runScoped(scope -> {
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(scope -> {
 			final child = scope.async(scope -> {
 				return
 					scope
@@ -112,13 +166,18 @@ class TestChildScopes extends utest.Test {
 			return child.await();
 		});
 
-		Assert.equals(result, expected);
+		task.start();
+
+		scheduler.advanceTo(1000);
+		Assert.isFalse(task.isActive());
+		Assert.equals(expected, task.get());
 	}
 
 	function test_awaiting_single_child() {
 		var result = 0;
 
-		Coroutine.runScoped(scope -> {
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(scope -> {
 			scope.async(_ -> {
 				delay(500);
 
@@ -130,12 +189,25 @@ class TestChildScopes extends utest.Test {
 				.await();
 		});
 
+		task.start();
+
+		scheduler.advanceTo(499);
+		Assert.isTrue(task.isActive());
+		Assert.equals(result, 0);
+
+		scheduler.advanceTo(500);
+		Assert.isTrue(task.isActive());
+		Assert.equals(result, 1);
+
+		scheduler.advanceTo(1000);
+		Assert.isFalse(task.isActive());
 		Assert.equals(result, 1);
 	}
 
 	function test_awaiting_completed_child() {
-		final expected = 'Hello, World!';
-		final result   = Coroutine.runScoped(scope -> {
+		final expected  = 'Hello, World!';
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(scope -> {
 			final child = scope.async(_ -> {
 				yield();
 
@@ -147,6 +219,10 @@ class TestChildScopes extends utest.Test {
 			return child.await();
 		});
 
-		Assert.equals(expected, result);
+		task.start();
+		scheduler.advanceBy(10);
+
+		Assert.isFalse(task.isActive());
+		Assert.equals(expected, task.get());
 	}
 }

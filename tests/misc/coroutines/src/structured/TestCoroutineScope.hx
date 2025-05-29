@@ -1,10 +1,11 @@
 package structured;
 
-import haxe.exceptions.CancellationException;
 import haxe.Exception;
+import haxe.exceptions.CancellationException;
 import haxe.coro.Coroutine;
 import haxe.coro.Coroutine.delay;
 import haxe.coro.Coroutine.yield;
+import haxe.coro.schedulers.VirtualTimeScheduler;
 
 private class FooException extends Exception {
 	public function new() {
@@ -46,9 +47,9 @@ class TestCoroutineScope extends utest.Test {
 	}
 
 	function test_scope_with_children() {
-		Coroutine.runScoped(_ -> {
-			final actual = [];
-
+		final actual    = [];
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(_ -> {
 			Coroutine.scope(scope -> {
 				scope.async(_ -> {
 					delay(500);
@@ -62,9 +63,17 @@ class TestCoroutineScope extends utest.Test {
 					actual.push(1);
 				});
 			});
-
-			Assert.same(actual, [ 0, 1 ]);
 		});
+
+		task.start();
+
+		scheduler.advanceTo(499);
+		Assert.same(actual, []);
+		Assert.isTrue(task.isActive());
+
+		scheduler.advanceTo(500);
+		Assert.same(actual, [ 0, 1 ]);
+		Assert.isFalse(task.isActive());
 	}
 
 	function test_try_raise() {
@@ -121,8 +130,9 @@ class TestCoroutineScope extends utest.Test {
 	}
 
 	function test_parent_scope_cancelling() {
-		final acc = [];
-		Coroutine.runScoped(scope -> {
+		final acc       = [];
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(scope -> {
 			final child = scope.async(_ -> {
 				try {
 					Coroutine.scope(scope -> {
@@ -140,6 +150,10 @@ class TestCoroutineScope extends utest.Test {
 			child.cancel();
 			acc.push("scope 3");
 		});
+
+		task.start();
+		scheduler.advanceBy(1000);
+
 		has(acc, ["scope 2", "scope 3"], ["scope 1"]);
 	}
 
