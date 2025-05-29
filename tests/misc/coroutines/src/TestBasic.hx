@@ -1,5 +1,7 @@
 import haxe.Exception;
 import haxe.coro.Coroutine.yield;
+import haxe.coro.Coroutine.delay;
+import haxe.coro.schedulers.VirtualTimeScheduler;
 
 class TestBasic extends utest.Test {
 	function testSimple() {
@@ -50,13 +52,18 @@ class TestBasic extends utest.Test {
 	#if sys
 
 	function testDelay() {
-		var elapsed = Coroutine.run(() -> {
-			var start = Sys.time();
-			Coroutine.delay(500);
-			return Sys.time() - start;
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(_ -> {
+			delay(500);
 		});
-		// This might not be super accurate, but it's good enough
-		Assert.isTrue(elapsed > 0.4);
+
+		task.start();
+
+		scheduler.advanceTo(499);
+		Assert.isTrue(task.isActive());
+		
+		scheduler.advanceTo(500);
+		Assert.isFalse(task.isActive());
 	}
 
 	#end

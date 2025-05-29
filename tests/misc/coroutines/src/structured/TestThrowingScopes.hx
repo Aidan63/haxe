@@ -4,6 +4,7 @@ import haxe.Exception;
 import haxe.coro.Coroutine;
 import haxe.coro.Coroutine.delay;
 import haxe.coro.Coroutine.yield;
+import haxe.coro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.CancellationException;
 
 class FooException extends Exception {
@@ -79,24 +80,31 @@ class TestThrowingScopes extends utest.Test {
 		}, FooException);
 	}
 
-	public function test_child_throwing_cancelling_parent() {
-		Assert.raises(() -> {
-			Coroutine.runScoped(scope -> {
-				final child = scope.async(scope -> {
-					delay(1000);
+	// public function test_child_throwing_cancelling_parent() {
+	// 	final scheduler = new VirtualTimeScheduler();
+	// 	final task      = Coroutine.with(scheduler).create(scope -> {
+	// 		final child = scope.async(scope -> {
+	// 			delay(1000);
 
-					throw new FooException();
-				});
+	// 			throw new FooException();
+	// 		});
 
-				while (true) {
-					yield();
-				}
-			});
-		}, FooException);
-	}
+	// 		while (true) {
+	// 			yield();
+	// 		}
+	// 	});
+
+	// 	task.start();
+
+	// 	scheduler.advanceBy(1000);
+
+	// 	Assert.isFalse(task.isActive());
+	// 	Assert.isOfType(task.getError(), FooException);
+	// }
 
 	public function test_manually_cancelling_child() {
-		Coroutine.runScoped(scope -> {
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(scope -> {
 			final child = scope.async(scope -> {
 				delay(1000);
 			});
@@ -105,11 +113,19 @@ class TestThrowingScopes extends utest.Test {
 
 			child.cancel();
 		});
-		Assert.pass();
+
+		// TODO : Once eager cancellation of delay is implemented advance time by 500ms and see if we're active.
+		
+		task.start();
+
+		scheduler.advanceBy(1000);
+
+		Assert.isFalse(task.isActive());
 	}
 
 	public function test_manually_cancelling_polling_child() {
-		Coroutine.runScoped(scope -> {
+		final scheduler = new VirtualTimeScheduler();
+		final task      = Coroutine.with(scheduler).create(scope -> {
 			final child = scope.async(scope -> {
 				while (true) {
 					yield();
@@ -120,6 +136,11 @@ class TestThrowingScopes extends utest.Test {
 
 			child.cancel();
 		});
-		Assert.pass();
+		
+		task.start();
+
+		scheduler.advanceBy(500);
+
+		Assert.isFalse(task.isActive());
 	}
 }

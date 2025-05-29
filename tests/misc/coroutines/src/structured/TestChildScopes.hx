@@ -1,9 +1,9 @@
 package structured;
 
-import haxe.coro.schedulers.VirtualTimeScheduler;
 import haxe.coro.Coroutine;
 import haxe.coro.Coroutine.delay;
 import haxe.coro.Coroutine.yield;
+import haxe.coro.schedulers.VirtualTimeScheduler;
 
 class TestChildScopes extends utest.Test {
 	function test_waiting_for_child() {
@@ -185,7 +185,7 @@ class TestChildScopes extends utest.Test {
 			});
 
 			scope
-				.async(_ -> delay(1000));
+				.async(_ -> delay(1000))
 				.await();
 		});
 
