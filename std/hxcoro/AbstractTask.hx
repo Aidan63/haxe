@@ -107,6 +107,7 @@ abstract class AbstractTask<T> {
 
 	final inline function beginCompleting() {
 		state = Completing;
+		startChildren();
 	}
 
 	final inline function beginRunning() {
@@ -114,18 +115,14 @@ abstract class AbstractTask<T> {
 	}
 
 	function startChildren() {
-		var hasUnfinishedChild = false;
 		for (child in children) {
 			switch (child.state) {
 				case Created:
 					child.start();
-					hasUnfinishedChild = true;
 				case Cancelled | Completed:
 				case Running | Completing | Cancelling:
-					hasUnfinishedChild = true;
 			}
 		}
-		return hasUnfinishedChild;
 	}
 
 	function checkCompletion() {
@@ -134,8 +131,10 @@ abstract class AbstractTask<T> {
 				return;
 			case _:
 		}
-		if (startChildren()) {
-			return;
+		for (child in children) {
+			if (child.isActive()) {
+				return;
+			}
 		}
 		switch (state) {
 			case Completing:
