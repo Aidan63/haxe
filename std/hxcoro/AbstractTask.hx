@@ -25,6 +25,7 @@ abstract class AbstractTask<T> {
 	final children:Array<AbstractTask<Any>>;
 	var state:TaskState;
 	var error:Null<Exception>;
+	var numCompletedChildren:Int;
 
 	/**
 		Creates a new task.
@@ -32,6 +33,7 @@ abstract class AbstractTask<T> {
 	public function new() {
 		state = Created;
 		children = [];
+		numCompletedChildren = 0;
 	}
 
 	/**
@@ -131,10 +133,8 @@ abstract class AbstractTask<T> {
 				return;
 			case _:
 		}
-		for (child in children) {
-			if (child.isActive()) {
-				return;
-			}
+		if (numCompletedChildren != children.length) {
+			return;
 		}
 		switch (state) {
 			case Completing:
@@ -157,15 +157,18 @@ abstract class AbstractTask<T> {
 
 	// called from child
 
-	function childCompletes(child:AbstractTask<Any>) {
-		if (child.error != null) {
-			if (child.error is CancellationException) {
-				childCancels(child, cast child.error);
+	function childCompletes(child:AbstractTask<Any>, processResult:Bool) {
+		numCompletedChildren++;
+		if (processResult) {
+			if (child.error != null) {
+				if (child.error is CancellationException) {
+					childCancels(child, cast child.error);
+				} else {
+					childErrors(child, child.error);
+				}
 			} else {
-				childErrors(child, child.error);
+				childSucceeds(child);
 			}
-		} else {
-			childSucceeds(child);
 		}
 		checkCompletion();
 	}

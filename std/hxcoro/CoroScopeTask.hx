@@ -5,9 +5,15 @@ import haxe.exceptions.CancellationException;
 import haxe.coro.context.Context;
 
 class CoroScopeTask<T> extends CoroTask<T> {
+	final parent:Null<AbstractTask<Any>>;
+
 	public function new(context:Context, lambda:ScopedLambda<T>) {
 		super(context, lambda);
-		context.get(hxcoro.CoroTask.key)?.addChild(this);
+		// slightly subtle: context here refers to the incoming context which still holds the parent
+		parent = context.get(hxcoro.CoroTask.key);
+		if (parent != null) {
+			parent.addChild(this);
+		}
 	}
 
 	function childSucceeds(_) {}
@@ -22,6 +28,7 @@ class CoroScopeTask<T> extends CoroTask<T> {
 	function childCancels(_, cause:CancellationException) {}
 
 	function complete() {
+		parent?.childCompletes(this, false);
 		handleAwaitingContinuations();
 	}
 }
