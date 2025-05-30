@@ -5,10 +5,10 @@ import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
 import hxcoro.ICoroTask;
 
-interface ICoroScope {
+interface ICoroNode {
 	public final context:Context;
-	function async<T>(lambda:ScopedLambda<T>):ICoroTask<T>;
-	function lazy<T>(lambda:ScopedLambda<T>):IStartableCoroTask<T>;
+	function async<T>(lambda:NodeLambda<T>):ICoroTask<T>;
+	function lazy<T>(lambda:NodeLambda<T>):IStartableCoroTask<T>;
 	function cancel(?cause:CancellationException):Void;
-	function with(...elements:IElement<Any>):ICoroScope;
+	function with(...elements:IElement<Any>):ICoroNode;
 }

@@ -7,7 +7,7 @@ import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
 import haxe.coro.schedulers.EventLoopScheduler;
 import haxe.exceptions.CancellationException;
-import hxcoro.ScopedLambda;
+import hxcoro.NodeLambda;
 import hxcoro.CoroScopeTask;
 import hxcoro.ICoroTask;
 
@@ -26,11 +26,11 @@ private abstract RunnableContext(ElementTree) {
 		this = tree;
 	}
 
-	public function create<T>(lambda:ScopedLambda<T>):IStartableCoroTask<T> {
+	public function create<T>(lambda:NodeLambda<T>):IStartableCoroTask<T> {
 		return new CoroScopeTask(new Context(this), lambda);
 	}
 
-	public function run<T>(lambda:ScopedLambda<T>):T {
+	public function run<T>(lambda:NodeLambda<T>):T {
 		return Coroutine.runWith(new Context(this), lambda);
 	}
 
@@ -94,11 +94,11 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		return runScoped(_ -> lambda());
 	}
 
-	static public function runScoped<T>(lambda:ScopedLambda<T>):T {
+	static public function runScoped<T>(lambda:NodeLambda<T>):T {
 		return runWith(defaultContext, lambda);
 	}
 
-	static public function runWith<T>(context:Context, lambda:ScopedLambda<T>):T {
+	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		final schedulerComponent = new EventLoopScheduler();
 		final scope = new CoroScopeTask(context.clone().with(schedulerComponent), lambda);
 		scope.start();
@@ -113,7 +113,7 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 		}
 	}
 
-	@:coroutine static public function scope<T>(lambda:ScopedLambda<T>):T {
+	@:coroutine static public function scope<T>(lambda:NodeLambda<T>):T {
 		return suspend(cont -> {
 			final context = cont.context;
 			final scope = new CoroScopeTask(context, lambda);

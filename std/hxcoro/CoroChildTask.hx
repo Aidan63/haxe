@@ -7,7 +7,7 @@ import haxe.exceptions.CancellationException;
 class CoroChildTask<T> extends CoroTask<T> {
 	final parent:AbstractTask<Any>;
 
-	public function new(context:Context, lambda:ScopedLambda<T>, parent:AbstractTask<Any>) {
+	public function new(context:Context, lambda:NodeLambda<T>, parent:AbstractTask<Any>) {
 		super(context, lambda);
 		this.parent = parent;
 		parent.addChild(this);

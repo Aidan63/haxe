@@ -11,7 +11,7 @@ import haxe.coro.IContinuation;
 import haxe.coro.schedulers.Scheduler;
 import haxe.Exception;
 
-private class CoroTaskWith<T> implements ICoroScope {
+private class CoroTaskWith<T> implements ICoroNode {
 	public final context:Context;
 
 	final task:CoroTask<T>;
@@ -21,7 +21,7 @@ private class CoroTaskWith<T> implements ICoroScope {
 		this.task = task;
 	}
 
-	public function async<T>(lambda:ScopedLambda<T>) {
+	public function async<T>(lambda:NodeLambda<T>) {
 		final child = lazy(lambda);
 		context.get(Scheduler.key).schedule(0, () -> {
 			child.start();
@@ -29,7 +29,7 @@ private class CoroTaskWith<T> implements ICoroScope {
 		return child;
 	}
 
-	public function lazy<T>(lambda:ScopedLambda<T>) {
+	public function lazy<T>(lambda:NodeLambda<T>) {
 		return new CoroChildTask(context, lambda, task);
 	}
 
@@ -45,7 +45,7 @@ private class CoroTaskWith<T> implements ICoroScope {
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
-abstract class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> implements ICoroScope implements IStartableCoroTask<T>
+abstract class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> implements ICoroNode implements IStartableCoroTask<T>
 		implements IElement<CoroTask<Any>> {
 	public static final key:Key<CoroTask<Any>> = Key.createNew('Task');
 
@@ -54,7 +54,7 @@ abstract class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> i
 	**/
 	public final context:Context;
 
-	final lambda:ScopedLambda<T>;
+	final lambda:NodeLambda<T>;
 	var result:Null<T>;
 	var awaitingContinuations:Array<IContinuation<T>>;
 	var wasResumed:Bool;
@@ -62,7 +62,7 @@ abstract class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> i
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`.
 	**/
-	public function new(context:Context, lambda:ScopedLambda<T>) {
+	public function new(context:Context, lambda:NodeLambda<T>) {
 		super();
 		this.context = context.clone().with(this);
 		this.lambda = lambda;
@@ -104,14 +104,14 @@ abstract class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> i
 		Creates a lazy child task to execute `lambda`. The child task does not execute until its `start`
 		method is called. This occurrs automatically once this task has finished execution.
 	**/
-	public function lazy<T>(lambda:ScopedLambda<T>):IStartableCoroTask<T> {
+	public function lazy<T>(lambda:NodeLambda<T>):IStartableCoroTask<T> {
 		return new CoroChildTask(context, lambda, this);
 	}
 
 	/**
 		Creates a child task to execute `lambda` and starts it automatically.
 	**/
-	public function async<T>(lambda:ScopedLambda<T>):ICoroTask<T> {
+	public function async<T>(lambda:NodeLambda<T>):ICoroTask<T> {
 		final child = lazy(lambda);
 		context.get(Scheduler.key).schedule(0, () -> {
 			child.start();

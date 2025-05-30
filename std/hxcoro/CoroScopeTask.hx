@@ -7,7 +7,7 @@ import haxe.coro.context.Context;
 class CoroScopeTask<T> extends CoroTask<T> {
 	final parent:Null<AbstractTask<Any>>;
 
-	public function new(context:Context, lambda:ScopedLambda<T>) {
+	public function new(context:Context, lambda:NodeLambda<T>) {
 		super(context, lambda);
 		// slightly subtle: context here refers to the incoming context which still holds the parent
 		parent = context.get(hxcoro.CoroTask.key);
