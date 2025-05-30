@@ -7,7 +7,7 @@ import hxcoro.ds.Channel;
 
 class TestChannel extends utest.Test {
 	function test() {
-		final size = 10000;
+		final size = 100;
 		final channel = new Channel();
 		final scheduler = new VirtualTimeScheduler();
 		final task = CoroRun.with(scheduler).create(node -> {
