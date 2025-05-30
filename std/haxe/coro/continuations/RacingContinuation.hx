@@ -3,34 +3,6 @@ package haxe.coro.continuations;
 import haxe.coro.context.Context;
 import haxe.coro.schedulers.Scheduler;
 
-#if (target.threaded && !cppia)
-import sys.thread.Lock;
-import sys.thread.Mutex;
-import sys.thread.Thread;
-#else
-private class Lock {
-	public function new() {}
-
-	public inline function release() {}
-
-	public inline function wait(?t:Float) {}
-}
-
-private class Mutex {
-	public function new() {}
-
-	public inline function acquire() {}
-
-	public inline function release() {}
-}
-
-private class Thread {
-	public static function create(f:Void->Void) {
-		f();
-	}
-}
-#end
-
 @:coreApi class RacingContinuation<T> implements IContinuation<T> {
 	final inputCont:IContinuation<T>;
 	final outputCont:SuspensionResult<T>;
@@ -39,7 +11,7 @@ private class Thread {
 
 	var assigned:Bool;
 
-	public final context:Context;
+	public var context(get, null):Context;
 
 	public function new(inputCont:IContinuation<T>, outputCont:SuspensionResult<T>) {
 		this.inputCont = inputCont;
@@ -47,6 +19,10 @@ private class Thread {
 		context = inputCont.context;
 		assigned = false;
 		lock = new Mutex();
+	}
+
+	inline function get_context() {
+		return context;
 	}
 
 	public function resume(result:T, error:Exception):Void {

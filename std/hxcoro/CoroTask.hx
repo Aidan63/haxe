@@ -11,13 +11,17 @@ import haxe.coro.schedulers.Scheduler;
 import haxe.Exception;
 
 private class CoroTaskWith<T> implements ICoroNode {
-	public final context:Context;
+	public var context(get, null):Context;
 
 	final task:CoroTask<T>;
 
 	public function new(context:Context, task:CoroTask<T>) {
 		this.context = context;
 		this.task = task;
+	}
+
+	inline function get_context() {
+		return context;
 	}
 
 	public function async<T>(lambda:NodeLambda<T>) {
@@ -51,7 +55,7 @@ abstract class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> i
 	/**
 		This task's immutable `Context`.
 	**/
-	public final context:Context;
+	public var context(get, null):Context;
 
 	final lambda:NodeLambda<T>;
 	var result:Null<T>;
@@ -67,6 +71,10 @@ abstract class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> i
 		this.lambda = lambda;
 		awaitingContinuations = [];
 		wasResumed = true;
+	}
+
+	inline function get_context() {
+		return context;
 	}
 
 	public function get() {
