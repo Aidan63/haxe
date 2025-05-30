@@ -1,7 +1,5 @@
 package issues.aidan;
 
-import haxe.coro.Coroutine;
-import haxe.coro.Coroutine.yield;
 import haxe.exceptions.NotImplementedException;
 
 function throwing() {

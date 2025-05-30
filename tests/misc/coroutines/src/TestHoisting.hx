@@ -1,4 +1,4 @@
-import haxe.coro.Coroutine.yield;
+import hxcoro.Coro.*;
 
 class TestHoisting extends utest.Test {
     function testLocalVariable() {
@@ -46,7 +46,7 @@ class TestHoisting extends utest.Test {
         Assert.equals(7, Coroutine.run(() -> {
             @:coroutine function foo(v:Int) {
                 yield();
-        
+
                 return v;
             }
 
@@ -102,7 +102,7 @@ class TestHoisting extends utest.Test {
         Assert.equals(14, Coroutine.run(() -> {
 
             var i = 0;
-            
+
             @:coroutine function foo() {
                 yield();
 

@@ -1,38 +1,35 @@
 package structured;
 
-import haxe.coro.Coroutine;
-import haxe.coro.Coroutine.delay;
-import haxe.coro.Coroutine.yield;
 import structured.TestThrowingScopes.FooException;
 
 class TestLazyScopes extends utest.Test {
 	function test_create_return() {
-		final result = Coroutine.runScoped(scope -> {
-			final child = scope.lazy(_ -> return "foo");
+		final result = Coroutine.runScoped(node -> {
+			final child = node.lazy(_ -> return "foo");
 			return child.await();
 		});
 		Assert.equals("foo", result);
 	}
 
 	function test_create_throw() {
-		Assert.raises(() -> Coroutine.runScoped(scope -> {
-			final child = scope.lazy(_ -> throw new FooException());
+		Assert.raises(() -> Coroutine.runScoped(node -> {
+			final child = node.lazy(_ -> throw new FooException());
 			AssertAsync.raises(() -> child.await(), FooException);
 		}), FooException);
 	}
 
 	function test_create_unlaunched() {
-		Assert.raises(() -> Coroutine.runScoped(scope -> {
-			scope.lazy(_ -> {
+		Assert.raises(() -> Coroutine.runScoped(node -> {
+			node.lazy(_ -> {
 				throw new FooException();
 			});
 		}), FooException);
 	}
 
 	function test_create_unlaunched_nested() {
-		Assert.raises(() -> Coroutine.runScoped(scope -> {
-			scope.lazy(scope -> {
-				scope.lazy(scope -> {
+		Assert.raises(() -> Coroutine.runScoped(node -> {
+			node.lazy(node -> {
+				node.lazy(node -> {
 					throw new FooException();
 				});
 			});
@@ -40,8 +37,8 @@ class TestLazyScopes extends utest.Test {
 	}
 
 	function test_create_unlaunched_yield() {
-		Assert.raises(() -> Coroutine.runScoped(scope -> {
-			scope.lazy(_ -> {
+		Assert.raises(() -> Coroutine.runScoped(node -> {
+			node.lazy(_ -> {
 				yield();
 				throw new FooException();
 			});
@@ -49,10 +46,10 @@ class TestLazyScopes extends utest.Test {
 	}
 
 	function test_create_unlaunched_yield_nested() {
-		Assert.raises(() -> Coroutine.runScoped(scope -> {
-			scope.lazy(scope -> {
+		Assert.raises(() -> Coroutine.runScoped(node -> {
+			node.lazy(node -> {
 				yield();
-				scope.lazy(scope -> {
+				node.lazy(node -> {
 					yield();
 					throw new FooException();
 				});
@@ -61,10 +58,10 @@ class TestLazyScopes extends utest.Test {
 	}
 
 	function test_create_catch() {
-		final result = Coroutine.runScoped(scope -> {
+		final result = Coroutine.runScoped(node -> {
 			try {
-				Coroutine.scope(scope -> {
-					final child = scope.lazy(_ -> throw new FooException());
+				scope(node -> {
+					final child = node.lazy(_ -> throw new FooException());
 					child.await();
 				});
 				return "wrong";

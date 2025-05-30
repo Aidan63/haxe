@@ -1,7 +1,7 @@
 package issues.aidan;
 
 @:coroutine function foo() : String {
-	return Coroutine.suspend(cont -> {
+	return suspend(cont -> {
 		cont.resume('Hello, World!', null);
 	});
 }

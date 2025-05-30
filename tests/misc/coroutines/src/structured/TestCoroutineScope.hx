@@ -2,9 +2,6 @@ package structured;
 
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
-import haxe.coro.Coroutine;
-import haxe.coro.Coroutine.delay;
-import haxe.coro.Coroutine.yield;
 import haxe.coro.schedulers.VirtualTimeScheduler;
 
 private class FooException extends Exception {
@@ -26,7 +23,7 @@ class TestCoroutineScope extends utest.Test {
 	function test_scope_returning_value_suspending() {
 		final expected = 'Hello, World';
 		final actual   = Coroutine.runScoped(_ -> {
-			return Coroutine.scope(_ -> {
+			return scope(_ -> {
 				yield();
 
 				return expected;
@@ -50,14 +47,14 @@ class TestCoroutineScope extends utest.Test {
 		final actual    = [];
 		final scheduler = new VirtualTimeScheduler();
 		final task      = Coroutine.with(scheduler).create(_ -> {
-			Coroutine.scope(scope -> {
-				scope.async(_ -> {
+			scope(node -> {
+				node.async(_ -> {
 					delay(500);
 
 					actual.push(0);
 				});
 
-				scope.async(_ -> {
+				node.async(_ -> {
 					delay(500);
 
 					actual.push(1);
@@ -79,8 +76,8 @@ class TestCoroutineScope extends utest.Test {
 	function test_try_raise() {
 		final acc = [];
 		Assert.raises(() ->
-			Coroutine.runScoped(scope -> {
-				Coroutine.scope(_ -> {
+			Coroutine.runScoped(node -> {
+				scope(_ -> {
 					acc.push("before yield");
 					yield();
 					acc.push("after yield");
@@ -94,9 +91,9 @@ class TestCoroutineScope extends utest.Test {
 
 	function test_try_catch() {
 		final acc = [];
-		Coroutine.runScoped(scope -> {
+		Coroutine.runScoped(node -> {
 			try {
-				Coroutine.scope(_ -> {
+				scope(_ -> {
 					acc.push("before yield");
 					yield();
 					acc.push("after yield");
@@ -114,9 +111,9 @@ class TestCoroutineScope extends utest.Test {
 
 	function test_try_raise_async() {
 		final acc = [];
-		Assert.raises(() -> Coroutine.runScoped(scope -> {
-			scope.async(_ -> {
-				Coroutine.scope(_ -> {
+		Assert.raises(() -> Coroutine.runScoped(node -> {
+			node.async(_ -> {
+				scope(_ -> {
 					acc.push("before yield");
 					yield();
 					acc.push("after yield");
@@ -132,10 +129,10 @@ class TestCoroutineScope extends utest.Test {
 	function test_parent_scope_cancelling() {
 		final acc       = [];
 		final scheduler = new VirtualTimeScheduler();
-		final task      = Coroutine.with(scheduler).create(scope -> {
-			final child = scope.async(_ -> {
+		final task      = Coroutine.with(scheduler).create(node -> {
+			final child = node.async(_ -> {
 				try {
-					Coroutine.scope(scope -> {
+					scope(node -> {
 						while (true) {
 							yield();
 						}
@@ -159,9 +156,9 @@ class TestCoroutineScope extends utest.Test {
 
 	function test_cancel_due_to_sibling_exception() {
 		final acc = [];
-		Assert.raises(() -> Coroutine.runScoped(scope -> {
-			scope.async(_ -> {
-				Coroutine.scope(_ -> {
+		Assert.raises(() -> Coroutine.runScoped(node -> {
+			node.async(_ -> {
+				scope(_ -> {
 					acc.push("before yield 2");
 					yield();
 					acc.push("after yield 2");
@@ -169,8 +166,8 @@ class TestCoroutineScope extends utest.Test {
 					acc.push("after throw 2");
 				});
 			});
-			scope.async(_ -> {
-				Coroutine.scope(_ -> {
+			node.async(_ -> {
+				scope(_ -> {
 					acc.push("before yield 1");
 					while (true) {
 						yield();
@@ -183,9 +180,9 @@ class TestCoroutineScope extends utest.Test {
 		has(acc, ["before yield 1", "before yield 2", "after yield 2", "at exit"], ["after yield 1", "after throw 2"]);
 
 		acc.resize(0);
-		Assert.raises(() -> Coroutine.runScoped(scope -> {
-			scope.async(_ -> {
-				Coroutine.scope(_ -> {
+		Assert.raises(() -> Coroutine.runScoped(node -> {
+			node.async(_ -> {
+				scope(_ -> {
 					acc.push("before yield 1");
 					while (true) {
 						yield();
@@ -193,8 +190,8 @@ class TestCoroutineScope extends utest.Test {
 					acc.push("after yield 1");
 				});
 			});
-			scope.async(_ -> {
-				Coroutine.scope(_ -> {
+			node.async(_ -> {
+				scope(_ -> {
 					acc.push("before yield 2");
 					yield();
 					acc.push("after yield 2");

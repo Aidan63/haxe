@@ -1,25 +1,11 @@
 package haxe.coro;
 
-import haxe.coro.schedulers.Scheduler;
-import haxe.coro.IContinuation;
-import haxe.coro.SuspensionResult;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
 import haxe.coro.schedulers.EventLoopScheduler;
-import haxe.exceptions.CancellationException;
 import hxcoro.NodeLambda;
 import hxcoro.CoroScopeTask;
 import hxcoro.ICoroTask;
-
-private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
-	public function new(completion:haxe.coro.IContinuation<T>) {
-		super(completion, 1);
-	}
-
-	public function invokeResume():SuspensionResult<T> {
-		return Coroutine.suspend(null, this);
-	}
-}
 
 private abstract RunnableContext(ElementTree) {
 	inline function new(tree:ElementTree) {
@@ -46,35 +32,6 @@ private abstract RunnableContext(ElementTree) {
 @:callable
 @:coreType
 abstract Coroutine<T:haxe.Constraints.Function> {
-	@:coroutine @:coroutine.transformed
-	public static function suspend<T>(func:haxe.coro.IContinuation<T>->Void, completion:haxe.coro.IContinuation<T>):T {
-		var continuation = new CoroSuspend(completion);
-		var safe = new haxe.coro.continuations.RacingContinuation(completion, continuation);
-		func(safe);
-		safe.resolve();
-		return cast continuation;
-	}
-
-	static function cancellationRequested(cont:IContinuation<Any>) {
-		return cont.context.get(hxcoro.CoroTask.key)?.cancellationRequested();
-	}
-
-	@:coroutine @:coroutine.nothrow public static function delay(ms:Int):Void {
-		suspend(cont -> {
-			cont.context.get(Scheduler.key).schedule(ms, () -> {
-				cont.resume(null, cancellationRequested(cont) ? new CancellationException() : null);
-			});
-		});
-	}
-
-	@:coroutine @:coroutine.nothrow public static function yield():Void {
-		suspend(cont -> {
-			cont.context.get(Scheduler.key).schedule(0, () -> {
-				cont.resume(null, cancellationRequested(cont) ? new CancellationException() : null);
-			});
-		});
-	}
-
 	static var defaultContext(get, null):Context;
 
 	static function get_defaultContext() {
@@ -111,13 +68,5 @@ abstract Coroutine<T:haxe.Constraints.Function> {
 			case error:
 				throw error;
 		}
-	}
-
-	@:coroutine static public function scope<T>(lambda:NodeLambda<T>):T {
-		return suspend(cont -> {
-			final context = cont.context;
-			final scope = new CoroScopeTask(context, lambda);
-			scope.awaitContinuation(cont);
-		});
 	}
 }

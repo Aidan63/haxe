@@ -1,6 +1,4 @@
 import haxe.Exception;
-import haxe.coro.Coroutine.yield;
-import haxe.coro.Coroutine.delay;
 import haxe.coro.schedulers.VirtualTimeScheduler;
 
 class TestBasic extends utest.Test {
@@ -24,7 +22,7 @@ class TestBasic extends utest.Test {
 
 	function testResumeWithError() {
 		@:coroutine function foo() {
-			Coroutine.suspend(cont -> {
+			suspend(cont -> {
 				cont.resume(null, new Exception(""));
 			});
 		}
@@ -61,7 +59,7 @@ class TestBasic extends utest.Test {
 
 		scheduler.advanceTo(499);
 		Assert.isTrue(task.isActive());
-		
+
 		scheduler.advanceTo(500);
 		Assert.isFalse(task.isActive());
 	}

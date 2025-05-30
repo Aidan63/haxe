@@ -2,11 +2,9 @@ package issues.aidan;
 
 import utest.Assert;
 import haxe.Exception;
-import haxe.coro.Coroutine;
-import haxe.coro.Coroutine.yield;
 
 @:coroutine function foo() {
-	Coroutine.suspend(cont -> {
+	suspend(cont -> {
 		cont.resume(null, new Exception("error"));
 	});
 }

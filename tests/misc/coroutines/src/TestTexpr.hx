@@ -1,4 +1,4 @@
-import haxe.coro.Coroutine.yield;
+import hxcoro.Coro.*;
 
 private class C<T> {
 	final value:T;

@@ -1,7 +1,5 @@
 package issues.aidan;
 
-import haxe.coro.Coroutine;
-
 class C1 {
 	public function new() {}
 

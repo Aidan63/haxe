@@ -1,6 +1,6 @@
 import Helper;
 
-import haxe.coro.Coroutine.yield;
+import hxcoro.Coro.*;
 
 class TestControlFlow extends utest.Test {
 	function testIfThen() {

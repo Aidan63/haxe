@@ -5,8 +5,6 @@ import haxe.coro.schedulers.Scheduler;
 import haxe.coro.schedulers.VirtualTimeScheduler;
 import haxe.coro.context.Key;
 import haxe.coro.context.IElement;
-import haxe.coro.Coroutine;
-import haxe.coro.Coroutine.delay;
 import hxcoro.ICoroTask;
 
 class DebugName implements IElement<DebugName> {
@@ -30,14 +28,14 @@ class DebugName implements IElement<DebugName> {
 class Issue27 extends utest.Test {
 	@:coroutine
 	function logDebug() {
-		return Coroutine.suspend(cont -> {
+		return suspend(cont -> {
 			cont.resume(cont.context.get(DebugName.key).name, null);
 		});
 	}
 
 	@:coroutine
 	function modifyDebug(name:String) {
-		Coroutine.suspend(cont -> {
+		suspend(cont -> {
 			cont.context.get(DebugName.key).name = name;
 			cont.resume(null, null);
 		});
@@ -54,9 +52,9 @@ class Issue27 extends utest.Test {
 	}
 
 	function testScope() {
-		Coroutine.runScoped(scope -> {
-			scope.with(new DebugName("first name")).async(_ -> {
-				Coroutine.scope(_ -> {
+		Coroutine.runScoped(node -> {
+			node.with(new DebugName("first name")).async(_ -> {
+				scope(_ -> {
 					Assert.equals("first name", logDebug());
 					modifyDebug("second name");
 					Assert.equals("second name", logDebug());

@@ -1,4 +1,4 @@
-import haxe.coro.Coroutine.yield;
+import hxcoro.Coro.*;
 import Helper;
 
 class TestTryCatch extends utest.Test {

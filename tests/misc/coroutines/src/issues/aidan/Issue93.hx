@@ -1,7 +1,5 @@
 package issues.aidan;
 
-import haxe.coro.Coroutine.yield;
-
 @:coroutine function doSomethingUsefulOne() {
 	return 13;
 }

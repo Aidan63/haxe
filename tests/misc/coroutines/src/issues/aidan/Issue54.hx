@@ -1,7 +1,7 @@
 package issues.aidan;
 
 @:coroutine function suspendThenThrow() {
-	Coroutine.delay(1);
+	delay(1);
 	throw "fail";
 }
 

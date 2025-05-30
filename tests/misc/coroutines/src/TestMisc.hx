@@ -1,4 +1,4 @@
-import haxe.coro.Coroutine.yield;
+import hxcoro.Coro.*;
 
 class TestMisc extends utest.Test {
     function testDebugMetadataLocalFunction() {
