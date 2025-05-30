@@ -1,11 +1,7 @@
 package structured;
 
 import haxe.Exception;
-import haxe.coro.Coroutine;
-import haxe.coro.Coroutine.delay;
-import haxe.coro.Coroutine.yield;
 import haxe.coro.schedulers.VirtualTimeScheduler;
-import haxe.exceptions.CancellationException;
 
 class FooException extends Exception {
 	public function new() {
@@ -16,8 +12,8 @@ class FooException extends Exception {
 class TestThrowingScopes extends utest.Test {
 	public function test_error_passes_up() {
 		Assert.raises(() -> {
-			Coroutine.runScoped(scope -> {
-				scope.async(_ -> {
+			CoroRun.runScoped(node -> {
+				node.async(_ -> {
 					throw new FooException();
 				});
 			});
@@ -26,9 +22,9 @@ class TestThrowingScopes extends utest.Test {
 
 	public function test_error_passes_up_deep_nesting() {
 		Assert.raises(() -> {
-			Coroutine.runScoped(scope -> {
-				scope.async(scope -> {
-					scope.async(_ -> {
+			CoroRun.runScoped(node -> {
+				node.async(node -> {
+					node.async(_ -> {
 						throw new FooException();
 					});
 				});
@@ -38,8 +34,8 @@ class TestThrowingScopes extends utest.Test {
 
 	public function test_sibling_cancelled() {
 		Assert.raises(() -> {
-			Coroutine.runScoped(scope -> {
-				scope.async(_ -> {
+			CoroRun.runScoped(node -> {
+				node.async(_ -> {
 					while (true) {
 						yield();
 					}
@@ -52,9 +48,9 @@ class TestThrowingScopes extends utest.Test {
 
 	public function test_recursive_children_cancelled_non_suspending_root() {
 		Assert.raises(() -> {
-			Coroutine.runScoped(scope -> {
-				scope.async(scope -> {
-					scope.async(scope -> {
+			CoroRun.runScoped(node -> {
+				node.async(node -> {
+					node.async(node -> {
 						while (true) {
 							yield();
 						}
@@ -68,8 +64,8 @@ class TestThrowingScopes extends utest.Test {
 
 	public function test_catching_awaiting_child() {
 		Assert.raises(() -> {
-			Coroutine.runScoped(scope -> {
-				final child = scope.async(scope -> {
+			CoroRun.runScoped(node -> {
+				final child = node.async(node -> {
 					yield();
 
 					throw new FooException();
@@ -82,8 +78,8 @@ class TestThrowingScopes extends utest.Test {
 
 	public function test_child_throwing_cancelling_parent() {
 		final scheduler = new VirtualTimeScheduler();
-		final task      = Coroutine.with(scheduler).create(scope -> {
-			final child = scope.async(scope -> {
+		final task      = CoroRun.with(scheduler).create(node -> {
+			final child = node.async(node -> {
 				delay(1000);
 
 				throw new FooException();
@@ -104,8 +100,8 @@ class TestThrowingScopes extends utest.Test {
 
 	public function test_manually_cancelling_child() {
 		final scheduler = new VirtualTimeScheduler();
-		final task      = Coroutine.with(scheduler).create(scope -> {
-			final child = scope.async(scope -> {
+		final task      = CoroRun.with(scheduler).create(node -> {
+			final child = node.async(node -> {
 				delay(1000);
 			});
 
@@ -125,8 +121,8 @@ class TestThrowingScopes extends utest.Test {
 
 	public function test_manually_cancelling_polling_child() {
 		final scheduler = new VirtualTimeScheduler();
-		final task      = Coroutine.with(scheduler).create(scope -> {
-			final child = scope.async(scope -> {
+		final task      = CoroRun.with(scheduler).create(node -> {
+			final child = node.async(node -> {
 				while (true) {
 					yield();
 				}

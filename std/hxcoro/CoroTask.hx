@@ -3,7 +3,6 @@ package hxcoro;
 import haxe.exceptions.CancellationException;
 import hxcoro.AbstractTask;
 import hxcoro.ICoroTask;
-import haxe.coro.Coroutine;
 import haxe.coro.context.Context;
 import haxe.coro.context.Key;
 import haxe.coro.context.IElement;
@@ -150,7 +149,7 @@ abstract class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> i
 		Suspends this task until it completes.
 	**/
 	@:coroutine public function await():T {
-		return Coroutine.suspend(awaitContinuation);
+		return Coro.suspend(awaitContinuation);
 	}
 
 	/**

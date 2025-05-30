@@ -16,17 +16,17 @@ class TestCallStack extends utest.Test {
 					Line(8),
 					Line(12),
 				File('callstack/CoroUpper.hx'),
-					Line(10),
 					Line(8),
-					Line(8),
-					Line(8),
-					Line(8),
-					Line(17),
+					Line(6),
+					Line(6),
+					Line(6),
+					Line(6),
+					Line(15),
 				Skip('callstack/SyncMiddle.hx'),
 					Line(4),
 					Line(8),
 				File('callstack/CoroLower.hx'),
-					Line(8),
+					Line(6),
 				Skip('callstack/Bottom.hx'),
 					Line(4)
 			]);
@@ -66,14 +66,14 @@ class TestCallStack extends utest.Test {
 			checkFailure(stack, r);
 		}
 		try {
-			Coroutine.run(callstack.FooBarBaz.foo);
+			CoroRun.run(callstack.FooBarBaz.foo);
 			Assert.fail("Exception expected");
 		} catch(e:Exception) {
 			checkStack(e);
 		}
 
 		try {
-			Coroutine.runScoped(scope -> {
+			CoroRun.runScoped(scope -> {
 				scope.async(scope -> {
 					scope.async(_ -> {
 						callstack.FooBarBaz.foo();
