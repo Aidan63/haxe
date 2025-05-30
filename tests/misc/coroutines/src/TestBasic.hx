@@ -3,13 +3,13 @@ import haxe.coro.schedulers.VirtualTimeScheduler;
 
 class TestBasic extends utest.Test {
 	function testSimple() {
-		Assert.equals(42, Coroutine.run(@:coroutine function run() {
+		Assert.equals(42, CoroRun.run(@:coroutine function run() {
 			return simple(42);
 		}));
 	}
 
 	function testErrorDirect() {
-		Assert.raises(() -> Coroutine.run(error), String);
+		Assert.raises(() -> CoroRun.run(error), String);
 	}
 
 	function testErrorPropagation() {
@@ -17,7 +17,7 @@ class TestBasic extends utest.Test {
 			error();
 		}
 
-		Assert.raises(() -> Coroutine.run(propagate), String);
+		Assert.raises(() -> CoroRun.run(propagate), String);
 	}
 
 	function testResumeWithError() {
@@ -27,7 +27,7 @@ class TestBasic extends utest.Test {
 			});
 		}
 
-		Assert.raises(() -> Coroutine.run(foo), Exception);
+		Assert.raises(() -> CoroRun.run(foo), Exception);
 	}
 
 	function testUnnamedLocalCoroutines() {
@@ -37,11 +37,11 @@ class TestBasic extends utest.Test {
 			return 10;
 		};
 
-		Assert.equals(10, Coroutine.run(c1));
+		Assert.equals(10, CoroRun.run(c1));
 	}
 
 	function testLocalTypeParameters() {
-		Coroutine.run(@:coroutine function f<T>():T {
+		CoroRun.run(@:coroutine function f<T>():T {
 			return null;
 		});
 		Assert.pass(); // The test is that this doesn't cause an unbound type parameter
@@ -51,7 +51,7 @@ class TestBasic extends utest.Test {
 
 	function testDelay() {
 		final scheduler = new VirtualTimeScheduler();
-		final task      = Coroutine.with(scheduler).create(_ -> {
+		final task      = CoroRun.with(scheduler).create(_ -> {
 			delay(500);
 		});
 

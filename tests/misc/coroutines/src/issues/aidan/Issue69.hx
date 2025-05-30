@@ -16,7 +16,7 @@ private class Foo implements IFoo {
 
 class Issue69 extends utest.Test {
     public function test() {
-        Coroutine.run(() -> {
+        CoroRun.run(() -> {
             final f : IFoo = new Foo();
 
             f.bar();

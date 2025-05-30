@@ -6,7 +6,7 @@ using TestJsPromise.CoroTools;
 class CoroTools {
 	static public function start<T, E>(c:Coroutine<() -> T>, f:(T, E) -> Void) {
 		try {
-			f(Coroutine.run(c), null);
+			f(CoroRun.run(c), null);
 		} catch(e:Dynamic) {
 			f(null, e);
 		}

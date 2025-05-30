@@ -42,7 +42,7 @@ class Issue27 extends utest.Test {
 	}
 
 	function test() {
-		Coroutine.runScoped(scope ->  {
+		CoroRun.runScoped(scope ->  {
 			scope.with(new DebugName("first name")).async(_ -> {
 				Assert.equals("first name", logDebug());
 				modifyDebug("second name");
@@ -52,7 +52,7 @@ class Issue27 extends utest.Test {
 	}
 
 	function testScope() {
-		Coroutine.runScoped(node -> {
+		CoroRun.runScoped(node -> {
 			node.with(new DebugName("first name")).async(_ -> {
 				scope(_ -> {
 					Assert.equals("first name", logDebug());
@@ -64,13 +64,13 @@ class Issue27 extends utest.Test {
 	}
 
 	function testEntrypoint() {
-		Coroutine.with(new DebugName("first name")).run(scope -> {
+		CoroRun.with(new DebugName("first name")).run(scope -> {
 			Assert.equals("first name", logDebug());
 			modifyDebug("second name");
 			Assert.equals("second name", logDebug());
 		});
 
-		Coroutine
+		CoroRun
 			.with(new DebugName("wrong name"))
 			.with(new DebugName("first name"))
 			.run(scope -> {

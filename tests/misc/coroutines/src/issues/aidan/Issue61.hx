@@ -4,7 +4,7 @@ import utest.Assert;
 
 class Issue61 extends utest.Test {
 	public function test() {
-		Coroutine.run(foo);
+		CoroRun.run(foo);
 	}
 
     @:coroutine function foo() {

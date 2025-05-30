@@ -7,7 +7,7 @@ class TestChildScopes extends utest.Test {
 		var result = 0;
 
 		final scheduler = new VirtualTimeScheduler();
-		final task      = Coroutine.with(scheduler).create(node -> {
+		final task      = CoroRun.with(scheduler).create(node -> {
 			node.async(_ -> {
 				delay(1000);
 
@@ -30,7 +30,7 @@ class TestChildScopes extends utest.Test {
 		var result = 0;
 
 		final scheduler = new VirtualTimeScheduler();
-		final task      = Coroutine.with(scheduler).create(node -> {
+		final task      = CoroRun.with(scheduler).create(node -> {
 			node.async(node -> {
 				node.async(node -> {
 					node.async(_ -> {
@@ -56,7 +56,7 @@ class TestChildScopes extends utest.Test {
 	function test_waiting_for_many_children() {
 		final result    = [];
 		final scheduler = new VirtualTimeScheduler();
-		final task      = Coroutine.with(scheduler).create(node -> {
+		final task      = CoroRun.with(scheduler).create(node -> {
 			node.async(_ -> {
 				delay(500);
 
@@ -91,7 +91,7 @@ class TestChildScopes extends utest.Test {
 		final result = [];
 
 		final scheduler = new VirtualTimeScheduler();
-		final task      = Coroutine.with(scheduler).create(node -> {
+		final task      = CoroRun.with(scheduler).create(node -> {
 			node.async(node -> {
 				node.async(_ -> {
 					delay(500);
@@ -127,7 +127,7 @@ class TestChildScopes extends utest.Test {
 	function test_awaiting_child() {
 		final expected = 'Hello, World';
 		final scheduler = new VirtualTimeScheduler();
-		final task      = Coroutine.with(scheduler).create(node -> {
+		final task      = CoroRun.with(scheduler).create(node -> {
 			final child = node.async(_ -> {
 				delay(1000);
 
@@ -147,7 +147,7 @@ class TestChildScopes extends utest.Test {
 	function test_awaiting_nested_child() {
 		final expected = 'Hello, World';
 		final scheduler = new VirtualTimeScheduler();
-		final task      = Coroutine.with(scheduler).create(node -> {
+		final task      = CoroRun.with(scheduler).create(node -> {
 			final child = node.async(node -> {
 				return
 					node
@@ -174,7 +174,7 @@ class TestChildScopes extends utest.Test {
 		var result = 0;
 
 		final scheduler = new VirtualTimeScheduler();
-		final task      = Coroutine.with(scheduler).create(node -> {
+		final task      = CoroRun.with(scheduler).create(node -> {
 			node.async(_ -> {
 				delay(500);
 
@@ -204,7 +204,7 @@ class TestChildScopes extends utest.Test {
 	function test_awaiting_completed_child() {
 		final expected  = 'Hello, World!';
 		final scheduler = new VirtualTimeScheduler();
-		final task      = Coroutine.with(scheduler).create(node -> {
+		final task      = CoroRun.with(scheduler).create(node -> {
 			final child = node.async(_ -> {
 				yield();
 

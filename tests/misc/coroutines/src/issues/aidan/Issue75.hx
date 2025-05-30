@@ -12,7 +12,7 @@ import haxe.Exception;
 class Issue75 extends utest.Test {
     public function test() {
 		var s = "";
-		Coroutine.run(() -> {
+		CoroRun.run(() -> {
 			try {
 				foo();
 			} catch (_:Dynamic) {

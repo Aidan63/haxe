@@ -126,7 +126,7 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 							stack.push(item);
 							skipping = 0;
 						// TODO: this is silly
-						case FilePos(Method("haxe.coro._Coroutine.Coroutine_Impl_" | "haxe.coro.Coroutine$Coroutine_Impl_", "run"), _) if (skipping == 1):
+						case FilePos(Method("hxcoro.CoroRun", "run"), _) if (skipping == 1):
 							skipping = 2;
 						// this is a hack
 						case FilePos(Method(_, "invokeResume"), _) if (skipping == 0):

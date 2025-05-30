@@ -6,7 +6,7 @@ class TestMisc extends utest.Test {
             yield();
         }
 
-        Coroutine.run(foo);
+        CoroRun.run(foo);
 
         Assert.pass();
     }

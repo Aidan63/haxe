@@ -66,14 +66,14 @@ class TestCallStack extends utest.Test {
 			checkFailure(stack, r);
 		}
 		try {
-			Coroutine.run(callstack.FooBarBaz.foo);
+			CoroRun.run(callstack.FooBarBaz.foo);
 			Assert.fail("Exception expected");
 		} catch(e:Exception) {
 			checkStack(e);
 		}
 
 		try {
-			Coroutine.runScoped(scope -> {
+			CoroRun.runScoped(scope -> {
 				scope.async(scope -> {
 					scope.async(_ -> {
 						callstack.FooBarBaz.foo();

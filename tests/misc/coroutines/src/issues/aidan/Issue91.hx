@@ -16,7 +16,7 @@ class Issue91 extends utest.Test {
 	function test() {
 		final c1 = new C1();
 		final c2 = new C2();
-		Coroutine.run(() -> {
+		CoroRun.run(() -> {
 			c1.await();
 			c2.await();
 		});
