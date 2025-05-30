@@ -55,8 +55,8 @@ class Channel<T> {
 	@:coroutine public function read():T {
 		while (writeQueue.length < maxQueueSize && suspendedWrites.length > 0) {
 			final write = suspendedWrites.shift();
-			writeQueue.push(write.v);
 			write.cont.resume(null, null);
+			return write.v;
 		}
 
 		switch writeQueue.shift() {
