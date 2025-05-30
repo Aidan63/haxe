@@ -5,24 +5,13 @@ import haxe.coro.SuspensionResult;
 import haxe.coro.schedulers.Scheduler;
 import haxe.exceptions.CancellationException;
 
-private class CoroSuspend<T> extends haxe.coro.BaseContinuation<T> {
-	public function new(completion:haxe.coro.IContinuation<T>) {
-		super(completion, 1);
-	}
-
-	public function invokeResume():SuspensionResult<T> {
-		return Coro.suspend(null, this);
-	}
-}
-
 class Coro {
 	@:coroutine @:coroutine.transformed
 	public static function suspend<T>(func:haxe.coro.IContinuation<T>->Void, completion:haxe.coro.IContinuation<T>):T {
-		var continuation = new CoroSuspend(completion);
-		var safe = new haxe.coro.continuations.RacingContinuation(completion, continuation);
+		var safe = new haxe.coro.continuations.RacingContinuation(completion);
 		func(safe);
 		safe.resolve();
-		return cast continuation;
+		return cast safe;
 	}
 
 	static function cancellationRequested(cont:IContinuation<Any>) {

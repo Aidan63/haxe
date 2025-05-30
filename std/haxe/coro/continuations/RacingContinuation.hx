@@ -3,9 +3,8 @@ package haxe.coro.continuations;
 import haxe.coro.context.Context;
 import haxe.coro.schedulers.Scheduler;
 
-@:coreApi class RacingContinuation<T> implements IContinuation<T> {
+@:coreApi class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> {
 	final inputCont:IContinuation<T>;
-	final outputCont:SuspensionResult<T>;
 
 	final lock:Mutex;
 
@@ -13,9 +12,8 @@ import haxe.coro.schedulers.Scheduler;
 
 	public var context(get, null):Context;
 
-	public function new(inputCont:IContinuation<T>, outputCont:SuspensionResult<T>) {
+	public function new(inputCont:IContinuation<T>) {
 		this.inputCont = inputCont;
-		this.outputCont = outputCont;
 		context = inputCont.context;
 		assigned = false;
 		lock = new Mutex();
@@ -34,8 +32,8 @@ import haxe.coro.schedulers.Scheduler;
 				inputCont.resume(result, error);
 			} else {
 				assigned = true;
-				outputCont.result = result;
-				outputCont.error = error;
+				this.result = result;
+				this.error = error;
 
 				lock.release();
 			}
@@ -45,16 +43,16 @@ import haxe.coro.schedulers.Scheduler;
 	public function resolve():Void {
 		lock.acquire();
 		if (assigned) {
-			if (outputCont.error != null) {
-				outputCont.state = Thrown;
+			if (error != null) {
+				state = Thrown;
 				lock.release();
 			} else {
-				outputCont.state = Returned;
+				state = Returned;
 				lock.release();
 			}
 		} else {
 			assigned = true;
-			outputCont.state = Pending;
+			state = Pending;
 			lock.release();
 		}
 	}
