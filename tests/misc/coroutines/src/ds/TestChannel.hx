@@ -20,12 +20,12 @@ class TestChannel extends utest.Test {
 
 					i--;
 
-					yield();
+					delay(Std.random(5));
 				}
 			});
 			for (_ in 0...size + 1) {
 				output.push(channel.read());
-				yield();
+				delay(Std.random(5));
 			}
 			writer.cancel();
 			output;

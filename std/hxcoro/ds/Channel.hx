@@ -56,7 +56,11 @@ class Channel<T> {
 		while (writeQueue.length < maxQueueSize && suspendedWrites.length > 0) {
 			final write = suspendedWrites.shift();
 			write.cont.resume(null, null);
-			return write.v;
+			if (writeQueue.length == 0) {
+				return write.v;
+			} else {
+				writeQueue.push(write.v);
+			}
 		}
 
 		switch writeQueue.shift() {
