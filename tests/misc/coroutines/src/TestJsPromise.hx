@@ -15,7 +15,7 @@ class CoroTools {
 
 @:coroutine
 private function await<T>(p:Promise<T>) {
-	Coroutine.suspend(cont -> p.then(r -> cont.resume(r, null), e -> cont.resume(null, e)));
+	suspend(cont -> p.then(r -> cont.resume(r, null), e -> cont.resume(null, e)));
 }
 
 private function promise<T>(c:Coroutine<()->T>):Promise<T> {
