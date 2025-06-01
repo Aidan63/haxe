@@ -54,12 +54,34 @@ class TestChannel extends utest.Test {
 				channel.write('World');
 			});
 
-			node.async(_ -> {
-				delay(100);
+			delay(100);
 
+			expected.push(channel.read());
+			expected.push(channel.read());
+		});
+
+		task.start();
+
+		scheduler.advanceBy(100);
+		Assert.same([ 'Hello', 'World' ], expected);
+
+		Assert.isFalse(task.isActive());
+	}
+
+	function test_fifo_reads() {
+		final expected  = [];
+		final channel   = new Channel(0);
+		final scheduler = new VirtualTimeScheduler();
+		final task      = CoroRun.with(scheduler).create(node -> {
+			node.async(_ -> {
 				expected.push(channel.read());
 				expected.push(channel.read());
 			});
+
+			delay(100);
+
+			channel.write('Hello');
+			channel.write('World');
 		});
 
 		task.start();
@@ -87,11 +109,9 @@ class TestChannel extends utest.Test {
 				channel.write('World');
 			});
 
-			node.async(_ -> {
-				delay(200);
+			delay(200);
 
-				expected.push(channel.read());
-			});
+			expected.push(channel.read());
 		});
 
 		task.start();
@@ -105,6 +125,36 @@ class TestChannel extends utest.Test {
 		scheduler.advanceBy(100);
 		Assert.same([ 'World' ], expected);
 
+		Assert.isFalse(task.isActive());
+	}
+
+	function test_read_cancellation() {
+		final expected  = [];
+		final channel   = new Channel(0);
+		final scheduler = new VirtualTimeScheduler();
+		final task      = CoroRun.with(scheduler).create(node -> {
+			node.async(_ -> {
+				AssertAsync.raises(() -> {
+					timeout(100, _ -> {
+						return channel.read();
+					});
+				}, TimeoutException);
+			});
+
+			node.async(_ -> {
+				expected.push(channel.read());
+			});
+
+			delay(200);
+
+			channel.write('Hello');
+		});
+
+		task.start();
+
+		scheduler.advanceBy(200);
+
+		Assert.same([ 'Hello' ], expected);
 		Assert.isFalse(task.isActive());
 	}
 }
