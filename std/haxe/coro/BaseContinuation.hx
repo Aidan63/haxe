@@ -51,19 +51,17 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
     public final function resume(result:Any, error:Exception):Void {
         this.result = result;
         this.error  = error;
-        context.get(Scheduler.key).schedule(0, () -> {
-			recursing = false;
+		recursing = false;
 
-			final result = invokeResume();
-			switch (result.state) {
-				case Pending:
-					return;
-				case Returned:
-					completion.resume(result.result, null);
-				case Thrown:
-					completion.resume(null, result.error);
-			}
-        });
+		final result = invokeResume();
+		switch (result.state) {
+			case Pending:
+				return;
+			case Returned:
+				completion.resume(result.result, null);
+			case Thrown:
+				completion.resume(null, result.error);
+		}
     }
 
     public function callerFrame():Null<IStackFrame> {
