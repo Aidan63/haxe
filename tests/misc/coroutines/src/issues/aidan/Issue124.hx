@@ -32,7 +32,7 @@ class CoroChannelTask<T> extends CoroScopeTask<haxe.Unit> implements IReceiver<T
 }
 
 function produce<T>(context:Context, lambda:Coroutine<ISender<T>->Void>):IReceiver<T> {
-	final channel = new Channel();
+	final channel = new Channel(3);
 	final task = new CoroChannelTask(context, channel);
 	task.start();
 	final result = lambda(task, task);

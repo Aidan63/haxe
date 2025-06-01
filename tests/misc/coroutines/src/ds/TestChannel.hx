@@ -4,6 +4,7 @@ import haxe.coro.schedulers.VirtualTimeScheduler;
 import hxcoro.Coro.*;
 import hxcoro.CoroRun;
 import hxcoro.ds.Channel;
+import hxcoro.exceptions.TimeoutException;
 
 class TestChannel extends utest.Test {
 	function test() {
@@ -46,11 +47,11 @@ class TestChannel extends utest.Test {
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
 			node.async(_ -> {
-				try {
+				AssertAsync.raises(() -> {
 					timeout(100, _ -> {
 						channel.write('Hello');
 					});
-				} catch (_) {}
+				}, TimeoutException);
 			});
 
 			node.async(_ -> {
