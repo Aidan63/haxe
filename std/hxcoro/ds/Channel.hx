@@ -83,7 +83,7 @@ class Channel<T> {
 	**/
 	@:coroutine public function read():T {
 		while ((capacity == 0 || writeQueue.length < capacity) && suspendedWrites.length > 0) {
-			final resuming = suspendedWrites.pop();
+			final resuming = suspendedWrites.shift();
 			resuming.continuation.resume(null, null);
 			if (writeQueue.length == 0) {
 				return resuming.value;

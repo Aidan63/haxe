@@ -41,6 +41,35 @@ class TestChannel extends utest.Test {
 		Assert.same(expected, task.get());
 	}
 
+	function test_fifo_writes() {
+		final expected  = [];
+		final channel   = new Channel(0);
+		final scheduler = new VirtualTimeScheduler();
+		final task      = CoroRun.with(scheduler).create(node -> {
+			node.async(_ -> {
+				channel.write('Hello');
+			});
+
+			node.async(_ -> {
+				channel.write('World');
+			});
+
+			node.async(_ -> {
+				delay(100);
+
+				expected.push(channel.read());
+				expected.push(channel.read());
+			});
+		});
+
+		task.start();
+
+		scheduler.advanceBy(100);
+		Assert.same([ 'Hello', 'World' ], expected);
+
+		Assert.isFalse(task.isActive());
+	}
+
 	function test_write_cancellation() {
 		final expected  = [];
 		final channel   = new Channel(0);
