@@ -7,25 +7,31 @@ import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.context.Context;
 import haxe.coro.IContinuation;
 import hxcoro.Coro.suspend;
+import hxcoro.ds.PagedDeque;
 
 private class SuspendedWrite<T> implements IContinuation<T> {
 	final continuation : IContinuation<T>;
-	final callback : (self:SuspendedWrite<T>)->Void;
 	final handle : ICancellationHandle;
 
 	public final value : T;
 
 	public var context (get, never) : Context;
 
+	var hostPage:Page<Any>;
+	var hostIndex:Int;
+
 	inline function get_context() {
 		return continuation.context;
 	}
 
-	public function new(continuation, value, callback) {
+	public function new(continuation, value, suspendedWrites:PagedDeque<Any>) {
 		this.continuation = continuation;
 		this.value        = value;
-		this.callback     = callback;
 		this.handle       = context.get(CancellationToken.key).onCancellationRequested(onCancellation);
+		// writeMutex.acquire();
+		hostPage = suspendedWrites.push(this);
+		hostIndex = suspendedWrites.lastIndex - 1;
+		// writeMutex.release();
 	}
 
 	public function resume(v:T, error:Exception) {
@@ -38,26 +44,36 @@ private class SuspendedWrite<T> implements IContinuation<T> {
 	}
 
 	function onCancellation() {
-		callback(this);
+		// writeMutex.acquire();
+		if (hostPage.data[hostIndex] == this) {
+			hostPage.data[hostIndex] = null;
+		}
+		// writeMutex.release();
 		resume(null, null);
 	}
 }
 
 private class SuspendedRead<T> implements IContinuation<T> {
 	final continuation : IContinuation<T>;
-	final callback : (self:SuspendedRead<T>)->Void;
 	final handle : ICancellationHandle;
 
 	public var context (get, never) : Context;
+
+	var hostPage:Page<Any>;
+	var hostIndex:Int;
 
 	inline function get_context() {
 		return continuation.context;
 	}
 
-	public function new(continuation, callback) {
+	public function new(continuation, suspendedReads:PagedDeque<Any>) {
 		this.continuation = continuation;
-		this.callback     = callback;
 		this.handle       = context.get(CancellationToken.key).onCancellationRequested(onCancellation);
+
+		// readMutex.acquire();
+		hostPage = suspendedReads.push(this);
+		hostIndex = suspendedReads.lastIndex - 1;
+		// readMutex.release();
 	}
 
 	public function resume(v:T, error:Exception) {
@@ -70,7 +86,11 @@ private class SuspendedRead<T> implements IContinuation<T> {
 	}
 
 	function onCancellation() {
-		callback(this);
+		// readMutex.acquire();
+		if (hostPage.data[hostIndex] == this) {
+			hostPage.data[hostIndex] = null;
+		}
+		// readMutex.release();
 		resume(null, null);
 	}
 }
@@ -78,8 +98,8 @@ private class SuspendedRead<T> implements IContinuation<T> {
 class Channel<T> {
 	final capacity : Int;
 	final writeQueue : Array<T>;
-	final suspendedWrites : Array<SuspendedWrite<T>>;
-	final suspendedReads : Array<SuspendedRead<T>>;
+	final suspendedWrites : PagedDeque<SuspendedWrite<T>>;
+	final suspendedReads : PagedDeque<SuspendedRead<T>>;
 
 	/**
 		Creates a new empty Channel.
@@ -88,8 +108,8 @@ class Channel<T> {
 		this.capacity = capacity;
 
 		writeQueue      = [];
-		suspendedWrites = [];
-		suspendedReads  = [];
+		suspendedWrites = new PagedDeque();
+		suspendedReads  = new PagedDeque();
 	}
 
 	/**
@@ -97,16 +117,25 @@ class Channel<T> {
 		suspended. It can be resumed by a later call to `read`.
 	**/
 	@:coroutine public function write(v:T) {
-		if (suspendedReads.length == 0) {
-			if (writeQueue.length < capacity) {
-				writeQueue.push(v);
+		while (true) {
+			if (suspendedReads.isEmpty()) {
+				if (writeQueue.length < capacity) {
+					writeQueue.push(v);
+				} else {
+					suspend(cont -> {
+						new SuspendedWrite(cont, v, suspendedWrites);
+					});
+				}
+				break;
 			} else {
-				suspend(cont -> {
-					suspendedWrites.push(new SuspendedWrite(cont, v, removeSuspendedWrite));
-				});
+				final suspendedRead = suspendedReads.pop();
+				if (suspendedRead == null) {
+					continue;
+				} else {
+					suspendedRead.resume(v, null);
+					break;
+				}
 			}
-		} else {
-			suspendedReads.shift().resume(v, null);
 		}
 	}
 
@@ -115,8 +144,11 @@ class Channel<T> {
 		execution is suspended. It can be resumed by a later call to `write`.
 	**/
 	@:coroutine public function read():T {
-		while ((capacity == 0 || writeQueue.length < capacity) && suspendedWrites.length > 0) {
-			final resuming = suspendedWrites.shift();
+		while ((capacity == 0 || writeQueue.length < capacity) && !suspendedWrites.isEmpty()) {
+			final resuming = suspendedWrites.pop();
+			if (resuming == null) {
+				continue;
+			}
 			resuming.resume(null, null);
 			if (writeQueue.length == 0) {
 				return resuming.value;
@@ -127,18 +159,10 @@ class Channel<T> {
 		switch writeQueue.shift() {
 			case null:
 				return suspend(cont -> {
-					suspendedReads.push(new SuspendedRead(cont, removeSuspendedRead));
+					new SuspendedRead(cont, suspendedReads);
 				});
 			case v:
 				return v;
 		}
-	}
-
-	function removeSuspendedWrite(write:SuspendedWrite<T>) {
-		suspendedWrites.remove(write);
-	}
-
-	function removeSuspendedRead(read:SuspendedRead<T>) {
-		suspendedReads.remove(read);
 	}
 }
