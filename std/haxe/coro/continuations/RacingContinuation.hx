@@ -49,22 +49,25 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 
 
 	public function resolve():Void {
-		inline function updateState() {
+		// same logic as resume
+		final mutex = mutex;
+		if (mutex == null) {
 			if (error != null) {
 				state = Thrown;
 			} else {
 				state = Returned;
 			}
-		}
-		// same logic as resume
-		final mutex = mutex;
-		if (mutex == null) {
-			return updateState();
+			return;
 		}
 		mutex.acquire();
 		if (this.mutex == null) {
 			mutex.release();
-			return updateState();
+			if (error != null) {
+				state = Thrown;
+			} else {
+				state = Returned;
+			}
+			return;
 		}
 		this.mutex = null;
 		mutex.release();
