@@ -6,19 +6,14 @@ import haxe.coro.schedulers.Scheduler;
 class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> {
 	final inputCont:IContinuation<T>;
 
-	var lock:Mutex;
-
-	var resumed:Bool;
-	var resolved:Bool;
+	var mutex:Null<Mutex>;
 
 	public var context(get, null):Context;
 
 	public function new(inputCont:IContinuation<T>) {
 		this.inputCont = inputCont;
 		context = inputCont.context;
-		resumed = false;
-		resolved = false;
-		lock = new Mutex();
+		mutex = new Mutex();
 	}
 
 	inline function get_context() {
@@ -26,38 +21,53 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 	}
 
 	public function resume(result:T, error:Exception):Void {
-		lock.acquire();
-		if (resolved) {
-			// if we already have a value, schedule the follow-up resume call with that value
-			final inputCont = inputCont;
+		inline function resumeContinue(result:T, error:Exception) {
 			context.get(Scheduler.key).schedule(0, () -> {
 				inputCont.resume(result, error);
 			});
-			lock.release();
-			lock = null;
-		} else {
-			// otherwise we can assign immediately
-			resumed = true;
-			this.result = result;
-			this.error = error;
-			lock.release();
 		}
+
+		// Store mutex as stack value.
+		final mutex = mutex;
+		if (mutex == null) {
+			// If that's already null we're definitely done.
+			return resumeContinue(result, error);
+		}
+		// Otherwise we take the mutex now. We know that the stack value isn't null, so that's safe.
+		mutex.acquire();
+		if (this.mutex == null) {
+			// The shared reference has become null in the meantime, so we're done.
+			mutex.release();
+			return resumeContinue(result, error);
+		}
+		// At this point we own the mutex, so we're first. We can set the shared reference to null and release it.
+		this.mutex = null;
+		mutex.release();
+		this.result = result;
+		this.error = error;
 	}
 
+
 	public function resolve():Void {
-		lock.acquire();
-		if (resumed) {
+		inline function updateState() {
 			if (error != null) {
 				state = Thrown;
 			} else {
 				state = Returned;
 			}
-			lock.release();
-			lock = null;
-		} else {
-			resolved = true;
-			state = Pending;
-			lock.release();
 		}
+		// same logic as resume
+		final mutex = mutex;
+		if (mutex == null) {
+			return updateState();
+		}
+		mutex.acquire();
+		if (this.mutex == null) {
+			mutex.release();
+			return updateState();
+		}
+		this.mutex = null;
+		mutex.release();
+		state = Pending;
 	}
 }
