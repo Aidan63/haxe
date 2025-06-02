@@ -13,8 +13,6 @@ class CancellingContinuation<T> implements ICancellingContinuation<T> {
 
 	final handle : ICancellationHandle;
 
-	var resumed : Bool;
-
 	public var context (get, never) : Context;
 
 	function get_context() {
@@ -32,20 +30,17 @@ class CancellingContinuation<T> implements ICancellingContinuation<T> {
 	}
 
 	public function new(cont) {
-		this.cont = cont;
-		
-		resumed = false;
-		handle  = this.cont.context.get(CancellationToken.key).onCancellationRequested(doCancellation);
+		this.cont   = cont;
+		this.handle = this.cont.context.get(CancellationToken.key).onCancellationRequested(doCancellation);
 	}
 
 	public function resume(result:T, error:Exception) {
-		if (resumed) {
-			return;
+		if (this.cont.context.get(CancellationToken.key).isCancellationRequested) {
+			cont.resume(null, new CancellationException());
+		} else {
+			cont.resume(result, error);
 		}
 
-		resumed = true;
-
-		cont.resume(result, error);
 	}
 
 	function doCancellation() {
@@ -53,6 +48,6 @@ class CancellingContinuation<T> implements ICancellingContinuation<T> {
 			onCancellationRequested();
 		}
 
-		resume(null, new CancellationException());
+		resume(null, null);
 	}
 }

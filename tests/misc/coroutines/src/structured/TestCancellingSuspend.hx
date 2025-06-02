@@ -1,0 +1,72 @@
+package structured;
+
+import haxe.coro.schedulers.VirtualTimeScheduler;
+import haxe.coro.cancellation.CancellationToken;
+import haxe.exceptions.ArgumentException;
+import haxe.exceptions.CancellationException;
+
+class TestCancellingSuspend extends utest.Test {
+	function test_callback() {
+		final actual    = [];
+		final scheduler = new VirtualTimeScheduler();
+		final task      = CoroRun.with(scheduler).create(node -> {
+			timeout(100, _ -> {
+				cancellingSuspend(cont -> {
+					cont.onCancellationRequested = () -> {
+						actual.push(scheduler.now());
+					}
+				});
+			});
+		});
+
+		task.start();
+
+		scheduler.advanceBy(100);
+
+		Assert.same([ 0.1 ], actual);
+		Assert.isFalse(task.isActive());
+		Assert.isOfType(task.getError(), CancellationException);
+	}
+
+	function test_resuming_successfully() {
+		final scheduler = new VirtualTimeScheduler();
+		final task      = CoroRun.with(scheduler).create(node -> {
+			AssertAsync.raises(() -> {
+				cancellingSuspend(cont -> {
+					scheduler.schedule(0, () -> {
+						cont.resume(null, null);
+					});
+				});
+			}, CancellationException);
+		});
+
+		task.start();
+		task.cancel();
+
+		scheduler.advanceBy(0);
+
+		Assert.isFalse(task.isActive());
+		Assert.isOfType(task.getError(), CancellationException);
+	}
+
+	function test_failing() {
+		final scheduler = new VirtualTimeScheduler();
+		final task      = CoroRun.with(scheduler).create(node -> {
+			AssertAsync.raises(() -> {
+				cancellingSuspend(cont -> {
+					scheduler.schedule(0, () -> {
+						cont.resume(null, new ArgumentException(''));
+					});
+				});
+			}, CancellationException);
+		});
+
+		task.start();
+		task.cancel();
+
+		scheduler.advanceBy(0);
+
+		Assert.isFalse(task.isActive());
+		Assert.isOfType(task.getError(), CancellationException);
+	}
+}
