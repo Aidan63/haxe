@@ -1,6 +1,8 @@
 package hxcoro;
 
+import hxcoro.continuations.CancellingContinuation;
 import haxe.coro.IContinuation;
+import haxe.coro.ICancellingContinuation;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.coro.cancellation.CancellationToken;
@@ -14,11 +16,17 @@ import hxcoro.continuations.TimeoutContinuation;
 
 class Coro {
 	@:coroutine @:coroutine.transformed
-	public static function suspend<T>(func:haxe.coro.IContinuation<T>->Void, completion:haxe.coro.IContinuation<T>):T {
+	public static function suspend<T>(func:IContinuation<T>->Void, completion:IContinuation<T>):T {
 		var safe = new haxe.coro.continuations.RacingContinuation(completion);
 		func(safe);
 		safe.resolve();
 		return cast safe;
+	}
+
+	@:coroutine public static function cancellingSuspend<T>(func:ICancellingContinuation<T>->Void) {
+		return suspend(cont -> {
+			func(new CancellingContinuation(cont));
+		});
 	}
 
 	static function cancellationRequested(cont:IContinuation<Any>) {
@@ -26,21 +34,14 @@ class Coro {
 	}
 
 	@:coroutine @:coroutine.nothrow public static function delay(ms:Int):Void {
-		suspend(cont -> {
-			var scheduleHandle:ISchedulerHandle = null;
-			var cancellationHandle:ICancellationHandle = null;
-
-			final ct = cont.context.get(CancellationToken.key);
-
-			scheduleHandle = cont.context.get(Scheduler.key).schedule(ms, () -> {
-				cancellationHandle.close();
-				cont.resume(null, ct.isCancellationRequested ? new CancellationException() : null);
+		cancellingSuspend(cont -> {
+			final handle = cont.context.get(Scheduler.key).schedule(ms, () -> {
+				cont.resume(null, null);
 			});
 
-			cancellationHandle = ct.onCancellationRequested(() -> {
-				scheduleHandle.close();
-				cont.resume(null, new CancellationException());
-			});
+			cont.onCancellationRequested = () -> {
+				handle.close();
+			}
 		});
 	}
 
