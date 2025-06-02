@@ -92,7 +92,6 @@ private class SuspendedRead<T> implements IContinuation<T> {
 		}
 		// readMutex.release();
 		resume(null, null);
-		resume(null, null);
 	}
 }
 
