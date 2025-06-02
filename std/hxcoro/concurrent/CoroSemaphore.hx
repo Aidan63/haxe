@@ -28,10 +28,10 @@ abstract AtomicInt(AtomicIntData) {
 		return this.value;
 	}
 
-	public function compareAndSet(compare:Int, set:Int) {
+	public function compareExchange(expected:Int, replacement:Int) {
 		this.mutex.acquire();
-		if (this.value == compare) {
-			this.value = set;
+		if (this.value == expected) {
+			this.value = replacement;
 			this.mutex.release();
 			return true;
 		} else {
@@ -40,17 +40,17 @@ abstract AtomicInt(AtomicIntData) {
 		}
 	}
 
-	public function getAndDecrement() {
+	public function sub(b:Int) {
 		this.mutex.acquire();
 		final value = this.value;
-		--this.value;
+		this.value -= b;
 		this.mutex.release();
 		return value;
 	}
 
-	public function increment() {
+	public function add(b:Int) {
 		this.mutex.acquire();
-		++this.value;
+		this.value += b;
 		this.mutex.release();
 	}
 }
@@ -75,7 +75,7 @@ class CoroSemaphore {
 	}
 
 	@:coroutine public function acquire() {
-		if (free.getAndDecrement() > 0) {
+		if (free.sub(1) > 0) {
 			return;
 		}
 		suspend(cont -> {
@@ -92,11 +92,11 @@ class CoroSemaphore {
 		if (free <= 0) {
 			return false;
 		}
-		return this.free.compareAndSet(free, free - 1);
+		return this.free.compareExchange(free, free - 1);
 	}
 
 	public function release() {
-		free.increment();
+		free.add(1);
 		dequeMutex.acquire();
 		while (true) {
 			if (deque.isEmpty()) {
