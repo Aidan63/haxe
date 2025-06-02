@@ -21,6 +21,8 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 	}
 
 	public function resume(result:T, error:Exception):Void {
+		// store in a local to avoid `this` capturing.
+		final inputCont = inputCont;
 		inline function resumeContinue(result:T, error:Exception) {
 			context.get(Scheduler.key).schedule(0, () -> {
 				inputCont.resume(result, error);
