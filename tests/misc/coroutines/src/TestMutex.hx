@@ -1,6 +1,6 @@
 import haxe.coro.schedulers.VirtualTimeScheduler;
 import haxe.coro.Mutex;
-import hxcoro.CoroMutex;
+import hxcoro.concurrent.CoroMutex;
 
 class TestMutex extends utest.Test {
 	function testSimple() {

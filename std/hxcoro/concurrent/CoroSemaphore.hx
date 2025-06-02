@@ -1,4 +1,4 @@
-package hxcoro;
+package hxcoro.concurrent;
 
 import haxe.coro.Mutex;
 import hxcoro.Coro.*;
