@@ -42,7 +42,7 @@ class TestChannel extends utest.Test {
 	}
 
 	function test_fifo_writes() {
-		final expected  = [];
+		final actual    = [];
 		final channel   = new Channel(0);
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
@@ -56,26 +56,26 @@ class TestChannel extends utest.Test {
 
 			delay(100);
 
-			expected.push(channel.read());
-			expected.push(channel.read());
+			actual.push(channel.read());
+			actual.push(channel.read());
 		});
 
 		task.start();
 
 		scheduler.advanceBy(100);
-		Assert.same([ 'Hello', 'World' ], expected);
+		Assert.same([ 'Hello', 'World' ], actual);
 
 		Assert.isFalse(task.isActive());
 	}
 
 	function test_fifo_reads() {
-		final expected  = [];
+		final actual    = [];
 		final channel   = new Channel(0);
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
 			node.async(_ -> {
-				expected.push(channel.read());
-				expected.push(channel.read());
+				actual.push(channel.read());
+				actual.push(channel.read());
 			});
 
 			delay(100);
@@ -87,22 +87,25 @@ class TestChannel extends utest.Test {
 		task.start();
 
 		scheduler.advanceBy(100);
-		Assert.same([ 'Hello', 'World' ], expected);
+		Assert.same([ 'Hello', 'World' ], actual);
 
 		Assert.isFalse(task.isActive());
 	}
 
 	function test_write_cancellation() {
-		final expected  = [];
-		final channel   = new Channel(0);
-		final scheduler = new VirtualTimeScheduler();
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final actual     = [];
+		final exceptions = [];
+		final channel    = new Channel(0);
+		final scheduler  = new VirtualTimeScheduler();
+		final task       = CoroRun.with(scheduler).create(node -> {
 			node.async(_ -> {
-				AssertAsync.raises(() -> {
+				try {
 					timeout(100, _ -> {
 						channel.write('Hello');
 					});
-				}, TimeoutException);
+				} catch (_:TimeoutException) {
+					exceptions.push(scheduler.nowMs());
+				}
 			});
 
 			node.async(_ -> {
@@ -111,38 +114,43 @@ class TestChannel extends utest.Test {
 
 			delay(200);
 
-			expected.push(channel.read());
+			actual.push(channel.read());
 		});
 
 		task.start();
 
 		scheduler.advanceBy(99);
-		Assert.same([], expected);
+		Assert.same([], actual);
 
 		scheduler.advanceBy(1);
-		Assert.same([], expected);
+		Assert.same([], actual);
+		Assert.same([100], exceptions);
 
 		scheduler.advanceBy(100);
-		Assert.same([ 'World' ], expected);
+		Assert.same([ 'World' ], actual);
 
 		Assert.isFalse(task.isActive());
 	}
 
 	function test_read_cancellation() {
-		final expected  = [];
-		final channel   = new Channel(0);
-		final scheduler = new VirtualTimeScheduler();
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final actual     = [];
+		final exceptions = [];
+		final channel    = new Channel(0);
+		final scheduler  = new VirtualTimeScheduler();
+		final task       = CoroRun.with(scheduler).create(node -> {
 			node.async(_ -> {
-				AssertAsync.raises(() -> {
+				try {
 					timeout(100, _ -> {
 						return channel.read();
 					});
-				}, TimeoutException);
+				} catch(_:TimeoutException) {
+					exceptions.push(scheduler.nowMs());
+					"";
+				}
 			});
 
 			node.async(_ -> {
-				expected.push(channel.read());
+				actual.push(channel.read());
 			});
 
 			delay(200);
@@ -152,9 +160,11 @@ class TestChannel extends utest.Test {
 
 		task.start();
 
-		scheduler.advanceBy(200);
+		scheduler.advanceBy(100);
+		scheduler.advanceBy(100);
 
-		Assert.same([ 'Hello' ], expected);
+		Assert.same([ 'Hello' ], actual);
+		Assert.same([100], exceptions);
 		Assert.isFalse(task.isActive());
 	}
 }
