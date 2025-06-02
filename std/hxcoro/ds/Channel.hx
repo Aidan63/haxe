@@ -53,7 +53,7 @@ private class SuspendedWrite<T> implements IContinuation<T> {
 	}
 }
 
-private class SuspendedRead<T> implements IContinuation<T> {
+class SuspendedRead<T> implements IContinuation<T> {
 	final continuation : IContinuation<T>;
 	final handle : ICancellationHandle;
 
