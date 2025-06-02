@@ -2,6 +2,11 @@ package hxcoro.concurrent;
 
 import haxe.coro.Mutex;
 
+#if (cpp || hl || js || jvm)
+typedef AtomicInt = haxe.atomic.AtomicInt;
+#else
+typedef AtomicInt = AtomicIntImpl;
+
 private class AtomicIntData {
 	public final mutex:Mutex;
 	public var value:Int;
@@ -12,12 +17,12 @@ private class AtomicIntData {
 	}
 }
 
-abstract AtomicInt(AtomicIntData) {
+abstract AtomicIntImpl(AtomicIntData) {
 	public function new(v:Int) {
 		this = new AtomicIntData(v);
 	}
 
-	public function get() {
+	public function load() {
 		return this.value;
 	}
 
@@ -26,10 +31,10 @@ abstract AtomicInt(AtomicIntData) {
 		if (this.value == expected) {
 			this.value = replacement;
 			this.mutex.release();
-			return true;
+			return replacement;
 		} else {
 			this.mutex.release();
-			return false;
+			return this.value;
 		}
 	}
 
@@ -47,3 +52,4 @@ abstract AtomicInt(AtomicIntData) {
 		this.mutex.release();
 	}
 }
+#end

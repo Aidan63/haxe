@@ -9,8 +9,6 @@ import haxe.coro.cancellation.ICancellationHandle;
 import haxe.exceptions.CancellationException;
 import haxe.coro.cancellation.CancellationToken;
 
-
-
 @:structInit
 private class PendingAcquire<T> {
 	public final cont:IContinuation<T>;
@@ -44,11 +42,11 @@ class CoroSemaphore {
 	}
 
 	public function tryAcquire() {
-		var free = free.get();
+		var free = free.load();
 		if (free <= 0) {
 			return false;
 		}
-		return this.free.compareExchange(free, free - 1);
+		return this.free.compareExchange(free, free - 1) == free;
 	}
 
 	public function release() {
