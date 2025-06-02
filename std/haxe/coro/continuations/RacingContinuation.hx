@@ -3,19 +3,21 @@ package haxe.coro.continuations;
 import haxe.coro.context.Context;
 import haxe.coro.schedulers.Scheduler;
 
-@:coreApi class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> {
+class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> {
 	final inputCont:IContinuation<T>;
 
-	final lock:Mutex;
+	var lock:Mutex;
 
-	var assigned:Bool;
+	var resumed:Bool;
+	var resolved:Bool;
 
 	public var context(get, null):Context;
 
 	public function new(inputCont:IContinuation<T>) {
 		this.inputCont = inputCont;
 		context = inputCont.context;
-		assigned = false;
+		resumed = false;
+		resolved = false;
 		lock = new Mutex();
 	}
 
@@ -24,34 +26,36 @@ import haxe.coro.schedulers.Scheduler;
 	}
 
 	public function resume(result:T, error:Exception):Void {
-		context.get(Scheduler.key).schedule(0, () -> {
-			lock.acquire();
-
-			if (assigned) {
-				lock.release();
+		lock.acquire();
+		if (resolved) {
+			// if we already have a value, schedule the follow-up resume call with that value
+			final inputCont = inputCont;
+			context.get(Scheduler.key).schedule(0, () -> {
 				inputCont.resume(result, error);
-			} else {
-				assigned = true;
-				this.result = result;
-				this.error = error;
-
-				lock.release();
-			}
-		});
+			});
+			lock.release();
+			lock = null;
+		} else {
+			// otherwise we can assign immediately
+			resumed = true;
+			this.result = result;
+			this.error = error;
+			lock.release();
+		}
 	}
 
 	public function resolve():Void {
 		lock.acquire();
-		if (assigned) {
+		if (resumed) {
 			if (error != null) {
 				state = Thrown;
-				lock.release();
 			} else {
 				state = Returned;
-				lock.release();
 			}
+			lock.release();
+			lock = null;
 		} else {
-			assigned = true;
+			resolved = true;
 			state = Pending;
 			lock.release();
 		}
