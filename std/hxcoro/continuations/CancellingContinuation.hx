@@ -8,8 +8,9 @@ import haxe.coro.context.Context;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.CancellationToken;
+import haxe.coro.cancellation.ICancellationCallback;
 
-class CancellingContinuation<T> implements ICancellingContinuation<T> {
+class CancellingContinuation<T> implements ICancellingContinuation<T> implements ICancellationCallback {
 	final cont : IContinuation<T>;
 
 	final handle : ICancellationHandle;
@@ -32,7 +33,7 @@ class CancellingContinuation<T> implements ICancellingContinuation<T> {
 
 	public function new(cont) {
 		this.cont   = cont;
-		this.handle = this.cont.context.get(CancellationToken.key).onCancellationRequested(doCancellation);
+		this.handle = this.cont.context.get(CancellationToken.key).onCancellationRequested(this);
 	}
 
 	public function resume(result:T, error:Exception) {
@@ -50,7 +51,7 @@ class CancellingContinuation<T> implements ICancellingContinuation<T> {
 
 	}
 
-	function doCancellation() {
+	public function onCancellation() {
 		if (null != onCancellationRequested) {
 			onCancellationRequested();
 		}
