@@ -1,5 +1,6 @@
 package hxcoro.concurrent;
 
+import haxe.coro.cancellation.ICancellationCallback;
 import haxe.coro.Mutex;
 import hxcoro.Coro.*;
 import hxcoro.task.CoroTask;
@@ -13,6 +14,17 @@ import haxe.coro.cancellation.CancellationToken;
 private class PendingAcquire<T> {
 	public final cont:IContinuation<T>;
 	public final cancelHandle:ICancellationHandle;
+}
+
+class WeirdWrapper implements ICancellationCallback {
+	final f:() -> Void;
+	public function new(f:() -> Void) {
+		this.f = f;
+	}
+
+	public function onCancellation() {
+		f();
+	}
 }
 
 class CoroSemaphore {
@@ -32,7 +44,8 @@ class CoroSemaphore {
 			return;
 		}
 		suspend(cont -> {
-			final f = () -> cont.resume(null, new CancellationException());
+			// TODO: do this properly
+			final f = new WeirdWrapper(() -> cont.resume(null, new CancellationException()));
 			final task = cont.context.get(CoroTask.key);
 			dequeMutex.acquire();
 			if (deque == null) {

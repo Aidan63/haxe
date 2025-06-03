@@ -99,8 +99,8 @@ abstract class CoroTask<T> extends AbstractTask<T> implements IContinuation<T> i
 		if (awaitingContinuations != null && awaitingContinuations.length == 0) {
 			awaitingContinuations = null;
 		}
-		if (cancellationCallbacks != null && cancellationCallbacks.length == 0) {
-			cancellationCallbacks = null;
+		if (cancellationHandles != null && cancellationHandles.length == 0) {
+			cancellationHandles = null;
 		}
 		if (allChildrenCompleted) {
 			children = null;
