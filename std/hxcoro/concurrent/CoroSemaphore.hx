@@ -17,13 +17,12 @@ private class PendingAcquire<T> {
 
 class CoroSemaphore {
 	final maxFree:Int;
-	final deque:PagedDeque<PendingAcquire<Any>>;
 	final dequeMutex:Mutex;
+	var deque:Null<PagedDeque<PendingAcquire<Any>>>;
 	var free:AtomicInt;
 
 	public function new(free:Int) {
 		maxFree = free;
-		deque = new PagedDeque<PendingAcquire<Any>>();
 		dequeMutex = new Mutex();
 		this.free = new AtomicInt(free);
 	}
@@ -36,22 +35,33 @@ class CoroSemaphore {
 			final f = () -> cont.resume(null, new CancellationException());
 			final task = cont.context.get(CoroTask.key);
 			dequeMutex.acquire();
+			if (deque == null) {
+				deque = new PagedDeque();
+			}
 			deque.push({cont: cont, cancelHandle: task.onCancellationRequested(f)});
 			dequeMutex.release();
 		});
 	}
 
 	public function tryAcquire() {
-		var free = free.load();
-		if (free <= 0) {
-			return false;
+		while (true) {
+			var free = free.load();
+			if (free <= 0) {
+				return false;
+			}
+			if (this.free.compareExchange(free, free - 1) == free) {
+				return true;
+			}
 		}
-		return this.free.compareExchange(free, free - 1) == free;
 	}
 
 	public function release() {
 		free.add(1);
 		dequeMutex.acquire();
+		if (deque == null) {
+			dequeMutex.release();
+			return;
+		}
 		while (true) {
 			if (deque.isEmpty()) {
 				// nobody else wants it right now, return

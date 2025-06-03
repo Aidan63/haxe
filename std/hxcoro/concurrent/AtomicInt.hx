@@ -31,10 +31,11 @@ abstract AtomicIntImpl(AtomicIntData) {
 		if (this.value == expected) {
 			this.value = replacement;
 			this.mutex.release();
-			return replacement;
+			return expected;
 		} else {
+			final value = this.value;
 			this.mutex.release();
-			return this.value;
+			return value;
 		}
 	}
 
