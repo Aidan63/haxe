@@ -21,6 +21,11 @@ class Coro {
 		return cast safe;
 	}
 
+	/**
+	 * Suspends a coroutine which will be automatically resumed with a `haxe.exceptions.CancellationException` when cancelled.
+	 * The `ICancellableContinuation` passed to the function allows registering a callback which is invoked on cancellation
+	 * allowing the easy cleanup of resources.
+	 */
 	@:coroutine public static function suspendCancellable<T>(func:ICancellableContinuation<T>->Void) {
 		return suspend(cont -> {
 			func(new CancellingContinuation(cont));
