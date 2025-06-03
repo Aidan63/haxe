@@ -12,7 +12,7 @@ class TestCancellingSuspend extends utest.Test {
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
 			timeout(100, _ -> {
-				cancellingSuspend(cont -> {
+				suspendCancelling(cont -> {
 					cont.onCancellationRequested = () -> {
 						actual.push(scheduler.now());
 					}
@@ -33,7 +33,7 @@ class TestCancellingSuspend extends utest.Test {
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
 			AssertAsync.raises(() -> {
-				cancellingSuspend(cont -> {
+				suspendCancelling(cont -> {
 					scheduler.schedule(0, () -> {
 						cont.resume(null, null);
 					});
@@ -54,7 +54,7 @@ class TestCancellingSuspend extends utest.Test {
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
 			AssertAsync.raises(() -> {
-				cancellingSuspend(cont -> {
+				suspendCancelling(cont -> {
 					scheduler.schedule(0, () -> {
 						cont.resume(null, new ArgumentException(''));
 					});
@@ -75,7 +75,7 @@ class TestCancellingSuspend extends utest.Test {
 		final actual    = [];
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
-			cancellingSuspend(cont -> {
+			suspendCancelling(cont -> {
 				cont.onCancellationRequested = () -> {
 					Assert.fail('should not be invoked');
 				}
@@ -102,7 +102,7 @@ class TestCancellingSuspend extends utest.Test {
 
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
-			cancellingSuspend(cont -> {
+			suspendCancelling(cont -> {
 				stashed = cont;
 
 				cont.resume(null, null);
@@ -129,7 +129,7 @@ class TestCancellingSuspend extends utest.Test {
 	function test_disallow_multiple_callback_assignments() {
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
-			cancellingSuspend(cont -> {
+			suspendCancelling(cont -> {
 				cont.onCancellationRequested = () -> {
 					trace('foo');
 				}

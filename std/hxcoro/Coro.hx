@@ -23,7 +23,7 @@ class Coro {
 		return cast safe;
 	}
 
-	@:coroutine public static function cancellingSuspend<T>(func:ICancellingContinuation<T>->Void) {
+	@:coroutine public static function suspendCancelling<T>(func:ICancellingContinuation<T>->Void) {
 		return suspend(cont -> {
 			func(new CancellingContinuation(cont));
 		});
@@ -34,7 +34,7 @@ class Coro {
 	}
 
 	@:coroutine @:coroutine.nothrow public static function delay(ms:Int):Void {
-		cancellingSuspend(cont -> {
+		suspendCancelling(cont -> {
 			final handle = cont.context.get(Scheduler.key).schedule(ms, () -> {
 				cont.resume(null, null);
 			});
