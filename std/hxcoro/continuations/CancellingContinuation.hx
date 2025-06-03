@@ -35,12 +35,13 @@ class CancellingContinuation<T> implements ICancellingContinuation<T> {
 	}
 
 	public function resume(result:T, error:Exception) {
+		handle.close();
+
 		if (this.cont.context.get(CancellationToken.key).isCancellationRequested) {
 			cont.resume(null, new CancellationException());
 		} else {
 			cont.resume(result, error);
 		}
-
 	}
 
 	function doCancellation() {
