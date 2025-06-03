@@ -1,5 +1,6 @@
 package concurrent;
 
+import haxe.exceptions.CancellationException;
 import hxcoro.concurrent.CoroSemaphore;
 import haxe.coro.schedulers.VirtualTimeScheduler;
 import haxe.coro.Mutex;
@@ -132,5 +133,78 @@ class TestMutex extends utest.Test {
 		Assert.equals(numTasks, numTasksCompleted);
 		Assert.equals(numTasksHalved, numEarlyAcquires);
 		Assert.equals(numTasksHalved, numLateAcquires);
+	}
+
+	function testMutexCancelling() {
+		var scheduler = new VirtualTimeScheduler();
+		final lines = [];
+		function report(s:String) {
+			final now = scheduler.nowMs();
+			lines.push('$now: $s');
+		}
+		final task = CoroRun.with(scheduler).create(node -> {
+			final mutex1 = new CoroMutex();
+			final mutex2 = new CoroMutex();
+			final child1 = node.async(_ -> {
+				report("1 acquiring 1");
+				mutex1.acquire();
+				report("1 acquired 1");
+				delay(2);
+				report("1 acquiring 2 (deadlock)");
+				try {
+					mutex2.acquire();
+				} catch (e:CancellationException) {
+					report("1 cancelled");
+					mutex1.release();
+					throw e;
+				}
+				report("1 acquired 2");
+			});
+			final child2 = node.async(_ -> {
+				delay(1);
+				report("2 acquiring 2");
+				mutex2.acquire();
+				report("2 acquired 2");
+				delay(1);
+				report("2 acquiring 1 (deadlock)");
+				mutex1.acquire();
+				report("2 acquired 1");
+				report("2 releasing 1");
+				mutex1.release();
+				report("2 released 1");
+				report("2 releasing 2");
+				mutex2.release();
+				report("2 released 2");
+			});
+			delay(3);
+			report("parent cancelling 1");
+			child1.cancel();
+			report("parent cancelled 1");
+			delay(1);
+			report('1 active: ${child1.isActive()}');
+			report('2 active: ${child2.isActive()}');
+		});
+		task.start();
+		while (task.isActive()) {
+			scheduler.advanceBy(1);
+		}
+		Assert.same([
+			"0: 1 acquiring 1",
+			"0: 1 acquired 1",
+			"1: 2 acquiring 2",
+			"1: 2 acquired 2",
+			"2: 1 acquiring 2 (deadlock)",
+			"2: 2 acquiring 1 (deadlock)",
+			"3: parent cancelling 1",
+			"3: parent cancelled 1",
+			"3: 1 cancelled",
+			"3: 2 acquired 1",
+			"3: 2 releasing 1",
+			"3: 2 released 1",
+			"3: 2 releasing 2",
+			"3: 2 released 2",
+			"4: 1 active: false",
+			"4: 2 active: false",
+		], lines);
 	}
 }
