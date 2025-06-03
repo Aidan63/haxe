@@ -10,27 +10,10 @@ import haxe.coro.cancellation.ICancellationHandle;
 import haxe.exceptions.CancellationException;
 import haxe.coro.cancellation.CancellationToken;
 
-@:structInit
-private class PendingAcquire<T> {
-	public final cont:IContinuation<T>;
-	public final cancelHandle:ICancellationHandle;
-}
-
-class WeirdWrapper implements ICancellationCallback {
-	final f:() -> Void;
-	public function new(f:() -> Void) {
-		this.f = f;
-	}
-
-	public function onCancellation() {
-		f();
-	}
-}
-
 class CoroSemaphore {
 	final maxFree:Int;
 	final dequeMutex:Mutex;
-	var deque:Null<PagedDeque<PendingAcquire<Any>>>;
+	var deque:Null<PagedDeque<IContinuation<Any>>>;
 	var free:AtomicInt;
 
 	public function new(free:Int) {
@@ -43,15 +26,13 @@ class CoroSemaphore {
 		if (free.sub(1) > 0) {
 			return;
 		}
-		suspend(cont -> {
-			// TODO: do this properly
-			final f = new WeirdWrapper(() -> cont.resume(null, new CancellationException()));
+		cancellingSuspend(cont -> {
 			final task = cont.context.get(CoroTask.key);
 			dequeMutex.acquire();
 			if (deque == null) {
 				deque = new PagedDeque();
 			}
-			deque.push({cont: cont, cancelHandle: task.onCancellationRequested(f)});
+			deque.push(cont);
 			task.putOnHold(); // TODO: condition this on some heuristic?
 			dequeMutex.release();
 		});
@@ -83,15 +64,13 @@ class CoroSemaphore {
 				return;
 			}
 			// a continuation waits for this mutex, wake it up now
-			final acq = deque.pop();
-			final cont = acq.cont;
+			final cont = deque.pop();
 			final ct = cont.context.get(CancellationToken.key);
 			if (ct.isCancellationRequested) {
 				// ignore, back to the loop
 			} else {
 				// continue normally
 				dequeMutex.release();
-				acq.cancelHandle.close();
 				cont.resume(null, null);
 				return;
 			}
