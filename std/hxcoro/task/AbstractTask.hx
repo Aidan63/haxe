@@ -17,13 +17,13 @@ enum abstract TaskState(Int) {
 private class TaskException extends Exception {}
 
 private class CancellationHandle implements ICancellationHandle {
-	final func:() -> Void;
+	final handle:ICancellationHandle;
 	final all:Array<CancellationHandle>;
 
 	var closed:Bool;
 
-	public function new(func, all) {
-		this.func = func;
+	public function new(handle, all) {
+		this.handle = handle;
 		this.all = all;
 
 		closed = false;
@@ -34,7 +34,7 @@ private class CancellationHandle implements ICancellationHandle {
 			return;
 		}
 
-		func();
+		handle.close();
 
 		closed = true;
 	}
@@ -67,7 +67,7 @@ abstract class AbstractTask<T> implements ICancellationToken {
 	static final noOpCancellationHandle = new NoOpCancellationHandle();
 
 	var children:Null<Array<AbstractTask<Any>>>;
-	var cancellationCallbacks:Null<Array<CancellationHandle>>;
+	var cancellationHandles:Null<Array<CancellationHandle>>;
 	var state:TaskState;
 	var error:Null<Exception>;
 	var numCompletedChildren:Int;
@@ -91,7 +91,7 @@ abstract class AbstractTask<T> implements ICancellationToken {
 	public function new() {
 		state = Created;
 		children = null;
-		cancellationCallbacks = null;
+		cancellationHandles = null;
 		numCompletedChildren = 0;
 		indexInParent = -1;
 		allChildrenCompleted = false;
@@ -121,8 +121,8 @@ abstract class AbstractTask<T> implements ICancellationToken {
 				}
 				state = Cancelling;
 
-				if (null != cancellationCallbacks) {
-					for (h in cancellationCallbacks) {
+				if (null != cancellationHandles) {
+					for (h in cancellationHandles) {
 						h.run();
 					}
 				}
@@ -147,15 +147,15 @@ abstract class AbstractTask<T> implements ICancellationToken {
 		}
 	}
 
-	public function onCancellationRequested(f:() -> Void):ICancellationHandle {
+	public function onCancellationRequested(handle:ICancellationHandle):ICancellationHandle {
 		return switch state {
 			case Cancelling | Cancelled:
-				f();
+				handle.close();
 
 				return noOpCancellationHandle;
 			case _:
-				final container = cancellationCallbacks ??= [];
-				final handle = new CancellationHandle(f, container);
+				final container = cancellationHandles ??= [];
+				final handle = new CancellationHandle(handle, container);
 
 				container.push(handle);
 
