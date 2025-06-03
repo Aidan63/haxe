@@ -26,7 +26,7 @@ class CoroSemaphore {
 		if (free.sub(1) > 0) {
 			return;
 		}
-		suspendCancelling(cont -> {
+		suspendCancellable(cont -> {
 			final task = cont.context.get(CoroTask.key);
 			dequeMutex.acquire();
 			if (deque == null) {
