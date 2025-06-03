@@ -1,18 +1,18 @@
 package structured;
 
-import haxe.Exception;
 import haxe.coro.schedulers.VirtualTimeScheduler;
 import haxe.coro.cancellation.ICancellationHandle;
+import haxe.coro.cancellation.ICancellationCallback;
 import hxcoro.task.CoroTask;
 
-class ResultPusherHandle implements ICancellationHandle {
+class ResultPusherHandle implements ICancellationCallback {
 	final result:Array<Int>;
 
 	public function new(result:Array<Int>) {
 		this.result = result;
 	}
 
-	public function close() {
+	public function onCancellation() {
 		result.push(0);
 	}
 }

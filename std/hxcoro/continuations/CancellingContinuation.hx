@@ -8,8 +8,9 @@ import haxe.coro.context.Context;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.CancellationToken;
+import haxe.coro.cancellation.ICancellationCallback;
 
-class CancellingContinuation<T> implements ICancellingContinuation<T> implements ICancellationHandle {
+class CancellingContinuation<T> implements ICancellingContinuation<T> implements ICancellationCallback {
 	final cont : IContinuation<T>;
 
 	final handle : ICancellationHandle;
@@ -50,7 +51,7 @@ class CancellingContinuation<T> implements ICancellingContinuation<T> implements
 
 	}
 
-	public function close() {
+	public function onCancellation() {
 		if (null != onCancellationRequested) {
 			onCancellationRequested();
 		}

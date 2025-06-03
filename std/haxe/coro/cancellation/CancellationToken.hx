@@ -14,7 +14,7 @@ private class NoOpCancellationToken implements ICancellationToken {
 
 	public function new() {}
 
-	public function onCancellationRequested(_:ICancellationHandle):ICancellationHandle {
+	public function onCancellationRequested(_:ICancellationCallback):ICancellationHandle {
 		return handle;
 	}
 	public function get_isCancellationRequested() {

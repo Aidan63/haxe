@@ -17,5 +17,5 @@ interface ICancellationToken {
 	 * @param func Callback to be executed when the token is cancelled.
 	 * @return Cancellation handle which can be used to cancel the callback from executing.
 	 */
-	function onCancellationRequested(handle : ICancellationHandle) : ICancellationHandle;
+	function onCancellationRequested(handle : ICancellationCallback) : ICancellationHandle;
 }

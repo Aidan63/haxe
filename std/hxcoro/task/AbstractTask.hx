@@ -2,6 +2,7 @@ package hxcoro.task;
 
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.coro.cancellation.ICancellationHandle;
+import haxe.coro.cancellation.ICancellationCallback;
 import haxe.exceptions.CancellationException;
 import haxe.Exception;
 
@@ -17,13 +18,13 @@ enum abstract TaskState(Int) {
 private class TaskException extends Exception {}
 
 private class CancellationHandle implements ICancellationHandle {
-	final handle:ICancellationHandle;
+	final callback:ICancellationCallback;
 	final all:Array<CancellationHandle>;
 
 	var closed:Bool;
 
-	public function new(handle, all) {
-		this.handle = handle;
+	public function new(callback, all) {
+		this.callback = callback;
 		this.all = all;
 
 		closed = false;
@@ -34,7 +35,7 @@ private class CancellationHandle implements ICancellationHandle {
 			return;
 		}
 
-		handle.close();
+		callback.onCancellation();
 
 		closed = true;
 	}
@@ -147,10 +148,10 @@ abstract class AbstractTask<T> implements ICancellationToken {
 		}
 	}
 
-	public function onCancellationRequested(handle:ICancellationHandle):ICancellationHandle {
+	public function onCancellationRequested(handle:ICancellationCallback):ICancellationHandle {
 		return switch state {
 			case Cancelling | Cancelled:
-				handle.close();
+				handle.onCancellation();
 
 				return noOpCancellationHandle;
 			case _:
