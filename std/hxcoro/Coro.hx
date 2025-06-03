@@ -2,7 +2,7 @@ package hxcoro;
 
 import hxcoro.continuations.CancellingContinuation;
 import haxe.coro.IContinuation;
-import haxe.coro.ICancellingContinuation;
+import haxe.coro.ICancellableContinuation;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.exceptions.CancellationException;
@@ -21,7 +21,7 @@ class Coro {
 		return cast safe;
 	}
 
-	@:coroutine public static function suspendCancellable<T>(func:ICancellingContinuation<T>->Void) {
+	@:coroutine public static function suspendCancellable<T>(func:ICancellableContinuation<T>->Void) {
 		return suspend(cont -> {
 			func(new CancellingContinuation(cont));
 		});

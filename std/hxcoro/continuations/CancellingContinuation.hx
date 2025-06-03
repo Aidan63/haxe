@@ -4,7 +4,7 @@ import hxcoro.concurrent.AtomicInt;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 import haxe.coro.IContinuation;
-import haxe.coro.ICancellingContinuation;
+import haxe.coro.ICancellableContinuation;
 import haxe.coro.context.Context;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.cancellation.ICancellationHandle;
@@ -17,7 +17,7 @@ private enum abstract State(Int) to Int {
 	var Cancelled;
 }
 
-class CancellingContinuation<T> implements ICancellingContinuation<T> implements ICancellationCallback {
+class CancellingContinuation<T> implements ICancellableContinuation<T> implements ICancellationCallback {
 	final state : AtomicInt;
 
 	final cont : IContinuation<T>;

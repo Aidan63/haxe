@@ -1,6 +1,6 @@
 package structured;
 
-import haxe.coro.ICancellingContinuation;
+import haxe.coro.ICancellableContinuation;
 import haxe.coro.schedulers.VirtualTimeScheduler;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.exceptions.ArgumentException;
@@ -98,7 +98,7 @@ class TestCancellingSuspend extends utest.Test {
 	}
 
 	function test_immediate_callback_execution() {
-		var stashed : ICancellingContinuation<Any> = null;
+		var stashed : ICancellableContinuation<Any> = null;
 
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
