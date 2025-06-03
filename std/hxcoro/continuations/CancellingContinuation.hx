@@ -21,11 +21,7 @@ class CancellingContinuation<T> implements ICancellingContinuation<T> implements
 		return cont.context;
 	}
 
-	public var onCancellationRequested (null, set) : ()->Void;
-
-	function get_onCancellationRequested() {
-		return onCancellationRequested;
-	}
+	public var onCancellationRequested (default, set) : ()->Void;
 
 	function set_onCancellationRequested(f : ()->Void) {
 		return if (cont.context.get(CancellationToken.key).isCancellationRequested) {
@@ -33,6 +29,10 @@ class CancellingContinuation<T> implements ICancellingContinuation<T> implements
 
 			f;
 		} else {
+			if (null != onCancellationRequested) {
+				throw new Exception("Callback already registered");
+			}
+
 			onCancellationRequested = f;
 		}
 

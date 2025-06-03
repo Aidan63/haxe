@@ -125,4 +125,31 @@ class TestCancellingSuspend extends utest.Test {
 
 		Assert.isFalse(task.isActive());
 	}
+
+	function test_disallow_multiple_callback_assignments() {
+		final scheduler = new VirtualTimeScheduler();
+		final task      = CoroRun.with(scheduler).create(node -> {
+			cancellingSuspend(cont -> {
+				cont.onCancellationRequested = () -> {
+					trace('foo');
+				}
+
+				Assert.raises(() -> {
+					cont.onCancellationRequested = () -> {
+						trace('foo');
+					}
+				});
+
+				cont.resume(null, null);
+			});
+		});
+
+		task.start();
+		task.cancel();
+
+		scheduler.advanceBy(0);
+
+		Assert.isFalse(task.isActive());
+		Assert.isOfType(task.getError(), CancellationException);
+	}
 }
