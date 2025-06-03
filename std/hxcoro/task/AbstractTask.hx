@@ -68,7 +68,7 @@ abstract class AbstractTask<T> implements ICancellationToken {
 	static final noOpCancellationHandle = new NoOpCancellationHandle();
 
 	var children:Null<Array<AbstractTask<Any>>>;
-	var cancellationHandles:Null<Array<CancellationHandle>>;
+	var cancellationCallbacks:Null<Array<CancellationHandle>>;
 	var state:TaskState;
 	var error:Null<Exception>;
 	var numCompletedChildren:Int;
@@ -92,7 +92,7 @@ abstract class AbstractTask<T> implements ICancellationToken {
 	public function new() {
 		state = Created;
 		children = null;
-		cancellationHandles = null;
+		cancellationCallbacks = null;
 		numCompletedChildren = 0;
 		indexInParent = -1;
 		allChildrenCompleted = false;
@@ -122,8 +122,8 @@ abstract class AbstractTask<T> implements ICancellationToken {
 				}
 				state = Cancelling;
 
-				if (null != cancellationHandles) {
-					for (h in cancellationHandles) {
+				if (null != cancellationCallbacks) {
+					for (h in cancellationCallbacks) {
 						h.run();
 					}
 				}
@@ -148,15 +148,15 @@ abstract class AbstractTask<T> implements ICancellationToken {
 		}
 	}
 
-	public function onCancellationRequested(handle:ICancellationCallback):ICancellationHandle {
+	public function onCancellationRequested(callback:ICancellationCallback):ICancellationHandle {
 		return switch state {
 			case Cancelling | Cancelled:
-				handle.onCancellation();
+				callback.onCancellation();
 
 				return noOpCancellationHandle;
 			case _:
-				final container = cancellationHandles ??= [];
-				final handle = new CancellationHandle(handle, container);
+				final container = cancellationCallbacks ??= [];
+				final handle = new CancellationHandle(callback, container);
 
 				container.push(handle);
 
