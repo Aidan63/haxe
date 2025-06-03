@@ -28,7 +28,14 @@ class CancellingContinuation<T> implements ICancellingContinuation<T> implements
 	}
 
 	function set_onCancellationRequested(f : ()->Void) {
-		return onCancellationRequested = f;
+		return if (cont.context.get(CancellationToken.key).isCancellationRequested) {
+			f();
+
+			f;
+		} else {
+			onCancellationRequested = f;
+		}
+
 	}
 
 	public function new(cont) {
