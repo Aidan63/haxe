@@ -9,7 +9,6 @@ function main() {
 		new TestTryCatch(),
 		new TestHoisting(),
 		new TestMisc(),
-		new TestMutex(),
 		new TestTexpr(),
 		// new TestGenerator(),
 		#if js
@@ -24,7 +23,8 @@ function main() {
 		new structured.TestThrowingScopes(),
 		new structured.TestCoroutineScope(),
 		new structured.TestTaskCancellation(),
-		new structured.TestTimeout()
+		new structured.TestTimeout(),
+		new structured.TestCancellingSuspend()
 	];
 
 	var runner = new utest.Runner();
@@ -34,6 +34,7 @@ function main() {
 	}
 	runner.addCases("issues");
 	runner.addCases("ds");
+	runner.addCases("concurrent");
 
     utest.ui.Report.create(runner);
     runner.run();

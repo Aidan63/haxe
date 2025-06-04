@@ -32,19 +32,23 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 
 	var stackItem:Null<StackItem>;
 	var startedException:Bool;
+	var scheduler:Scheduler;
 
     function new(completion:IContinuation<Any>, initialLabel:Int) {
         this.completion = completion;
 
-        context    = completion.context;
         gotoLabel  = initialLabel;
         error      = null;
         result     = null;
         recursing  = false;
 		startedException = false;
+		scheduler = completion.context.get(Scheduler.key);
     }
 
 	inline function get_context() {
+		if (context == null) {
+			context = completion.context;
+		}
 		return context;
 	}
 
@@ -55,7 +59,7 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 
 		final result = invokeResume();
 		final completion = completion; // avoid capturing `this` in the closure
-		context.get(Scheduler.key).schedule(0, () -> {
+		scheduler.schedule(0, () -> {
 			switch (result.state) {
 				case Pending:
 					return;
