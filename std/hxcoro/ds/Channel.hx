@@ -1,17 +1,16 @@
 package hxcoro.ds;
 
+import haxe.coro.ICancellableContinuation;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 import haxe.coro.cancellation.CancellationToken;
-import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.context.Context;
 import haxe.coro.IContinuation;
-import hxcoro.Coro.suspend;
+import hxcoro.Coro.suspendCancellable;
 import hxcoro.ds.PagedDeque;
 
 private class SuspendedWrite<T> implements IContinuation<T> {
 	final continuation : IContinuation<T>;
-	final handle : ICancellationHandle;
 
 	public final value : T;
 
@@ -24,10 +23,10 @@ private class SuspendedWrite<T> implements IContinuation<T> {
 		return continuation.context;
 	}
 
-	public function new(continuation, value, suspendedWrites:PagedDeque<Any>) {
+	public function new(continuation:ICancellableContinuation<T>, value, suspendedWrites:PagedDeque<Any>) {
 		this.continuation = continuation;
 		this.value        = value;
-		this.handle       = context.get(CancellationToken.key).onCancellationRequested(onCancellation);
+		continuation.onCancellationRequested = onCancellation ;
 		// writeMutex.acquire();
 		hostPage = suspendedWrites.push(this);
 		hostIndex = suspendedWrites.lastIndex - 1;
@@ -35,7 +34,6 @@ private class SuspendedWrite<T> implements IContinuation<T> {
 	}
 
 	public function resume(v:T, error:Exception) {
-		handle.close();
 		if (context.get(CancellationToken.key).isCancellationRequested) {
 			continuation.resume(null, new CancellationException());
 		} else {
@@ -55,7 +53,6 @@ private class SuspendedWrite<T> implements IContinuation<T> {
 
 private class SuspendedRead<T> implements IContinuation<T> {
 	final continuation : IContinuation<T>;
-	final handle : ICancellationHandle;
 
 	public var context (get, never) : Context;
 
@@ -66,9 +63,9 @@ private class SuspendedRead<T> implements IContinuation<T> {
 		return continuation.context;
 	}
 
-	public function new(continuation, suspendedReads:PagedDeque<Any>) {
+	public function new(continuation:ICancellableContinuation<T>, suspendedReads:PagedDeque<Any>) {
 		this.continuation = continuation;
-		this.handle       = context.get(CancellationToken.key).onCancellationRequested(onCancellation);
+		continuation.onCancellationRequested = onCancellation;
 
 		// readMutex.acquire();
 		hostPage = suspendedReads.push(this);
@@ -77,7 +74,6 @@ private class SuspendedRead<T> implements IContinuation<T> {
 	}
 
 	public function resume(v:T, error:Exception) {
-		handle.close();
 		if (context.get(CancellationToken.key).isCancellationRequested) {
 			continuation.resume(null, new CancellationException());
 		} else {
@@ -104,7 +100,7 @@ class Channel<T> {
 	/**
 		Creates a new empty Channel.
 	**/
-	public function new(capacity) {
+	public function new(capacity = 3) {
 		this.capacity = capacity;
 
 		writeQueue      = [];
@@ -122,7 +118,7 @@ class Channel<T> {
 				if (writeQueue.length < capacity) {
 					writeQueue.push(v);
 				} else {
-					suspend(cont -> {
+					suspendCancellable(cont -> {
 						new SuspendedWrite(cont, v, suspendedWrites);
 					});
 				}
@@ -158,7 +154,7 @@ class Channel<T> {
 		}
 		switch writeQueue.shift() {
 			case null:
-				return suspend(cont -> {
+				return suspendCancellable(cont -> {
 					new SuspendedRead(cont, suspendedReads);
 				});
 			case v:
