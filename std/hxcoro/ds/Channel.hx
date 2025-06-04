@@ -92,7 +92,7 @@ class SuspendedRead<T> implements IContinuation<T> {
 }
 
 class Channel<T> {
-	final capacity : Int;
+	final bufferSize : Int;
 	final writeQueue : Array<T>;
 	final suspendedWrites : PagedDeque<SuspendedWrite<T>>;
 	final suspendedReads : PagedDeque<SuspendedRead<T>>;
@@ -100,8 +100,8 @@ class Channel<T> {
 	/**
 		Creates a new empty Channel.
 	**/
-	public function new(capacity = 3) {
-		this.capacity = capacity;
+	public function new(bufferSize = 3) {
+		this.bufferSize = bufferSize;
 
 		writeQueue      = [];
 		suspendedWrites = new PagedDeque();
@@ -115,7 +115,7 @@ class Channel<T> {
 	@:coroutine public function write(v:T) {
 		while (true) {
 			if (suspendedReads.isEmpty()) {
-				if (writeQueue.length < capacity) {
+				if (writeQueue.length < bufferSize) {
 					writeQueue.push(v);
 				} else {
 					suspendCancellable(cont -> {
@@ -140,7 +140,7 @@ class Channel<T> {
 		execution is suspended. It can be resumed by a later call to `write`.
 	**/
 	@:coroutine public function read():T {
-		while ((capacity == 0 || writeQueue.length < capacity) && !suspendedWrites.isEmpty()) {
+		while ((bufferSize == 0 || writeQueue.length < bufferSize) && !suspendedWrites.isEmpty()) {
 			final resuming = suspendedWrites.pop();
 			if (resuming == null) {
 				continue;
