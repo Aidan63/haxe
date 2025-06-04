@@ -30,7 +30,7 @@ class Junction {
 		if (leftOpen) {
 			return;
 		}
-		suspend(cont -> new SuspendedRead(cont, waiters));
+		suspendCancellable(cont -> new SuspendedRead(cont, waiters));
 	}
 
 	public function openLeft() {
@@ -45,7 +45,7 @@ class Junction {
 		if (!leftOpen) {
 			return;
 		}
-		suspend(cont -> new SuspendedRead(cont, waiters));
+		suspendCancellable(cont -> new SuspendedRead(cont, waiters));
 	}
 
 	public function openRight() {
@@ -56,6 +56,7 @@ class Junction {
 		flushWaiters();
 	}
 }
+
 class Issue126 extends utest.Test {
 	function test() {
 		final scheduler = new VirtualTimeScheduler();
