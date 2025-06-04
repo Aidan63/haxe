@@ -26,11 +26,11 @@ private class SuspendedWrite<T> implements IContinuation<T> {
 	public function new(continuation:ICancellableContinuation<T>, value, suspendedWrites:PagedDeque<Any>) {
 		this.continuation = continuation;
 		this.value        = value;
-		continuation.onCancellationRequested = onCancellation ;
 		// writeMutex.acquire();
 		hostPage = suspendedWrites.push(this);
 		hostIndex = suspendedWrites.lastIndex - 1;
 		// writeMutex.release();
+		continuation.onCancellationRequested = onCancellation;
 	}
 
 	public function resume(v:T, error:Exception) {
@@ -65,12 +65,12 @@ class SuspendedRead<T> implements IContinuation<T> {
 
 	public function new(continuation:ICancellableContinuation<T>, suspendedReads:PagedDeque<Any>) {
 		this.continuation = continuation;
-		continuation.onCancellationRequested = onCancellation;
 
 		// readMutex.acquire();
 		hostPage = suspendedReads.push(this);
 		hostIndex = suspendedReads.lastIndex - 1;
 		// readMutex.release();
+		continuation.onCancellationRequested = onCancellation;
 	}
 
 	public function resume(v:T, error:Exception) {
