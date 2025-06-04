@@ -49,15 +49,16 @@ function produce<T>(context:Context, lambda:Coroutine<ISender<T>->Void>):IReceiv
 
 function produceNumbers(context:Context) {
 	return produce(context, node -> {
-		for (i in 1...10) {
-			node.send(i);
+		var i = 1;
+		while (true) {
+			node.send(i++);
 		}
 	});
 }
 
 function square(context:Context, numbers:IReceiver<Int>) {
 	return produce(context, node -> {
-		for (i in 1...10) {
+		while (true) {
 			var x = numbers.receive();
 			node.send(x * x);
 		}
@@ -69,9 +70,11 @@ class Issue124 extends utest.Test {
 		final result = CoroRun.runScoped(node -> {
 			final numbers = produceNumbers(node.context);
 			final squares = square(node.context, numbers);
-			[for (i in 1...10) {
+			final result = [for (i in 1...10) {
 				squares.receive();
 			}];
+			node.cancelChildren();
+			result;
 		});
 		Assert.same([1, 4, 9, 16, 25, 36, 49, 64, 81], result);
 	}
