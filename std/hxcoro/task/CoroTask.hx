@@ -54,16 +54,16 @@ class CoroTask<T, C = Any> extends AbstractTask<T, C> implements IContinuation<T
 		implements IElement<CoroTask<Any>> {
 	public static final key = new Key<CoroTask<Any>>('Task');
 
-	static public final CoroChildStrategy = new CoroChildStrategy();
-	static public final CoroScopeStrategy = new CoroScopeStrategy();
-	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
+	static public final CoroChildStrategy:Any = new CoroChildStrategy();
+	static public final CoroScopeStrategy:Any = new CoroScopeStrategy();
+	static public final CoroSupervisorStrategy:Any = new CoroSupervisorStrategy();
 
 	/**
 		This task's immutable `Context`.
 	**/
 	public var context(get, null):Context;
 
-	final nodeStrategy:INodeStrategy;
+	final nodeStrategy:INodeStrategy<T, C>;
 	var initialContext:Context;
 	var result:Null<T>;
 	var awaitingContinuations:Null<Array<IContinuation<T>>>;
@@ -73,7 +73,7 @@ class CoroTask<T, C = Any> extends AbstractTask<T, C> implements IContinuation<T
 	/**
 		Creates a new task using the provided `context`.
 	**/
-	public function new(context:Context, nodeStrategy:INodeStrategy) {
+	public function new(context:Context, nodeStrategy:INodeStrategy<T, C>) {
 		super(context.get(CoroTask.key));
 		initialContext = context;
 		this.nodeStrategy = nodeStrategy;
@@ -270,7 +270,7 @@ class StartableCoroTask<T, C> extends CoroTask<T, C> implements IStartableCoroTa
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`.
 	**/
-	public function new(context:Context, lambda:NodeLambda<T, C>, nodeStrategy:INodeStrategy) {
+	public function new(context:Context, lambda:NodeLambda<T, C>, nodeStrategy:INodeStrategy<T, C>) {
 		super(context, nodeStrategy);
 		this.lambda = lambda;
 	}
