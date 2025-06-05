@@ -8,8 +8,7 @@ import haxe.coro.cancellation.CancellationToken;
 import haxe.exceptions.CancellationException;
 import haxe.exceptions.ArgumentException;
 import hxcoro.task.NodeLambda;
-import hxcoro.task.CoroScopeTask;
-import hxcoro.task.CoroSupervisorTask;
+import hxcoro.task.CoroTask;
 import hxcoro.exceptions.TimeoutException;
 import hxcoro.continuations.TimeoutContinuation;
 
@@ -60,7 +59,7 @@ class Coro {
 	@:coroutine static public function scope<T, C>(lambda:NodeLambda<T, C>):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroScopeTask(context);
+			final scope = new CoroTask(context, CoroTask.CoroScopeStrategy);
 			scope.runNodeLambda(lambda);
 			scope.awaitContinuation(cont);
 		});
@@ -75,7 +74,7 @@ class Coro {
 	@:coroutine static public function supervisor<T, C>(lambda:NodeLambda<T, C>):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroSupervisorTask(context);
+			final scope = new CoroTask(context, CoroTask.CoroSupervisorStrategy);
 			scope.runNodeLambda(lambda);
 			scope.awaitContinuation(cont);
 		});
@@ -103,7 +102,7 @@ class Coro {
 			}
 
 			final context = cont.context;
-			final scope = new CoroScopeTask(context);
+			final scope = new CoroTask(context, CoroTask.CoroScopeStrategy);
 			final handle = context.get(Scheduler.key).schedule(ms, () -> {
 				scope.cancel(new TimeoutException());
 			});

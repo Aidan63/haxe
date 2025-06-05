@@ -1,9 +1,14 @@
 package hxcoro.task;
 
+import hxcoro.task.node.CoroChildStrategy;
+import hxcoro.task.node.CoroScopeStrategy;
+import hxcoro.task.node.CoroSupervisorStrategy;
+import hxcoro.task.node.INodeStrategy;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.AbstractTask;
 import hxcoro.task.ICoroNode;
 import haxe.Exception;
+import haxe.exceptions.CancellationException;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Key;
 import haxe.coro.context.Context;
@@ -26,7 +31,7 @@ private class CoroTaskWith<T, C> implements ICoroNodeWith<C> {
 	}
 
 	public function async<T:C, R>(lambda:NodeLambda<T, R>):ICoroTask<T> {
-		final child = new CoroChildTask(context, task);
+		final child = new CoroTask(context, CoroTask.CoroChildStrategy);
 		context.get(Scheduler.key).schedule(0, () -> {
 			child.runNodeLambda(lambda);
 		});
@@ -34,7 +39,7 @@ private class CoroTaskWith<T, C> implements ICoroNodeWith<C> {
 	}
 
 	public function lazy<T:C, R>(lambda:NodeLambda<T, R>):IStartableCoroTask<T> {
-		return new CoroChildTask.StartableCoroChildTask(context, lambda, task);
+		return new StartableCoroTask(context, lambda, CoroTask.CoroChildStrategy);
 	}
 
 	public function with(...elements:IElement<Any>) {
@@ -45,15 +50,20 @@ private class CoroTaskWith<T, C> implements ICoroNodeWith<C> {
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
-abstract class CoroTask<T, C = Any> extends AbstractTask<T, C> implements IContinuation<T> implements ICoroNode<C> implements ICoroTask<T>
+class CoroTask<T, C = Any> extends AbstractTask<T, C> implements IContinuation<T> implements ICoroNode<C> implements ICoroTask<T>
 		implements IElement<CoroTask<Any>> {
 	public static final key = new Key<CoroTask<Any>>('Task');
+
+	static public final CoroChildStrategy = new CoroChildStrategy();
+	static public final CoroScopeStrategy = new CoroScopeStrategy();
+	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
 
 	/**
 		This task's immutable `Context`.
 	**/
 	public var context(get, null):Context;
 
+	final nodeStrategy:INodeStrategy;
 	var initialContext:Context;
 	var result:Null<T>;
 	var awaitingContinuations:Null<Array<IContinuation<T>>>;
@@ -63,9 +73,10 @@ abstract class CoroTask<T, C = Any> extends AbstractTask<T, C> implements IConti
 	/**
 		Creates a new task using the provided `context`.
 	**/
-	public function new(context:Context, parent:Null<AbstractTask>) {
-		super(parent);
+	public function new(context:Context, nodeStrategy:INodeStrategy) {
+		super(context.get(CoroTask.key));
 		initialContext = context;
+		this.nodeStrategy = nodeStrategy;
 		wasResumed = true;
 	}
 
@@ -126,15 +137,15 @@ abstract class CoroTask<T, C = Any> extends AbstractTask<T, C> implements IConti
 		method is called. This occurrs automatically once this task has finished execution.
 	**/
 	public function lazy<T:C, R>(lambda:NodeLambda<T, R>):IStartableCoroTask<T> {
-		return new CoroChildTask.StartableCoroChildTask(initialContext, lambda, this);
+		return new StartableCoroTask(context, lambda, CoroChildStrategy);
 	}
 
 	/**
 		Creates a child task to execute `lambda` and starts it automatically.
 	**/
 	public function async<T:C, R>(lambda:NodeLambda<T, R>):ICoroTask<T> {
-		final child = new CoroChildTask<T, R>(initialContext, this);
-		initialContext.get(Scheduler.key).schedule(0, () -> {
+		final child = new CoroTask<T, R>(context, CoroChildStrategy);
+		context.get(Scheduler.key).schedule(0, () -> {
 			child.runNodeLambda(lambda);
 		});
 		return child;
@@ -211,10 +222,6 @@ abstract class CoroTask<T, C = Any> extends AbstractTask<T, C> implements IConti
 		super.checkCompletion();
 	}
 
-	function childrenCompleted() {
-		awaitingChildContinuation?.resume(null, null);
-	}
-
 	function handleAwaitingContinuations() {
 		if (awaitingContinuations == null) {
 			return;
@@ -232,5 +239,47 @@ abstract class CoroTask<T, C = Any> extends AbstractTask<T, C> implements IConti
 				}
 			}
 		}
+	}
+
+	// strategy dispatcher
+
+	function complete() {
+		nodeStrategy.complete(this);
+	}
+
+	function childrenCompleted() {
+		nodeStrategy.childrenCompleted(this);
+	}
+
+	function childSucceeds(child:AbstractTask<C>) {
+		nodeStrategy.childSucceeds(this, child);
+	}
+
+	function childErrors(child:AbstractTask<C>, cause:Exception) {
+		nodeStrategy.childErrors(this, child, cause);
+	}
+
+	function childCancels(child:AbstractTask<C>, cause:CancellationException) {
+		nodeStrategy.childCancels(this, child, cause);
+	}
+}
+
+class StartableCoroTask<T, C> extends CoroTask<T, C> implements IStartableCoroTask<T> {
+	final lambda:NodeLambda<T, C>;
+
+	/**
+		Creates a new task using the provided `context` in order to execute `lambda`.
+	**/
+	public function new(context:Context, lambda:NodeLambda<T, C>, nodeStrategy:INodeStrategy) {
+		super(context, nodeStrategy);
+		this.lambda = lambda;
+	}
+
+	/**
+		Starts executing this task's `lambda`. Has no effect if the task is already active or has completed.
+	**/
+	override public function doStart() {
+		super.doStart();
+		runNodeLambda(lambda);
 	}
 }

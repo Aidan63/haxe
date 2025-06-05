@@ -5,8 +5,8 @@ import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
 import haxe.coro.schedulers.EventLoopScheduler;
 import hxcoro.task.ICoroTask;
+import hxcoro.task.CoroTask;
 import hxcoro.task.NodeLambda;
-import hxcoro.task.CoroScopeTask;
 
 private abstract RunnableContext(ElementTree) {
 	inline function new(tree:ElementTree) {
@@ -14,7 +14,7 @@ private abstract RunnableContext(ElementTree) {
 	}
 
 	public function create<T, C>(lambda:NodeLambda<T, C>):IStartableCoroTask<T> {
-		return new StartableCoroScopeTask(new Context(this), lambda);
+		return new StartableCoroTask(new Context(this), lambda, CoroTask.CoroScopeStrategy);
 	}
 
 	public function run<T, C>(lambda:NodeLambda<T, C>):T {
@@ -56,7 +56,7 @@ class CoroRun {
 
 	static public function runWith<T, C>(context:Context, lambda:NodeLambda<T, C>):T {
 		final schedulerComponent = new EventLoopScheduler();
-		final scope = new CoroScopeTask(context.clone().with(schedulerComponent));
+		final scope = new CoroTask(context.clone().with(schedulerComponent), CoroTask.CoroScopeStrategy);
 		scope.runNodeLambda(lambda);
 		while (scope.isActive()) {
 			schedulerComponent.run();
