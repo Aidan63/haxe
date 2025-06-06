@@ -8,6 +8,7 @@ import haxe.Exception;
 import haxe.exceptions.CancellationException;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
+import haxe.coro.context.Key;
 import haxe.coro.context.IElement;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.cancellation.CancellationToken;
@@ -46,13 +47,14 @@ private class CoroTaskWith<T> implements ICoroNodeWith {
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
-abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode implements ICoroTask<T> implements IElement<CoroBaseTask<Any>> {
+abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode implements ICoroTask<T> implements ILocalContext implements IElement<CoroBaseTask<Any>> {
 	/**
 		This task's immutable `Context`.
 	**/
 	public var context(get, null):Context;
 
 	final nodeStrategy:INodeStrategy;
+	var coroLocalContext:Null<AdjustableContext>;
 	var initialContext:Context;
 	var result:Null<T>;
 	var awaitingContinuations:Null<Array<IContinuation<T>>>;
@@ -80,6 +82,17 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 
 	public function getKey() {
 		return CoroTask.key;
+	}
+
+	public function getLocalElement<T>(key:Key<T>):Null<T> {
+		return coroLocalContext?.get(key);
+	}
+
+	public function setLocalElement<T>(key:Key<T>, element:T) {
+		if (coroLocalContext == null) {
+			coroLocalContext = Context.create();
+		}
+		coroLocalContext.add(key, element);
 	}
 
 	/**
