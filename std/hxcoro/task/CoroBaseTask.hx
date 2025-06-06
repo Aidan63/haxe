@@ -183,14 +183,14 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 		}
 	}
 
+	function childrenCompleted() {
+		awaitingChildContinuation?.callSync();
+	}
+
 	// strategy dispatcher
 
 	function complete() {
 		nodeStrategy.complete(this);
-	}
-
-	function childrenCompleted() {
-		nodeStrategy.childrenCompleted(this);
 	}
 
 	function childSucceeds(child:AbstractTask) {
