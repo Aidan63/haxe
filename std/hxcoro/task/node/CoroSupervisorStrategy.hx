@@ -5,21 +5,21 @@ import haxe.exceptions.CancellationException;
 
 @:access(hxcoro.task.AbstractTask)
 @:access(hxcoro.task.CoroTask)
-class CoroSupervisorStrategy<T, C> implements INodeStrategy<T, C> {
+class CoroSupervisorStrategy implements INodeStrategy {
 	public function new() {}
 
-	public function complete(task:CoroTask<T, C>) {
+	public function complete<T, C>(task:CoroTask<T, C>) {
 		task.parent?.childCompletes(task, false);
 		task.handleAwaitingContinuations();
 	}
 
-	public function childrenCompleted(task:CoroTask<T, C>) {
+	public function childrenCompleted<T, C>(task:CoroTask<T, C>) {
 		task.awaitingChildContinuation?.resume(null, null);
 	}
 
-	public function childSucceeds(task:CoroTask<T, C>, child:AbstractTask<C>) {}
+	public function childSucceeds<T, C>(task:CoroTask<T, C>, child:AbstractTask<C>) {}
 
-	public function childErrors(task:CoroTask<T, C>, child:AbstractTask<C>, cause:Exception) {}
+	public function childErrors<T, C>(task:CoroTask<T, C>, child:AbstractTask<C>, cause:Exception) {}
 
-	public function childCancels(task:CoroTask<T, C>, child:AbstractTask<C>, cause:CancellationException) {}
+	public function childCancels<T, C>(task:CoroTask<T, C>, child:AbstractTask<C>, cause:CancellationException) {}
 }
