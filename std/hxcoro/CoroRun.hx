@@ -6,6 +6,7 @@ import haxe.coro.context.IElement;
 import haxe.coro.schedulers.EventLoopScheduler;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.CoroTask;
+import hxcoro.task.StartableCoroTask;
 import hxcoro.task.NodeLambda;
 
 private abstract RunnableContext(ElementTree) {

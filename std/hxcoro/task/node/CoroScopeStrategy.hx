@@ -8,18 +8,18 @@ import haxe.exceptions.CancellationException;
 class CoroScopeStrategy implements INodeStrategy {
 	public function new() {}
 
-	public function complete<T>(task:CoroTask<T>) {
+	public function complete<T>(task:CoroBaseTask<T>) {
 		task.parent?.childCompletes(task, false);
 		task.handleAwaitingContinuations();
 	}
 
-	public function childrenCompleted<T>(task:CoroTask<T>) {
+	public function childrenCompleted<T>(task:CoroBaseTask<T>) {
 		task.awaitingChildContinuation?.resume(null, null);
 	}
 
-	public function childSucceeds<T>(task:CoroTask<T>, child:AbstractTask) {}
+	public function childSucceeds<T>(task:CoroBaseTask<T>, child:AbstractTask) {}
 
-	public function childErrors<T>(task:CoroTask<T>, child:AbstractTask, cause:Exception) {
+	public function childErrors<T>(task:CoroBaseTask<T>, child:AbstractTask, cause:Exception) {
 		switch (task.state) {
 			case Created | Running | Completing:
 				// inherit child error
@@ -33,5 +33,5 @@ class CoroScopeStrategy implements INodeStrategy {
 		}
 	}
 
-	public function childCancels<T>(task:CoroTask<T>, child:AbstractTask, cause:CancellationException) {}
+	public function childCancels<T>(task:CoroBaseTask<T>, child:AbstractTask, cause:CancellationException) {}
 }
