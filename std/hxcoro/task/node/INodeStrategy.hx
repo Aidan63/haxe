@@ -6,9 +6,9 @@ import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroTask;
 
 interface INodeStrategy {
-	function complete<T, C>(task:CoroTask<T, C>):Void;
-	function childrenCompleted<T, C>(task:CoroTask<T, C>):Void;
-	function childSucceeds<T, C>(task:CoroTask<T, C>, child:AbstractTask<C>):Void;
-	function childErrors<T, C>(task:CoroTask<T, C>, child:AbstractTask<C>, cause:Exception):Void;
-	function childCancels<T, C>(task:CoroTask<T, C>, child:AbstractTask<C>, cause:CancellationException):Void;
+	function complete<T>(task:CoroTask<T>):Void;
+	function childrenCompleted<T>(task:CoroTask<T>):Void;
+	function childSucceeds<T>(task:CoroTask<T>, child:AbstractTask):Void;
+	function childErrors<T>(task:CoroTask<T>, child:AbstractTask, cause:Exception):Void;
+	function childCancels<T>(task:CoroTask<T>, child:AbstractTask, cause:CancellationException):Void;
 }

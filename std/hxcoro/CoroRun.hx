@@ -13,11 +13,11 @@ private abstract RunnableContext(ElementTree) {
 		this = tree;
 	}
 
-	public function create<T, C>(lambda:NodeLambda<T, C>):IStartableCoroTask<T> {
+	public function create<T>(lambda:NodeLambda<T>):IStartableCoroTask<T> {
 		return new StartableCoroTask(new Context(this), lambda, CoroTask.CoroScopeStrategy);
 	}
 
-	public function run<T, C>(lambda:NodeLambda<T, C>):T {
+	public function run<T>(lambda:NodeLambda<T>):T {
 		return CoroRun.runWith(new Context(this), lambda);
 	}
 
@@ -50,11 +50,11 @@ class CoroRun {
 		return runScoped(_ -> lambda());
 	}
 
-	static public function runScoped<T, C>(lambda:NodeLambda<T, C>):T {
+	static public function runScoped<T>(lambda:NodeLambda<T>):T {
 		return runWith(defaultContext, lambda);
 	}
 
-	static public function runWith<T, C>(context:Context, lambda:NodeLambda<T, C>):T {
+	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		final schedulerComponent = new EventLoopScheduler();
 		final scope = new CoroTask(context.clone().with(schedulerComponent), CoroTask.CoroScopeStrategy);
 		scope.runNodeLambda(lambda);
