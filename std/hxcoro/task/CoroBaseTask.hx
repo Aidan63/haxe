@@ -44,6 +44,10 @@ private class CoroTaskWith<T> implements ICoroNodeWith {
 	}
 }
 
+private class CoroKeys {
+	static public final awaitingChildContinuation = new Key<IContinuation<Any>>("AwaitingChildContinuation");
+}
+
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
@@ -58,7 +62,6 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 	var initialContext:Context;
 	var result:Null<T>;
 	var awaitingContinuations:Null<Array<IContinuation<T>>>;
-	var awaitingChildContinuation:Null<IContinuation<Any>>;
 
 	/**
 		Creates a new task using the provided `context`.
@@ -164,10 +167,10 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 
 	@:coroutine public function awaitChildren() {
 		if (allChildrenCompleted) {
-			awaitingChildContinuation?.callSync();
+			getLocalElement(CoroKeys.awaitingChildContinuation)?.callSync();
 		}
 		startChildren();
-		Coro.suspend(cont -> awaitingChildContinuation = cont);
+		Coro.suspend(cont -> setLocalElement(CoroKeys.awaitingChildContinuation, cont));
 	}
 
 	/**
@@ -197,7 +200,7 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 	}
 
 	function childrenCompleted() {
-		awaitingChildContinuation?.callSync();
+		getLocalElement(CoroKeys.awaitingChildContinuation)?.callSync();
 	}
 
 	// strategy dispatcher
