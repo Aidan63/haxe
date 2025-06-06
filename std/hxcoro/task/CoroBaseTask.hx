@@ -139,9 +139,9 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 	public function awaitContinuation(cont:IContinuation<T>) {
 		switch state {
 			case Completed:
-				cont.resume(result, null);
+				cont.succeedSync(result);
 			case Cancelled:
-				cont.resume(null, error);
+				cont.failSync(error);
 			case _:
 				awaitingContinuations ??= [];
 				awaitingContinuations.push(cont);
@@ -151,7 +151,7 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 
 	@:coroutine public function awaitChildren() {
 		if (allChildrenCompleted) {
-			awaitingChildContinuation?.resume(null, null);
+			awaitingChildContinuation?.callSync();
 		}
 		startChildren();
 		Coro.suspend(cont -> awaitingChildContinuation = cont);
@@ -173,11 +173,11 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 			awaitingContinuations = [];
 			if (error != null) {
 				for (cont in continuations) {
-					cont.resume(null, error);
+					cont.failAsync(error);
 				}
 			} else {
 				for (cont in continuations) {
-					cont.resume(result, null);
+					cont.succeedAsync(result);
 				}
 			}
 		}
