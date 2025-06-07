@@ -265,7 +265,7 @@ let create_continuation_class ctx coro_class initial_state =
 
 	ctx.typer.m.curmod.m_types <- ctx.typer.m.curmod.m_types @ [ TClassDecl coro_class.cls ]
 
-let coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_error vcompletion vcontinuation stack_item_inserter start_exception =
+let coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_error vtmp_error_unwrapped vcompletion vcontinuation stack_item_inserter start_exception =
 	let basic = ctx.typer.t in
 	let b = ctx.builder in
 	let cont = coro_class.ContinuationClassBuilder.continuation_api in
@@ -316,7 +316,7 @@ let coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_err
 	let continuation_field cf t =
 		b#instance_field econtinuation coro_class.cls coro_class.outside.param_types cf t
 	in
-	b#void_block [
+	let el = [
 		continuation_var;
 		continuation_assign;
 		b#assign
@@ -324,9 +324,17 @@ let coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_err
 			(b#bool true coro_class.name_pos);
 		b#var_init vtmp_result eresult;
 		b#var_init_null vtmp_error;
+	] in
+	let el = if Lazy.is_val vtmp_error_unwrapped then
+		el @ [b#var_init_null (Lazy.force vtmp_error_unwrapped)]
+	else
+		el
+	in
+	let el = el @ [
 		eloop;
 		b#return (b#null basic.tany coro_class.name_pos);
-	]
+	] in
+	b#void_block el
 
 let coro_to_normal ctx coro_class cb_root exprs vcontinuation =
 	let open ContinuationClassBuilder in
@@ -483,8 +491,10 @@ let fun_to_coro ctx coro_type =
 
 	let vtmp_result = alloc_var VGenerated "_hx_result" basic.tany coro_class.name_pos in
 	let etmp_result = b#local vtmp_result coro_class.name_pos in
-	let vtmp_error = alloc_var VGenerated "_hx_error" basic.tany coro_class.name_pos in
+	let vtmp_error = alloc_var VGenerated "_hx_error" basic.texception coro_class.name_pos in
 	let etmp_error = b#local vtmp_error coro_class.name_pos in
+	let vtmp_error_unwrapped = lazy (alloc_var VGenerated "_hx_error_unwrapped" basic.tany coro_class.name_pos) in
+	let etmp_error_unwrapped = lazy (b#local (Lazy.force vtmp_error_unwrapped) coro_class.name_pos) in
 
 	let expr, args, name =
 		match coro_type with
@@ -496,8 +506,8 @@ let fun_to_coro ctx coro_type =
 
 	let cb_root = make_block ctx (Some(expr.etype, coro_class.name_pos)) in
 
-	ignore(CoroFromTexpr.expr_to_coro ctx etmp_result etmp_error cb_root expr);
-	let exprs = {CoroToTexpr.econtinuation;ecompletion;estate;eresult;egoto;eerror;etmp_result;etmp_error} in
+	ignore(CoroFromTexpr.expr_to_coro ctx etmp_result etmp_error_unwrapped cb_root expr);
+	let exprs = {CoroToTexpr.econtinuation;ecompletion;estate;eresult;egoto;eerror;etmp_result;etmp_error;etmp_error_unwrapped} in
 	let stack_item_inserter pos =
 		let field, eargs =
 			match coro_type with
@@ -533,7 +543,7 @@ let fun_to_coro ctx coro_type =
 	in
 	let tf_expr,cb_root = try
 		let cb_root = if ctx.optimize then CoroFromTexpr.optimize_cfg ctx cb_root else cb_root in
-		coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_error vcompletion vcontinuation stack_item_inserter start_exception, cb_root
+		coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_error vtmp_error_unwrapped vcompletion vcontinuation stack_item_inserter start_exception, cb_root
 	with CoroTco cb_root ->
 		coro_to_normal ctx coro_class cb_root exprs vcontinuation,cb_root
 	in
