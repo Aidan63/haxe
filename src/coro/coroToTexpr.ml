@@ -17,7 +17,8 @@ type coro_to_texpr_exprs = {
 	eresult : texpr;
 	egoto : texpr;
 	eerror : texpr;
-	etmp : texpr;
+	etmp_result : texpr;
+	etmp_error : texpr;
 }
 
 let make_suspending_call basic call econtinuation =
@@ -144,7 +145,7 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 	fields
 
 let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs p stack_item_inserter start_exception =
-	let {econtinuation;ecompletion;estate;eresult;egoto;eerror;etmp} = exprs in
+	let {econtinuation;ecompletion;estate;eresult;egoto;eerror;etmp_result;etmp_error} = exprs in
 	let com = ctx.typer.com in
 	let b = ctx.builder in
 
@@ -177,14 +178,14 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 		] in
 		let ereturned = b#assign call.cs_result (base_continuation_field_on ecororesult cont.result com.basic.tany) in
 		(* TODO: all this is very awkward *)
-		let ereturned = if call.cs_result == etmp then
+		let ereturned = if call.cs_result == etmp_result then
 			ereturned
 		else
-			b#assign etmp ereturned
+			b#assign etmp_result ereturned
 		in
 		let eerror = base_continuation_field_on ecororesult cont.error cont.error.cf_type in
 		let ethrown = b#void_block [
-			b#assign etmp eerror;
+			b#assign etmp_error eerror;
 			b#break p;
 		] in
 		let estate_switch = CoroControl.make_control_switch com.basic esubject esuspended ereturned ethrown p in
@@ -214,7 +215,7 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 	in
 	let eif_error cb =
 		let el = [
-			b#assign etmp eerror;
+			b#assign etmp_error eerror;
 			b#break p;
 		] in
 		let e_then = b#void_block el in
@@ -223,7 +224,7 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 			| None ->
 				b#if_then e_if e_then
 			| Some e ->
-				let e_assign = b#assign e etmp in
+				let e_assign = b#assign e etmp_result in
 				b#if_then_else e_if e_then e_assign com.basic.tvoid
 	in
 
@@ -268,7 +269,7 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 		| NextReturn e ->
 			add_state (Some (-1)) [ set_control CoroReturned; b#assign eresult e; ereturn ]
 		| NextThrow e1 ->
-			add_state None ([b#assign etmp e1; stack_item_inserter e1.epos; start_exception (wrap_thrown etmp); b#break p ])
+			add_state None ([b#assign etmp_error e1; stack_item_inserter e1.epos; start_exception (wrap_thrown etmp_error); b#break p ])
 		| NextSub (cb_sub,cb_next) ->
 			add_state (Some cb_sub.cb_id) []
 
@@ -315,7 +316,7 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 					| TDynamic _ ->
 						set_state cb_catch.cb_id (* no next *)
 					| t ->
-						let etypecheck = std_is etmp vcatch.v_type in
+						let etypecheck = std_is etmp_error vcatch.v_type in
 						b#if_then_else etypecheck (set_state cb_catch.cb_id) enext com.basic.tvoid
 				) erethrow (List.rev catch.cc_catches)
 			in
@@ -337,7 +338,7 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 	let fields = handle_locals ctx b cls states tf_args forbidden_vars econtinuation in
 
 	let ethrow = b#void_block [
-		b#assign etmp (b#string "Invalid coroutine state" p);
+		b#assign etmp_error (b#string "Invalid coroutine state" p);
 		b#break p
 	] in
 
@@ -362,7 +363,7 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 				let ecaught = b#local vcaught p in
 				let e = b#void_block [
 					start_exception (wrap_thrown ecaught);
-					b#assign etmp ecaught
+					b#assign etmp_error ecaught
 				] in
 				(vcaught,e)
 			]
@@ -386,7 +387,7 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 			let eaccess       = b#instance_field econtinuation com.basic.tcoro.base_continuation_class params field field.cf_type in
 			let ewrapped_call = mk (TCall (eaccess, [ ])) com.basic.tvoid p in
 			[
-				b#assign eerror (wrap_thrown etmp);
+				b#assign eerror (wrap_thrown etmp_error);
 				ewrapped_call;
 				set_control CoroThrown;
 				ereturn;

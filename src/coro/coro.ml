@@ -265,7 +265,7 @@ let create_continuation_class ctx coro_class initial_state =
 
 	ctx.typer.m.curmod.m_types <- ctx.typer.m.curmod.m_types @ [ TClassDecl coro_class.cls ]
 
-let coro_to_state_machine ctx coro_class cb_root exprs args vtmp vcompletion vcontinuation stack_item_inserter start_exception =
+let coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_error vcompletion vcontinuation stack_item_inserter start_exception =
 	let basic = ctx.typer.t in
 	let b = ctx.builder in
 	let cont = coro_class.ContinuationClassBuilder.continuation_api in
@@ -322,7 +322,8 @@ let coro_to_state_machine ctx coro_class cb_root exprs args vtmp vcompletion vco
 		b#assign
 			(continuation_field cont.recursing basic.tbool)
 			(b#bool true coro_class.name_pos);
-		b#var_init vtmp eresult;
+		b#var_init vtmp_result eresult;
+		b#var_init_null vtmp_error;
 		eloop;
 		b#return (b#null basic.tany coro_class.name_pos);
 	]
@@ -480,8 +481,10 @@ let fun_to_coro ctx coro_type =
 
 	let egoto  = continuation_field cont.goto_label basic.tint in
 
-	let vtmp = alloc_var VGenerated "_hx_tmp" basic.tany coro_class.name_pos in
-	let etmp = b#local vtmp coro_class.name_pos in
+	let vtmp_result = alloc_var VGenerated "_hx_result" basic.tany coro_class.name_pos in
+	let etmp_result = b#local vtmp_result coro_class.name_pos in
+	let vtmp_error = alloc_var VGenerated "_hx_error" basic.tany coro_class.name_pos in
+	let etmp_error = b#local vtmp_error coro_class.name_pos in
 
 	let expr, args, name =
 		match coro_type with
@@ -493,8 +496,8 @@ let fun_to_coro ctx coro_type =
 
 	let cb_root = make_block ctx (Some(expr.etype, coro_class.name_pos)) in
 
-	ignore(CoroFromTexpr.expr_to_coro ctx etmp cb_root expr);
-	let exprs = {CoroToTexpr.econtinuation;ecompletion;estate;eresult;egoto;eerror;etmp} in
+	ignore(CoroFromTexpr.expr_to_coro ctx etmp_result etmp_error cb_root expr);
+	let exprs = {CoroToTexpr.econtinuation;ecompletion;estate;eresult;egoto;eerror;etmp_result;etmp_error} in
 	let stack_item_inserter pos =
 		let field, eargs =
 			match coro_type with
@@ -530,7 +533,7 @@ let fun_to_coro ctx coro_type =
 	in
 	let tf_expr,cb_root = try
 		let cb_root = if ctx.optimize then CoroFromTexpr.optimize_cfg ctx cb_root else cb_root in
-		coro_to_state_machine ctx coro_class cb_root exprs args vtmp vcompletion vcontinuation stack_item_inserter start_exception, cb_root
+		coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_error vcompletion vcontinuation stack_item_inserter start_exception, cb_root
 	with CoroTco cb_root ->
 		coro_to_normal ctx coro_class cb_root exprs vcontinuation,cb_root
 	in
