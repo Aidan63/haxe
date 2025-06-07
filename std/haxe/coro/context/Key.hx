@@ -31,7 +31,7 @@ extern abstract Key<T>(KeyImpl<T>) {
 		this = KeyImpl.createNew(name);
 	}
 
-	@:from static public inline function fromClass<T, K, C:(Class<T> & WithKey<K>)>(c:C):Key<K> {
+	@:from static public inline function fromClass<K, C:(Class<Any> & WithKey<K>)>(c:C):Key<K> {
 		return c.key;
 	}
 }
