@@ -37,7 +37,7 @@ class VirtualTimeScheduler extends EventLoopScheduler {
 	function virtualRun(endTime : Int64) {
 		while (true) {
 			for (event in zeroEvents.flip()) {
-				event();
+				event.run(this);
 			}
 
 			while (true) {
@@ -52,7 +52,7 @@ class VirtualTimeScheduler extends EventLoopScheduler {
 					if (first != null) {
 						first.previous = null;
 					}
-					toRun.run();
+					toRun.run(this);
 				} else {
 					break;
 				}

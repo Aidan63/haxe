@@ -54,12 +54,12 @@ class CancellingContinuation<T> implements ICancellableContinuation<T> implement
 	}
 
 	public function resume(result:T, error:Exception) {
-		context.get(Scheduler).schedule(0, () -> {
-			if (state.compareExchange(Active, Resumed) == Active) {
-				handle.close();
-				cont.resume(result, error);
+		context.get(Scheduler).schedule(0, this, (_, self) -> {
+			if (self.state.compareExchange(Active, Resumed) == Active) {
+				self.handle.close();
+				self.cont.resume(result, error);
 			} else {
-				cont.failAsync(new CancellationException());
+				self.cont.failAsync(new CancellationException());
 			}
 		});
 	}

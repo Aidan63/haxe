@@ -2,19 +2,21 @@ package haxe.coro.schedulers;
 
 import haxe.exceptions.ArgumentException;
 
-private typedef Lambda = ()->Void;
+private typedef Lambda<T> = (scheduler:Scheduler, state:T)->Void;
 private typedef CloseClosure = (handle:ISchedulerHandle)->Void;
 
-private class ScheduledEvent implements ISchedulerHandle {
+private class ScheduledEvent<T> implements ISchedulerHandle {
 	final closure : CloseClosure;
-	final func : Lambda;
+	final func : Lambda<T>;
+	final state : T;
 	var closed : Bool;
 	public final runTime : Int64;
-	public var next : Null<ScheduledEvent>;
-	public var previous : Null<ScheduledEvent>;
+	public var next : Null<ScheduledEvent<Any>>;
+	public var previous : Null<ScheduledEvent<Any>>;
 
-	public function new(closure, func, runTime) {
+	public function new(closure, func, state, runTime) {
 		this.closure = closure;
+		this.state   = state;
 		this.func    = func;
 		this.runTime = runTime;
 
@@ -23,8 +25,8 @@ private class ScheduledEvent implements ISchedulerHandle {
 		previous = null;
 	}
 
-	public inline function run() {
-		func();
+	public inline function run(scheduler:Scheduler) {
+		func(scheduler, state);
 
 		closed = true;
 	}
@@ -40,16 +42,30 @@ private class ScheduledEvent implements ISchedulerHandle {
 	}
 }
 
+private class ZeroEvent<T> {
+	final func : Lambda<T>;
+	final state : T;
+
+	public function new(func:Lambda<T>, state:T) {
+		this.func = func;
+		this.state = state;
+	}
+
+	public inline function run(scheduler:Scheduler) {
+		func(scheduler, state);
+	}
+}
+
 private class NoOpHandle implements ISchedulerHandle {
 	public function new() {}
 	public function close() {}
 }
 
 private class DoubleBuffer {
-	final a : Array<Lambda>;
-	final b : Array<Lambda>;
+	final a : Array<ZeroEvent<Any>>;
+	final b : Array<ZeroEvent<Any>>;
 
-	var current : Array<Lambda>;
+	var current : Array<ZeroEvent<Any>>;
 
 	public function new() {
 		a       = [];
@@ -66,8 +82,8 @@ private class DoubleBuffer {
 		return returning;
 	}
 
-	public function push(l : Lambda) {
-		current.push(l);
+	public function push<T>(l : Lambda<T>, state : T) {
+		current.push(new ZeroEvent(l, state));
 	}
 
 	public function empty() {
@@ -76,8 +92,8 @@ private class DoubleBuffer {
 }
 
 class EventLoopScheduler extends Scheduler {
-	var first : Null<ScheduledEvent>;
-	var last : Null<ScheduledEvent>;
+	var first : Null<ScheduledEvent<Any>>;
+	var last : Null<ScheduledEvent<Any>>;
 
 	final noOpHandle : NoOpHandle;
 	final zeroEvents : DoubleBuffer;
@@ -97,17 +113,17 @@ class EventLoopScheduler extends Scheduler {
 		closeClosure = close;
 	}
 
-    public function schedule(ms:Int64, func:()->Void):ISchedulerHandle {
+    public function schedule<T>(ms:Int64, state:T, func:(scheduler:Scheduler, state:T)->Void):ISchedulerHandle {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
 		} else if (ms == 0) {
 			zeroMutex.acquire();
-			zeroEvents.push(func);
+			zeroEvents.push(func, state);
 			zeroMutex.release();
 			return noOpHandle;
 		}
 
-		final event = new ScheduledEvent(closeClosure, func, now() + ms);
+		final event = new ScheduledEvent(closeClosure, func, state, now() + ms);
 
 		futureMutex.acquire();
 		if (first == null) {
@@ -169,7 +185,7 @@ class EventLoopScheduler extends Scheduler {
 		// no need to hold onto the mutex because it's a double buffer and run itself is single-threaded
 		zeroMutex.release();
 		for (event in events) {
-			event();
+			event.run(this);
 		}
 
 		final currentTime = now();
@@ -187,7 +203,7 @@ class EventLoopScheduler extends Scheduler {
 					first.previous = null;
 				}
 				futureMutex.release();
-				toRun.run();
+				toRun.run(this);
 				futureMutex.acquire();
 			} else {
 				break;

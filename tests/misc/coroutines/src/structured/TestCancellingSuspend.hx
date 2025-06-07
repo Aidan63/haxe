@@ -6,6 +6,8 @@ import haxe.coro.cancellation.CancellationToken;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
 
+using hxcoro.util.Convenience;
+
 class TestCancellingSuspend extends utest.Test {
 	function test_callback() {
 		final actual    = [];
@@ -35,7 +37,7 @@ class TestCancellingSuspend extends utest.Test {
 		final task      = CoroRun.with(scheduler).create(node -> {
 			AssertAsync.raises(() -> {
 				suspendCancellable(cont -> {
-					scheduler.schedule(0, () -> {
+					scheduler.scheduleFunction(() -> {
 						cont.resume(null, null);
 					});
 				});
@@ -56,7 +58,7 @@ class TestCancellingSuspend extends utest.Test {
 		final task      = CoroRun.with(scheduler).create(node -> {
 			AssertAsync.raises(() -> {
 				suspendCancellable(cont -> {
-					scheduler.schedule(0, () -> {
+					scheduler.scheduleFunction(() -> {
 						cont.resume(null, new ArgumentException(''));
 					});
 				});

@@ -1,5 +1,7 @@
 package hxcoro.util;
 
+import haxe.coro.schedulers.ISchedulerHandle;
+import haxe.Int64;
 import haxe.coro.schedulers.Scheduler;
 import haxe.Exception;
 import haxe.coro.IContinuation;
@@ -66,6 +68,38 @@ class Convenience {
 		thread if the current dispatcher allows that.
 	**/
 	static public inline function resumeAsync<T>(cont:IContinuation<T>, result:T, error:Exception) {
-		cont.context.get(Scheduler).schedule(0, () -> cont.resume(result, error));
+		cont.context.get(Scheduler).scheduleFunction(() -> cont.resume(result, error));
+	}
+
+	public static extern inline overload function scheduleFunction(scheduler : Scheduler, func : ()->Void) : ISchedulerHandle {
+		return scheduler.schedule(0, null, (_, _) -> {
+			func();
+		});
+	}
+
+	public static extern inline overload function scheduleFunction<T>(scheduler : Scheduler, state : T, func : (state : T)->Void) : ISchedulerHandle {
+		return scheduler.schedule(0, state, (_, s) -> {
+			func(s);
+		});
+	}
+
+	public static extern inline overload function scheduleFunction<T>(scheduler : Scheduler, state : T, func : (scheduler : Scheduler, state : T)->Void) : ISchedulerHandle {
+		return scheduler.schedule(0, state, func);
+	}
+
+	public static extern inline overload function scheduleFunction(scheduler : Scheduler, ms : Int64, func : ()->Void) : ISchedulerHandle {
+		return scheduler.schedule(ms, null, (_, _) -> {
+			func();
+		});
+	}
+
+	public static extern inline overload function scheduleFunction<T>(scheduler : Scheduler, ms : Int64, state : T, func : (state : T)->Void) : ISchedulerHandle {
+		return scheduler.schedule(ms, state, (_, s) -> {
+			func(s);
+		});
+	}
+
+	public static extern inline overload function scheduleFunction<T>(scheduler : Scheduler, ms : Int64, state : T, func : (scheduler : Scheduler, state : T)->Void) : ISchedulerHandle {
+		return scheduler.schedule(ms, state, func);
 	}
 }

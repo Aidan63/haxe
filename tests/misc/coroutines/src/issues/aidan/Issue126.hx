@@ -5,6 +5,8 @@ import haxe.coro.schedulers.Scheduler;
 import hxcoro.ds.Channel;
 import hxcoro.ds.PagedDeque;
 
+using hxcoro.util.Convenience;
+
 class Junction {
 	var leftOpen:Bool;
 	var waiters:PagedDeque<SuspendedRead<Any>>;
@@ -17,7 +19,7 @@ class Junction {
 	function flushWaiters() {
 		while (!waiters.isEmpty()) {
 			final cont = waiters.pop();
-			cont.context.get(Scheduler).schedule(0, () -> cont.resume(null, null));
+			cont.context.get(Scheduler).scheduleFunction(() -> cont.resume(null, null));
 		}
 	}
 
@@ -63,7 +65,7 @@ class Issue126 extends utest.Test {
 		final task = CoroRun.with(scheduler).create(node -> {
 			final channel = new Channel(0);
 			@:coroutine function log(s:String) {
-				channel.write('${@:privateAccess scheduler.now().toString()}: $s');
+				channel.write('${scheduler.now()}: $s');
 			}
 			final junction = new Junction(true);
 			final leftChild = node.async(node -> {

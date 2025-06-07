@@ -59,7 +59,7 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 
 		final result = invokeResume();
 		final completion = completion; // avoid capturing `this` in the closure
-		scheduler.schedule(0, () -> {
+		scheduler.schedule(0, this, (_, self) -> {
 			switch (result.state) {
 				case Pending:
 					return;

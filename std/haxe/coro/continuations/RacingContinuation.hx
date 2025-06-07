@@ -23,11 +23,13 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 	}
 
 	public function resume(result:T, error:Exception):Void {
-		// store in a local to avoid `this` capturing.
-		final inputCont = inputCont;
+
+		this.result = result;
+		this.error = error;
+
 		inline function resumeContinue(result:T, error:Exception) {
-			scheduler.schedule(0, () -> {
-				inputCont.resume(result, error);
+			scheduler.schedule(0, this, (_, self) -> {
+				self.inputCont.resume(self.result, self.error);
 			});
 		}
 
@@ -47,8 +49,6 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 		// At this point we own the mutex, so we're first. We can set the shared reference to null and release it.
 		this.mutex = null;
 		mutex.release();
-		this.result = result;
-		this.error = error;
 	}
 
 

@@ -11,11 +11,11 @@ class ImmediateScheduler extends Scheduler {
 		super();
 	}
 
-	public function schedule(ms:Int64, f:() -> Void) {
+	public function schedule<T>(ms:Int64, state:T, f:(scheduler:Scheduler, state:T) -> Void) {
 		if (ms != 0) {
 			throw 'Only immediate scheduling is allowed in this scheduler';
 		}
-		f();
+		f(this, state);
 		return null;
 	}
 

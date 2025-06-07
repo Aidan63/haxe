@@ -38,8 +38,8 @@ class Coro {
 
 	@:coroutine @:coroutine.nothrow public static function delay(ms:Int):Void {
 		suspendCancellable(cont -> {
-			final handle = cont.context.get(Scheduler).schedule(ms, () -> {
-				cont.callSync();
+			final handle = cont.context.get(Scheduler).schedule(ms, cont, (_, c) -> {
+				c.callSync();
 			});
 
 			cont.onCancellationRequested = () -> {
@@ -50,8 +50,8 @@ class Coro {
 
 	@:coroutine @:coroutine.nothrow public static function yield():Void {
 		suspend(cont -> {
-			cont.context.get(Scheduler).schedule(0, () -> {
-				cont.failSync(cancellationRequested(cont) ? new CancellationException() : null);
+			cont.context.get(Scheduler).schedule(0, cont, (_, c) -> {
+				c.failSync(cancellationRequested(c) ? new CancellationException() : null);
 			});
 		});
 	}
@@ -103,8 +103,8 @@ class Coro {
 
 			final context = cont.context;
 			final scope = new CoroTask(context, CoroTask.CoroScopeStrategy);
-			final handle = context.get(Scheduler).schedule(ms, () -> {
-				scope.cancel(new TimeoutException());
+			final handle = context.get(Scheduler).schedule(ms, scope, (_, s) -> {
+				s.cancel(new TimeoutException());
 			});
 
 			scope.runNodeLambda(lambda);
