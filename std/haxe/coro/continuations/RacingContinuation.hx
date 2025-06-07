@@ -1,9 +1,10 @@
 package haxe.coro.continuations;
 
+import haxe.coro.schedulers.IScheduleObject;
 import haxe.coro.context.Context;
 import haxe.coro.schedulers.Scheduler;
 
-class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> {
+class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> implements IScheduleObject {
 	final inputCont:IContinuation<T>;
 
 	var mutex:Null<Mutex>;
@@ -24,25 +25,24 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 
 	public function resume(result:T, error:Exception):Void {
 		// store in a local to avoid `this` capturing.
-		final inputCont = inputCont;
-		inline function resumeContinue(result:T, error:Exception) {
-			scheduler.schedule(0, () -> {
-				inputCont.resume(result, error);
-			});
+		inline function resumeContinue() {
+			this.result = result;
+			this.error = error;
+			scheduler.scheduleObject(this);
 		}
 
 		// Store mutex as stack value.
 		final mutex = mutex;
 		if (mutex == null) {
 			// If that's already null we're definitely done.
-			return resumeContinue(result, error);
+			return resumeContinue();
 		}
 		// Otherwise we take the mutex now. We know that the stack value isn't null, so that's safe.
 		mutex.acquire();
 		if (this.mutex == null) {
 			// The shared reference has become null in the meantime, so we're done.
 			mutex.release();
-			return resumeContinue(result, error);
+			return resumeContinue();
 		}
 		// At this point we own the mutex, so we're first. We can set the shared reference to null and release it.
 		this.mutex = null;
@@ -78,7 +78,7 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 		state = Pending;
 	}
 
-	override function toString() {
-		return '[RacingContinuation ${state.toString()}, $result]';
+	public function onSchedule() {
+		inputCont.resume(result, error);
 	}
 }
