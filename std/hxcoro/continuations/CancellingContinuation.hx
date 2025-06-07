@@ -24,6 +24,10 @@ class CancellingContinuation<T> implements ICancellableContinuation<T> implement
 
 	final handle : ICancellationHandle;
 
+	var result : T;
+
+	var error : Exception;
+
 	public var context (get, never) : Context;
 
 	function get_context() {
@@ -54,10 +58,13 @@ class CancellingContinuation<T> implements ICancellableContinuation<T> implement
 	}
 
 	public function resume(result:T, error:Exception) {
-		context.get(Scheduler).schedule(0, this, (_, self) -> {
+		this.result = result;
+		this.error  = error;
+
+		context.get(Scheduler).scheduleFunction(this, self -> {
 			if (self.state.compareExchange(Active, Resumed) == Active) {
 				self.handle.close();
-				self.cont.resume(result, error);
+				self.cont.resume(self.result, self.error);
 			} else {
 				self.cont.failAsync(new CancellationException());
 			}

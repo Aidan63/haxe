@@ -7,6 +7,8 @@ import haxe.coro.schedulers.Scheduler;
 import haxe.CallStack.StackItem;
 import haxe.Exception;
 
+using hxcoro.util.Convenience;
+
 class StackTraceManager implements IElement<StackTraceManager> {
 	public static final key = new Key<StackTraceManager>('StackTraceManager');
 
@@ -33,6 +35,7 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 	var stackItem:Null<StackItem>;
 	var startedException:Bool;
 	var scheduler:Scheduler;
+	var resumeSuspension:SuspensionResult<T>;
 
     function new(completion:IContinuation<Any>, initialLabel:Int) {
         this.completion = completion;
@@ -43,6 +46,7 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
         recursing  = false;
 		startedException = false;
 		scheduler = completion.context.get(Scheduler);
+		resumeSuspension = null;
     }
 
 	inline function get_context() {
@@ -56,17 +60,16 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
         this.result = result;
         this.error  = error;
 		recursing = false;
+		resumeSuspension = invokeResume();
 
-		final result = invokeResume();
-		final completion = completion; // avoid capturing `this` in the closure
-		scheduler.schedule(0, this, (_, self) -> {
-			switch (result.state) {
+		scheduler.scheduleFunction(this, (self:BaseContinuation<T>) -> {
+			switch (self.resumeSuspension.state) {
 				case Pending:
 					return;
 				case Returned:
-					completion.resume(result.result, null);
+					self.completion.resume(self.resumeSuspension.result, null);
 				case Thrown:
-					completion.resume(null, result.error);
+					self.completion.resume(null, self.resumeSuspension.error);
 			}
 		});
     }

@@ -3,36 +3,38 @@ package schedulers;
 import haxe.coro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.ArgumentException;
 
+using hxcoro.util.Convenience;
+
 class TestVirtualTimeScheduler extends utest.Test {
 	public function test_time_after_advancing_by() {
 		final sut = new VirtualTimeScheduler();
 
-		Assert.equals(0f64, sut.now());
+		Assert.equals(0i64, sut.now());
 
 		sut.advanceBy(100);
-		Assert.equals(0.1f64, sut.now());
+		Assert.equals(100i64, sut.now());
 
 		sut.advanceBy(400);
-		Assert.equals(0.5f64, sut.now());
+		Assert.equals(500i64, sut.now());
 	}
 
 	public function test_time_after_advancing_to() {
 		final sut = new VirtualTimeScheduler();
 
-		Assert.equals(0f64, sut.now());
+		Assert.equals(0i64, sut.now());
 
 		sut.advanceTo(100);
-		Assert.equals(0.1f64, sut.now());
+		Assert.equals(100i64, sut.now());
 
 		sut.advanceTo(400);
-		Assert.equals(0.4f64, sut.now());
+		Assert.equals(400i64, sut.now());
 	}
 
 	public function test_scheduling_immediate_function() {
 		final result = [];
 		final sut    = new VirtualTimeScheduler();
 
-		sut.schedule(0, () -> result.push(0));
+		sut.scheduleFunction(0, () -> result.push(0));
 		sut.run();
 
 		Assert.same([ 0 ], result);
@@ -42,7 +44,7 @@ class TestVirtualTimeScheduler extends utest.Test {
 		final result = [];
 		final sut    = new VirtualTimeScheduler();
 
-		sut.schedule(10, () -> result.push(0));
+		sut.scheduleFunction(10, () -> result.push(0));
 		sut.advanceBy(10);
 
 		Assert.same([ 0 ], result);
@@ -52,8 +54,8 @@ class TestVirtualTimeScheduler extends utest.Test {
 		final result = [];
 		final sut    = new VirtualTimeScheduler();
 
-		sut.schedule(10, () -> result.push(0));
-		sut.schedule(10, () -> result.push(1));
+		sut.scheduleFunction(10, () -> result.push(0));
+		sut.scheduleFunction(10, () -> result.push(1));
 		sut.advanceBy(10);
 
 		Assert.same([ 0, 1 ], result);
@@ -63,8 +65,8 @@ class TestVirtualTimeScheduler extends utest.Test {
 		final result = [];
 		final sut    = new VirtualTimeScheduler();
 
-		sut.schedule(10, () -> result.push(0));
-		sut.schedule(20, () -> result.push(1));
+		sut.scheduleFunction(10, () -> result.push(0));
+		sut.scheduleFunction(20, () -> result.push(1));
 		sut.advanceBy(20);
 
 		Assert.same([ 0, 1 ], result);
@@ -74,24 +76,25 @@ class TestVirtualTimeScheduler extends utest.Test {
 		final result = [];
 		final sut    = new VirtualTimeScheduler();
 
-		sut.schedule(10, () -> result.push(sut.now()));
-		sut.schedule(20, () -> result.push(sut.now()));
+		sut.scheduleFunction(10, () -> result.push(sut.now()));
+		sut.scheduleFunction(20, () -> result.push(sut.now()));
 		sut.advanceBy(20);
 
-		Assert.same([ 0.01, 0.02 ], result);
+		Assert.isTrue(result[0] == 10i64);
+		Assert.isTrue(result[1] == 20i64);
 	}
 
 	public function test_scheduling_recursive_immediate_functions() {
 		final result = [];
 		final sut    = new VirtualTimeScheduler();
 
-		sut.schedule(0, () -> {
+		sut.scheduleFunction(() -> {
 			result.push(0);
 
-			sut.schedule(0, () -> {
+			sut.scheduleFunction(() -> {
 				result.push(1);
 
-				sut.schedule(0, () -> {
+				sut.scheduleFunction(() -> {
 					result.push(2);
 				});
 				sut.run();
@@ -106,7 +109,7 @@ class TestVirtualTimeScheduler extends utest.Test {
 	public function test_scheduling_negative_time() {
 		final sut = new VirtualTimeScheduler();
 
-		Assert.raises(() -> sut.schedule(-1, () -> {}), ArgumentException);
+		Assert.raises(() -> sut.scheduleFunction(-1, () -> {}), ArgumentException);
 	}
 
 	public function test_advancing_by_negative_time() {
@@ -126,9 +129,9 @@ class TestVirtualTimeScheduler extends utest.Test {
 	public function test_cancelling_scheduled_event() {
 		final result = [];
 		final sut    = new VirtualTimeScheduler();
-		final _      = sut.schedule(10, () -> result.push(0));
-		final handle = sut.schedule(20, () -> result.push(1));
-		final _      = sut.schedule(30, () -> result.push(2));
+		final _      = sut.scheduleFunction(10, () -> result.push(0));
+		final handle = sut.scheduleFunction(20, () -> result.push(1));
+		final _      = sut.scheduleFunction(30, () -> result.push(2));
 
 		handle.close();
 
@@ -140,8 +143,8 @@ class TestVirtualTimeScheduler extends utest.Test {
 	public function test_cancelling_head() {
 		final result = [];
 		final sut    = new VirtualTimeScheduler();
-		final handle = sut.schedule(10, () -> result.push(0));
-		final _      = sut.schedule(20, () -> result.push(1));
+		final handle = sut.scheduleFunction(10, () -> result.push(0));
+		final _      = sut.scheduleFunction(20, () -> result.push(1));
 
 		handle.close();
 
@@ -153,7 +156,7 @@ class TestVirtualTimeScheduler extends utest.Test {
 	public function test_cancelling_single_head() {
 		final result = [];
 		final sut    = new VirtualTimeScheduler();
-		final handle = sut.schedule(10, () -> result.push(0));
+		final handle = sut.scheduleFunction(10, () -> result.push(0));
 
 		handle.close();
 
@@ -165,7 +168,7 @@ class TestVirtualTimeScheduler extends utest.Test {
 	public function test_cancelling_executed_function() {
 		final result = [];
 		final sut    = new VirtualTimeScheduler();
-		final handle = sut.schedule(10, () -> result.push(0));
+		final handle = sut.scheduleFunction(10, () -> result.push(0));
 
 		sut.advanceTo(10);
 

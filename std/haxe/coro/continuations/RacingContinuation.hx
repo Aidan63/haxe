@@ -3,6 +3,8 @@ package haxe.coro.continuations;
 import haxe.coro.context.Context;
 import haxe.coro.schedulers.Scheduler;
 
+using hxcoro.util.Convenience;
+
 class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> {
 	final inputCont:IContinuation<T>;
 
@@ -28,7 +30,7 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 		this.error = error;
 
 		inline function resumeContinue(result:T, error:Exception) {
-			scheduler.schedule(0, this, (_, self) -> {
+			scheduler.scheduleFunction(this, self -> {
 				self.inputCont.resume(self.result, self.error);
 			});
 		}
