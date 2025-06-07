@@ -65,7 +65,7 @@ class Issue126 extends utest.Test {
 		final task = CoroRun.with(scheduler).create(node -> {
 			final channel = new Channel(0);
 			@:coroutine function log(s:String) {
-				channel.write('${scheduler.now()}: $s');
+				channel.write('${@:privateAccess scheduler.now().toString()}: $s');
 			}
 			final junction = new Junction(true);
 			final leftChild = node.async(node -> {
