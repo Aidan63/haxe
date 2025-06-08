@@ -43,6 +43,9 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 
 	let var_usage = Hashtbl.create (List.length states) in
 
+	let initial_state_tbl = tf_args |> List.map (fun (a, _) -> (a.v_id, a)) |> List.to_seq |> Hashtbl.of_seq in
+	Hashtbl.replace var_usage fst_state initial_state_tbl;
+
 	List.iter (fun state ->
 		let rec loop e =
 			match e.eexpr with
@@ -123,20 +126,20 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 		in
 		let saving =
 			match Hashtbl.find_opt var_usage state.cs_id with
-				| Some tbl ->
-					Hashtbl.fold
-						(fun id var acc ->
-							match Hashtbl.find_opt fields id with
-							| Some field ->
-								let efield = b#instance_field econtinuation cls [] field field.cf_type in
-								let assign = b#assign efield (b#local var var.v_pos) in
-								acc @ [ assign ]
-							| None ->
-								acc)
-						tbl
-						[]
-				| _ ->
+			| Some tbl ->
+				Hashtbl.fold
+					(fun id var acc ->
+						match Hashtbl.find_opt fields id with
+						| Some field ->
+							let efield = b#instance_field econtinuation cls [] field field.cf_type in
+							let assign = b#assign efield (b#local var var.v_pos) in
+							acc @ [ assign ]
+						| None ->
+							acc)
+					tbl
 					[]
+			| _ ->
+				[]
 			in
 		let body = List.take ((List.length remapped) - 1) remapped in
 		let tail = [ List.nth remapped ((List.length remapped) - 1) ] in
