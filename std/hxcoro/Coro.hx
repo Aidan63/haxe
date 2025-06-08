@@ -26,10 +26,10 @@ class Coro {
 	 * The `ICancellableContinuation` passed to the function allows registering a callback which is invoked on cancellation
 	 * allowing the easy cleanup of resources.
 	 */
-	@:coroutine public static function suspendCancellable<T>(func:ICancellableContinuation<T>->Void) {
-		return suspend(cont -> {
-			func(new CancellingContinuation(cont));
-		});
+	@:coroutine @:coroutine.transformed public static function suspendCancellable<T>(func:ICancellableContinuation<T>->Void, completion:IContinuation<T>):T {
+		var safe = new CancellingContinuation(completion);
+		func(safe);
+		return cast safe;
 	}
 
 	static function cancellationRequested(cont:IContinuation<Any>) {
