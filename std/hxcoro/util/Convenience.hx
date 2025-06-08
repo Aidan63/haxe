@@ -1,5 +1,6 @@
 package hxcoro.util;
 
+import haxe.exceptions.CancellationException;
 import haxe.coro.schedulers.Scheduler;
 import haxe.Exception;
 import haxe.coro.IContinuation;
@@ -67,5 +68,9 @@ class Convenience {
 	**/
 	static public inline function resumeAsync<T>(cont:IContinuation<T>, result:T, error:Exception) {
 		cont.context.get(Scheduler).schedule(0, () -> cont.resume(result, error));
+	}
+
+	static public inline function orCancellationException(exc:Exception):CancellationException {
+		return exc is CancellationException ? cast exc : new CancellationException();
 	}
 }
