@@ -63,7 +63,7 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 					if src_state = state.cs_id then
 						Hashtbl.replace tbl v.v_id src_v
 					else
-						let new_v = alloc_var VGenerated "_hx_restored" v.v_type null_pos in
+						let new_v = alloc_var VGenerated (Printf.sprintf "_hx_restored%i" v.v_id) v.v_type null_pos in
 						Hashtbl.replace tbl v.v_id new_v
 				end;
 
@@ -90,7 +90,9 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 				Hashtbl.replace fields id (mk_field (Printf.sprintf "_hx_hoisted%i" id) var.v_type null_pos null_pos))
 		state_definitions;
 
-	List.iter (fun state ->
+	states
+		|> List.filter (fun state -> state.cs_id <> fst_state)
+		|> List.iter (fun state ->
 		let rec loop e =
 			match e.eexpr with
 			| TLocal v when Hashtbl.mem state_definitions v.v_id ->
@@ -115,10 +117,10 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 							acc)
 					tbl
 					[]
-			| None -> []
+			| _ -> []
 		in
 		state.cs_el <- preamble @ remapped
-	) states;
+	);
 
 	(* We need to do this argument copying as the last thing we do *)
 	(* Doing it when the initial fields hashtbl is created will cause the third iterations TLocal to re-write them... *)
