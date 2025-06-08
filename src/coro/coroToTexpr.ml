@@ -90,9 +90,7 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 				Hashtbl.replace fields id (mk_field (Printf.sprintf "_hx_hoisted%i" id) var.v_type null_pos null_pos))
 		state_definitions;
 
-	states
-		|> List.filter (fun state -> state.cs_id <> fst_state)
-		|> List.iter (fun state ->
+	List.iter (fun state ->
 		let rec loop e =
 			match e.eexpr with
 			| TLocal v when Hashtbl.mem state_definitions v.v_id ->
@@ -105,33 +103,45 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 		in
 
 		let remapped = List.map loop state.cs_el in
-		let preamble =
-			match Hashtbl.find_opt var_usage state.cs_id with
-			| Some tbl ->
-				Hashtbl.fold
-					(fun id var acc ->
-						match Hashtbl.find_opt fields id with
-						| Some field ->
-							acc @ [ { eexpr = TVar (var, Some (b#instance_field econtinuation cls [] field field.cf_type)); etype = var.v_type; epos = null_pos } ]
-						| None ->
-							acc)
-					tbl
+		let restoring =
+			if state.cs_id = fst_state then
+				[]
+			else
+				match Hashtbl.find_opt var_usage state.cs_id with
+				| Some tbl ->
+					Hashtbl.fold
+						(fun id var acc ->
+							match Hashtbl.find_opt fields id with
+							| Some field ->
+								acc @ [ { eexpr = TVar (var, Some (b#instance_field econtinuation cls [] field field.cf_type)); etype = var.v_type; epos = null_pos } ]
+							| None ->
+								acc)
+						tbl
+						[]
+				| _ ->
 					[]
-			| _ -> []
 		in
-		state.cs_el <- preamble @ remapped
-	);
-
-	(* We need to do this argument copying as the last thing we do *)
-	(* Doing it when the initial fields hashtbl is created will cause the third iterations TLocal to re-write them... *)
-	(* List.iter (fun (v, _) ->
-		if is_used_across_states v.v_id then
-			let initial = List.hd states in
-			let field   = Hashtbl.find fields v.v_id in
-			let efield  = b#instance_field econtinuation cls [] field field.cf_type in
-			let assign  = b#assign efield (b#local v v.v_pos) in
-
-			initial.cs_el <- assign :: initial.cs_el) tf_args; *)
+		let saving =
+			match Hashtbl.find_opt var_usage state.cs_id with
+				| Some tbl ->
+					Hashtbl.fold
+						(fun id var acc ->
+							match Hashtbl.find_opt fields id with
+							| Some field ->
+								let efield = b#instance_field econtinuation cls [] field field.cf_type in
+								let assign = b#assign efield (b#local var var.v_pos) in
+								acc @ [ assign ]
+							| None ->
+								acc)
+						tbl
+						[]
+				| _ ->
+					[]
+			in
+		let body = List.take ((List.length remapped) - 1) remapped in
+		let tail = [ List.nth remapped ((List.length remapped) - 1) ] in
+		state.cs_el <- restoring @ body @ saving @ tail)
+		states;
 	fields
 
 let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs p stack_item_inserter start_exception =
