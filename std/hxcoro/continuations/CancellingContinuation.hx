@@ -59,7 +59,13 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 	public function resume(result:T, error:Exception) {
 		this.result = result;
 		this.error = error;
-		context.get(Scheduler).scheduleObject(this);
+		if (resumeState.compareExchange(Active, Resumed) == Active) {
+			handle.close();
+			context.get(Scheduler).scheduleObject(this);
+		} else {
+			cont.failAsync(new CancellationException());
+		}
+
 	}
 
 	public function onCancellation() {
@@ -70,16 +76,11 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 				onCancellationRequested();
 			}
 
-			resume(null, null);
+			cont.failAsync(new CancellationException());
 		}
 	}
 
 	public function onSchedule() {
-		if (resumeState.compareExchange(Active, Resumed) == Active) {
-			handle.close();
-			cont.resume(result, error);
-		} else {
-			cont.failAsync(new CancellationException());
-		}
+		cont.resume(result, error);
 	}
 }
