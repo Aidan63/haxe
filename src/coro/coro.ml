@@ -214,28 +214,31 @@ module ContinuationClassBuilder = struct
 			let this_field cf =
 				b#instance_field ethis coro_class.cls coro_class.inside.param_types cf cf.cf_type
 			in
+			let map_args =
+				List.map (fun (v, _) ->
+					let t = substitute_type_params coro_class.type_param_subst v.v_type in
+					Texpr.Builder.default_value t coro_class.name_pos
+				)
+			in
 			match coro_class.coro_type with
 			| ClassField (cls, field, f, _) when has_class_field_flag field CfStatic ->
-				let args      = (f.tf_args |> List.map (fun (v, _) -> Texpr.Builder.default_value v.v_type coro_class.name_pos)) @ [ ethis ] in
-				let efunction = Builder.make_static_field cls field coro_class.name_pos in
+				let args      = (f.tf_args |> map_args) @ [ ethis ] in
+				let estaticthis = Builder.make_static_this cls coro_class.name_pos in
+				let tcf = substitute_type_params coro_class.type_param_subst field.cf_type in
+				let efunction = b#static_field estaticthis cls field tcf in
 				b#call efunction args tret_invoke_resume
 			| ClassField (cls, field,f, _) ->
-				let args      = (f.tf_args |> List.map (fun (v, _) -> Texpr.Builder.default_value v.v_type coro_class.name_pos)) @ [ ethis ] in
+				let args      = (f.tf_args |> map_args) @ [ ethis ] in
 				let captured  = coro_class.captured |> Option.get in
 				let ecapturedfield = this_field captured in
 				let efunction      = b#instance_field ecapturedfield cls [] (* TODO: check *) field field.cf_type in
 				b#call efunction args tret_invoke_resume
 			| LocalFunc(f,_) ->
-				let args      = (List.map (fun (v, _) -> Texpr.Builder.default_value v.v_type coro_class.name_pos) f.tf_args) @ [ ethis ] in
+				let args      = (f.tf_args |> map_args) @ [ ethis ] in
 				let captured  = coro_class.captured |> Option.get in
 				let ecapturedfield = this_field captured in
 				b#call ecapturedfield args tret_invoke_resume
 		in
-		(* TODO: this is awkward, it would be better to avoid the entire expression and work with the correct types right away *)
-		let rec map_expr_type e =
-			Type.map_expr_type map_expr_type (substitute_type_params coro_class.type_param_subst) (fun v -> v) e
-		in
-		let ecorocall = map_expr_type ecorocall in
 
 		let field = mk_field "invokeResume" (TFun ([], tret_invoke_resume)) coro_class.name_pos coro_class.name_pos in
 		add_class_field_flag field CfOverride;
@@ -262,7 +265,7 @@ let create_continuation_class ctx coro_class initial_state =
 
 	ctx.typer.m.curmod.m_types <- ctx.typer.m.curmod.m_types @ [ TClassDecl coro_class.cls ]
 
-let coro_to_state_machine ctx coro_class cb_root exprs args vtmp vcompletion vcontinuation stack_item_inserter start_exception =
+let coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_error vtmp_error_unwrapped vcompletion vcontinuation stack_item_inserter start_exception =
 	let basic = ctx.typer.t in
 	let b = ctx.builder in
 	let cont = coro_class.ContinuationClassBuilder.continuation_api in
@@ -313,16 +316,25 @@ let coro_to_state_machine ctx coro_class cb_root exprs args vtmp vcompletion vco
 	let continuation_field cf t =
 		b#instance_field econtinuation coro_class.cls coro_class.outside.param_types cf t
 	in
-	b#void_block [
+	let el = [
 		continuation_var;
 		continuation_assign;
 		b#assign
 			(continuation_field cont.recursing basic.tbool)
 			(b#bool true coro_class.name_pos);
-		b#var_init vtmp eresult;
+		b#var_init vtmp_result eresult;
+		b#var_init_null vtmp_error;
+	] in
+	let el = if Lazy.is_val vtmp_error_unwrapped then
+		el @ [b#var_init_null (Lazy.force vtmp_error_unwrapped)]
+	else
+		el
+	in
+	let el = el @ [
 		eloop;
 		b#return (b#null basic.tany coro_class.name_pos);
-	]
+	] in
+	b#void_block el
 
 let coro_to_normal ctx coro_class cb_root exprs vcontinuation =
 	let open ContinuationClassBuilder in
@@ -477,8 +489,12 @@ let fun_to_coro ctx coro_type =
 
 	let egoto  = continuation_field cont.goto_label basic.tint in
 
-	let vtmp = alloc_var VGenerated "_hx_tmp" basic.tany coro_class.name_pos in
-	let etmp = b#local vtmp coro_class.name_pos in
+	let vtmp_result = alloc_var VGenerated "_hx_result" basic.tany coro_class.name_pos in
+	let etmp_result = b#local vtmp_result coro_class.name_pos in
+	let vtmp_error = alloc_var VGenerated "_hx_error" basic.texception coro_class.name_pos in
+	let etmp_error = b#local vtmp_error coro_class.name_pos in
+	let vtmp_error_unwrapped = lazy (alloc_var VGenerated "_hx_error_unwrapped" basic.tany coro_class.name_pos) in
+	let etmp_error_unwrapped = lazy (b#local (Lazy.force vtmp_error_unwrapped) coro_class.name_pos) in
 
 	let expr, args, name =
 		match coro_type with
@@ -490,8 +506,8 @@ let fun_to_coro ctx coro_type =
 
 	let cb_root = make_block ctx (Some(expr.etype, coro_class.name_pos)) in
 
-	ignore(CoroFromTexpr.expr_to_coro ctx etmp cb_root expr);
-	let exprs = {CoroToTexpr.econtinuation;ecompletion;estate;eresult;egoto;eerror;etmp} in
+	ignore(CoroFromTexpr.expr_to_coro ctx etmp_result etmp_error_unwrapped cb_root expr);
+	let exprs = {CoroToTexpr.econtinuation;ecompletion;estate;eresult;egoto;eerror;etmp_result;etmp_error;etmp_error_unwrapped} in
 	let stack_item_inserter pos =
 		let field, eargs =
 			match coro_type with
@@ -527,7 +543,7 @@ let fun_to_coro ctx coro_type =
 	in
 	let tf_expr,cb_root = try
 		let cb_root = if ctx.optimize then CoroFromTexpr.optimize_cfg ctx cb_root else cb_root in
-		coro_to_state_machine ctx coro_class cb_root exprs args vtmp vcompletion vcontinuation stack_item_inserter start_exception, cb_root
+		coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_error vtmp_error_unwrapped vcompletion vcontinuation stack_item_inserter start_exception, cb_root
 	with CoroTco cb_root ->
 		coro_to_normal ctx coro_class cb_root exprs vcontinuation,cb_root
 	in

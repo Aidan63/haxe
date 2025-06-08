@@ -12,7 +12,7 @@ type coro_ret =
 	| RBlock
 	| RMapExpr of coro_ret * (texpr -> texpr)
 
-let expr_to_coro ctx etmp cb_root e =
+let expr_to_coro ctx etmp_result etmp_error_unwrapped cb_root e =
 	let make_block typepos =
 		make_block ctx typepos
 	in
@@ -50,6 +50,9 @@ let expr_to_coro ctx etmp cb_root e =
 			let v = tmp_local cb t p in
 			let ev = Texpr.Builder.make_local v v.v_pos in
 			ev,RLocal v
+		| RLocal v ->
+			let ev = Texpr.Builder.make_local v v.v_pos in
+			ev,ret
 		| _ ->
 			e_no_value,ret
 	in
@@ -175,20 +178,22 @@ let expr_to_coro ctx etmp cb_root e =
 							let cb_next = block_from_e e1 in
 							add_block_flag cb_next CbResumeState;
 							add_block_flag cb CbSuspendState;
-							let eres = match ret with
+							let eres,res = match ret with
 							| RValue ->
 								let v = tmp_local cb e.etype e.epos in
 								let ev = Texpr.Builder.make_local v v.v_pos in
 								cb_next.cb_stack_value <- Some ev;
-								ev
-							| _ ->
-								etmp
+								ev,SusResult
+							| RTerminate _ | RMapExpr _ | RLocal _ ->
+								etmp_result,SusResult
+							| RBlock ->
+								e_no_value,SusBlock
 							in
 							let suspend = {
 								cs_fun = e1;
 								cs_args = el;
 								cs_pos = e.epos;
-								cs_result = eres;
+								cs_result = res;
 							} in
 							terminate cb (NextSuspend(suspend,Some cb_next)) t_dynamic null_pos;
 							cb_next,eres
@@ -319,7 +324,7 @@ let expr_to_coro ctx etmp cb_root e =
 			let cb_next = lazy (make_block None) in
 			let catches = List.map (fun (v,e) ->
 				let cb_catch = block_from_e e in
-				add_expr cb_catch (mk (TVar(v,Some etmp)) ctx.typer.t.tvoid null_pos);
+				add_expr cb_catch (mk (TVar(v,Some (Lazy.force etmp_error_unwrapped))) ctx.typer.t.tvoid null_pos);
 				let cb_catch_next = loop_block cb_catch ret e in
 				Option.may (fun (cb_catch_next,_) ->
 					fall_through cb_catch_next (Lazy.force cb_next);
