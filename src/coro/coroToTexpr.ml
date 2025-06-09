@@ -107,22 +107,19 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 
 		let remapped = List.map loop state.cs_el in
 		let restoring =
-			if state.cs_id = fst_state then
-				[]
-			else
-				match Hashtbl.find_opt var_usage state.cs_id with
-				| Some tbl ->
-					Hashtbl.fold
-						(fun id var acc ->
-							match Hashtbl.find_opt fields id with
-							| Some field ->
-								acc @ [ { eexpr = TVar (var, Some (b#instance_field econtinuation cls [] field field.cf_type)); etype = var.v_type; epos = null_pos } ]
-							| None ->
-								acc)
-						tbl
-						[]
-				| _ ->
+			match Hashtbl.find_opt var_usage state.cs_id with
+			| Some tbl ->
+				Hashtbl.fold
+					(fun id var acc ->
+						match Hashtbl.find_opt fields id with
+						| Some field when (fst (Hashtbl.find state_definitions id) <> state.cs_id) ->
+							acc @ [ { eexpr = TVar (var, Some (b#instance_field econtinuation cls [] field field.cf_type)); etype = var.v_type; epos = null_pos } ]
+						| _ ->
+							acc)
+					tbl
 					[]
+			| _ ->
+				[]
 		in
 		let saving =
 			match Hashtbl.find_opt var_usage state.cs_id with
