@@ -1,5 +1,6 @@
 package hxcoro.util;
 
+import haxe.coro.cancellation.ICancellationToken;
 import haxe.exceptions.CancellationException;
 import haxe.coro.schedulers.Scheduler;
 import haxe.Exception;
@@ -72,5 +73,9 @@ class Convenience {
 
 	static public inline function orCancellationException(exc:Exception):CancellationException {
 		return exc is CancellationException ? cast exc : new CancellationException();
+	}
+
+	static public inline function isCancellationRequested(ct:ICancellationToken) {
+		return ct.cancellationException != null;
 	}
 }

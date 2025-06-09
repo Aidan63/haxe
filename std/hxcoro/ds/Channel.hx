@@ -79,7 +79,7 @@ class SuspendedRead<T> implements IContinuation<T> {
 			case null:
 				continuation.resume(v, error);
 			case exc:
-			continuation.failAsync(exc);
+				continuation.failAsync(exc);
 		}
 	}
 
