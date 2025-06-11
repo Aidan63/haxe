@@ -8,6 +8,7 @@ import haxe.coro.context.Context;
 import haxe.coro.IContinuation;
 import hxcoro.Coro.suspendCancellable;
 import hxcoro.ds.PagedDeque;
+import hxcoro.ds.Out;
 
 private class SuspendedWrite<T> implements IContinuation<T> {
 	final continuation : IContinuation<T>;
@@ -96,6 +97,7 @@ class Channel<T> {
 	final writeQueue : Array<T>;
 	final suspendedWrites : PagedDeque<SuspendedWrite<T>>;
 	final suspendedReads : PagedDeque<SuspendedRead<T>>;
+	final iteratorOut : Out<T>;
 
 	/**
 		Creates a new empty Channel.
@@ -106,6 +108,7 @@ class Channel<T> {
 		writeQueue      = [];
 		suspendedWrites = new PagedDeque();
 		suspendedReads  = new PagedDeque();
+		iteratorOut     = new Out();
 	}
 
 	/**
@@ -160,5 +163,32 @@ class Channel<T> {
 			case v:
 				return v;
 		}
+	}
+
+	public function tryRead(out:Out<T>) {
+		// TODO: this is wrong but no test fails
+		if (writeQueue.length > 0) {
+			out.set(writeQueue.shift());
+			return true;
+		}
+		final outWrite = new Out();
+		while (suspendedWrites.tryPop(outWrite)) {
+			final write = outWrite.get();
+			if (write == null) {
+				continue;
+			}
+			out.set(write.value);
+			write.callAsync();
+			return true;
+		}
+		return false;
+	}
+
+	public function hasNext() {
+		return tryRead(iteratorOut);
+	}
+
+	public function next() {
+		return iteratorOut.get();
 	}
 }

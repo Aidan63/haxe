@@ -2,6 +2,7 @@ package hxcoro.ds;
 
 import haxe.ds.Vector;
 import haxe.Exception;
+import hxcoro.ds.Out;
 
 class Page<T> {
 	public final data:Vector<T>;
@@ -112,6 +113,35 @@ class PagedDeque<T> {
 			return currentPage.data[vectorSize - 1];
 		} else {
 			return currentPage.data[currentIndex++];
+		}
+	}
+
+	public function tryPop(out:Out<T>) {
+		if (isEmpty()) {
+			// TODO: could probably integrate this better in the branches below
+			return false;
+		}
+		if (currentIndex == vectorSize) {
+			// end of page, need to swap
+			var nextPage = currentPage.next;
+			if (lastPage.next == null) {
+				// reuse current page as next last page
+				lastPage.next = currentPage;
+				currentPage.next = null;
+			}
+			currentPage = nextPage;
+			currentIndex = 1;
+			out.set(currentPage.data[0]);
+			return true;
+		} else if (currentIndex == vectorSize - 1 && currentPage.next == null) {
+			// deque is empty, reset to reuse current page
+			currentIndex = 0;
+			lastIndex = 0;
+			out.set(currentPage.data[vectorSize - 1]);
+			return true;
+		} else {
+			out.set(currentPage.data[currentIndex++]);
+			return true;
 		}
 	}
 
