@@ -8,6 +8,8 @@ open CoroControl
 type coro_state = {
 	cs_id : int;
 	mutable cs_el : texpr list;
+	cs_declarations : (int, tvar) Hashtbl.t;
+	cs_access : (int, tvar) Hashtbl.t;
 }
 
 type coro_to_texpr_exprs = {
@@ -36,113 +38,106 @@ let make_suspending_call basic call econtinuation =
 	mk (TCall (efun, args)) (basic.tcoro.suspension_result basic.tany) call.cs_pos
 
 let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
-	let fst_state = (List.hd states).cs_id in
-	
-	(* variable id keys to the state id they were declared in *)
-	let state_definitions = tf_args |> List.map (fun (a, _) -> (a.v_id, (fst_state, a))) |> List.to_seq |> Hashtbl.of_seq in
+	let module IntSet = Set.Make(struct
+		let compare a b = b - a
+		type t = int
+	end) in
 
-	let var_usage = Hashtbl.create (List.length states) in
-
-	let initial_state_tbl = tf_args |> List.map (fun (a, _) -> (a.v_id, a)) |> List.to_seq |> Hashtbl.of_seq in
-	Hashtbl.replace var_usage fst_state initial_state_tbl;
+	let arg_state_set = IntSet.of_list [ (List.hd states).cs_id ] in
+	let var_usages    = tf_args |> List.map (fun (v, _) -> v.v_id, arg_state_set) |> List.to_seq |> Hashtbl.of_seq in
 
 	List.iter (fun state ->
 		let rec loop e =
 			match e.eexpr with
 			| TVar (v, eo) ->
-				(* When we come across a local variable track which state it was declared in *)
-
 				Option.may loop eo;
-				Hashtbl.replace state_definitions v.v_id (state.cs_id, v);
-			| TLocal v when Hashtbl.mem state_definitions v.v_id ->
-				let src_state, src_v = Hashtbl.find state_definitions v.v_id in
-				let tbl =
-					match Hashtbl.find_opt var_usage state.cs_id with
-					| Some tbl -> tbl
-					| None -> Hashtbl.create 0
-					in
-
-				if not (Hashtbl.mem tbl v.v_id) then begin
-					if src_state = state.cs_id then
-						Hashtbl.replace tbl v.v_id src_v
-					else
-						let new_v = alloc_var VGenerated (Printf.sprintf "_hx_restored%i" v.v_id) v.v_type null_pos in
-						Hashtbl.replace tbl v.v_id new_v
-				end;
-
-				Hashtbl.replace var_usage state.cs_id tbl
+				Hashtbl.replace var_usages v.v_id (IntSet.of_list [ state.cs_id ])
+			| TLocal v when Hashtbl.mem var_usages v.v_id ->
+				let existing = Hashtbl.find var_usages v.v_id in
+				
+				Hashtbl.replace var_usages v.v_id (IntSet.add state.cs_id existing)
 			| _ ->
 				Type.iter loop e
 		in
 		List.iter loop state.cs_el
 	) states;
 
-	let fields = Hashtbl.create 0 in
-	Hashtbl.iter
-		(fun id (state, var) ->
-			let count =
-				Hashtbl.fold
-				(fun _ tbl acc ->
-					if Hashtbl.mem tbl id then
-						acc + 1
-					else
-						acc)
-				var_usage
-				0 in
-			if count > 1 then
-				Hashtbl.replace fields id (mk_field (Printf.sprintf "_hx_hoisted%i" id) var.v_type null_pos null_pos))
-		state_definitions;
+	let fields_and_decls = Hashtbl.create 0 in
+	let is_used_across_multiple_states id =
+		match Hashtbl.find var_usages id |> IntSet.elements with
+		| [ _ ] ->
+			false
+		| _ ->
+			true
+	in
+	(* List.iter (fun (v, _) ->
+		if is_used_across_multiple_states v.v_id then begin
+			let field = mk_field (Printf.sprintf "_hx_hoisted%i" v.v_id) v.v_type null_pos null_pos in
+
+			Hashtbl.replace fields_and_decls v.v_id (field, v);
+		end) tf_args; *)
 
 	List.iter (fun state ->
+		let rec mapper e =
+			match e.eexpr with
+			| TVar (v, eo) when is_used_across_multiple_states v.v_id ->
+				let field = mk_field (Printf.sprintf "_hx_hoisted%i" v.v_id) v.v_type null_pos null_pos in
+
+				Hashtbl.replace fields_and_decls v.v_id (field, v);
+				
+				(match eo with
+				| Some e ->
+					let local  = b#local v v.v_pos in
+					let assign = b#assign local (mapper e) in
+	
+					assign
+				| None ->
+					Builder.make_null e.etype e.epos)
+			| _ ->
+				Type.map_expr mapper e
+		in
+		state.cs_el <- List.map mapper state.cs_el
+	) states;
+
+	List.iter (fun state ->
+		let set = ref IntSet.empty in
 		let rec loop e =
 			match e.eexpr with
-			| TLocal v when Hashtbl.mem state_definitions v.v_id ->
-				let tbl   = Hashtbl.find var_usage state.cs_id in
-				let new_v = Hashtbl.find tbl v.v_id in
-
-				{ e with eexpr = TLocal new_v }
+			| TLocal v when Hashtbl.mem fields_and_decls v.v_id ->
+				set := IntSet.add v.v_id !set
 			| _ ->
-				Type.map_expr loop e
+				Type.iter loop e
 		in
+		List.iter loop state.cs_el;
 
-		let remapped = List.map loop state.cs_el in
 		let restoring =
-			match Hashtbl.find_opt var_usage state.cs_id with
-			| Some tbl ->
-				Hashtbl.fold
-					(fun id var acc ->
-						match Hashtbl.find_opt fields id with
-						| Some field when (fst (Hashtbl.find state_definitions id) <> state.cs_id) ->
-							acc @ [ { eexpr = TVar (var, Some (b#instance_field econtinuation cls [] field field.cf_type)); etype = var.v_type; epos = null_pos } ]
-						| _ ->
-							acc)
-					tbl
-					[]
-			| _ ->
-				[]
-		in
+			IntSet.fold
+				(fun id acc ->
+					let field, var = Hashtbl.find fields_and_decls id in
+					let access = b#instance_field econtinuation cls [] field field.cf_type in
+					let local  = b#local var var.v_pos in
+					b#assign local access :: acc)
+				!set
+				[] in
 		let saving =
-			match Hashtbl.find_opt var_usage state.cs_id with
-			| Some tbl ->
-				Hashtbl.fold
-					(fun id var acc ->
-						match Hashtbl.find_opt fields id with
-						| Some field ->
-							let efield = b#instance_field econtinuation cls [] field field.cf_type in
-							let assign = b#assign efield (b#local var var.v_pos) in
-							acc @ [ assign ]
-						| None ->
-							acc)
-					tbl
-					[]
-			| _ ->
-				[]
-			in
-		let body = List.take ((List.length remapped) - 1) remapped in
-		let tail = [ List.nth remapped ((List.length remapped) - 1) ] in
+			IntSet.fold
+				(fun id acc ->
+					let field, var = Hashtbl.find fields_and_decls id in
+					let access = b#instance_field econtinuation cls [] field field.cf_type in
+					let local  = b#local var var.v_pos in
+					b#assign access local :: acc)
+				!set
+				[] in
+
+		let body = List.take ((List.length state.cs_el) - 1) state.cs_el in
+		let tail = [ List.nth state.cs_el ((List.length state.cs_el) - 1) ] in
 		state.cs_el <- restoring @ body @ saving @ tail)
 		states;
-	fields
+	fields_and_decls
+	|> Hashtbl.to_seq_values
+	(* |> Seq.filter (fun (field, v) -> List.exists (fun (a, _) -> a.v_id <> v.v_id) tf_args ) *)
+	|> Seq.map (fun (field, v) -> (field, (mk (TVar(v,None)) v.v_type null_pos)))
+	|> List.of_seq
 
 let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs p stack_item_inserter start_exception =
 	let {econtinuation;ecompletion;estate;eresult;egoto;eerror;etmp_result;etmp_error;etmp_error_unwrapped} = exprs in
@@ -203,6 +198,8 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 	let make_state id el = {
 		cs_id = id;
 		cs_el = el;
+		cs_declarations = Hashtbl.create 0;
+		cs_access = Hashtbl.create 0;
 	} in
 
 	let get_caught,unwrap_exception = match com.basic.texception with
@@ -346,7 +343,7 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 	let states = !states in
 	let states = states |> List.sort (fun state1 state2 -> state1.cs_id - state2.cs_id) in
 
-	let fields = handle_locals ctx b cls states tf_args forbidden_vars econtinuation in
+	let fields_and_decls = handle_locals ctx b cls states tf_args forbidden_vars econtinuation in
 
 	let ethrow = b#void_block [
 		b#assign etmp_error (get_caught (b#string "Invalid coroutine state" p));
@@ -431,4 +428,4 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 		etry
 	in
 
-	eloop, init_state, fields |> Hashtbl.to_seq_values |> List.of_seq
+	eloop, init_state, fields_and_decls

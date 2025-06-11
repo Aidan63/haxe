@@ -269,12 +269,12 @@ let coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_err
 	let basic = ctx.typer.t in
 	let b = ctx.builder in
 	let cont = coro_class.ContinuationClassBuilder.continuation_api in
-	let eloop, initial_state, fields = CoroToTexpr.block_to_texpr_coroutine ctx cb_root cont coro_class.cls coro_class.outside.param_types args [ vcompletion.v_id; vcontinuation.v_id ] exprs coro_class.name_pos stack_item_inserter start_exception in
+	let eloop, initial_state, fields_and_decls = CoroToTexpr.block_to_texpr_coroutine ctx cb_root cont coro_class.cls coro_class.outside.param_types args [ vcompletion.v_id; vcontinuation.v_id ] exprs coro_class.name_pos stack_item_inserter start_exception in
 	(* update cf_type to use inside type parameters *)
-	List.iter (fun cf ->
+	List.iter (fun (cf, _) ->
 		cf.cf_type <- substitute_type_params coro_class.type_param_subst cf.cf_type;
 		TClass.add_field coro_class.cls cf
-	) fields;
+	) fields_and_decls;
 	create_continuation_class ctx coro_class initial_state;
 	let continuation_var = b#var_init_null vcontinuation in
 
@@ -316,7 +316,7 @@ let coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_err
 	let continuation_field cf t =
 		b#instance_field econtinuation coro_class.cls coro_class.outside.param_types cf t
 	in
-	let el = [
+	let el = (fields_and_decls |> List.map snd) @ [
 		continuation_var;
 		continuation_assign;
 		b#assign
