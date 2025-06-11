@@ -43,7 +43,8 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 		type t = int
 	end) in
 
-	let arg_state_set = IntSet.of_list [ (List.hd states).cs_id ] in
+	let fst_state     = (List.hd states).cs_id in
+	let arg_state_set = IntSet.of_list [ fst_state ] in
 	let var_usages    = tf_args |> List.map (fun (v, _) -> v.v_id, arg_state_set) |> List.to_seq |> Hashtbl.of_seq in
 
 	List.iter (fun state ->
@@ -70,12 +71,12 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 		| _ ->
 			true
 	in
-	(* List.iter (fun (v, _) ->
+	List.iter (fun (v, _) ->
 		if is_used_across_multiple_states v.v_id then begin
 			let field = mk_field (Printf.sprintf "_hx_hoisted%i" v.v_id) v.v_type null_pos null_pos in
 
 			Hashtbl.replace fields_and_decls v.v_id (field, v);
-		end) tf_args; *)
+		end) tf_args;
 
 	List.iter (fun state ->
 		let rec mapper e =
@@ -119,6 +120,21 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 					b#assign local access :: acc)
 				!set
 				[] in
+		let initial =
+			if state.cs_id = fst_state then
+				List.fold_left
+					(fun acc (a, _) ->
+						if is_used_across_multiple_states a.v_id then
+							let field, _ = Hashtbl.find fields_and_decls a.v_id in
+							let access = b#instance_field econtinuation cls [] field field.cf_type in
+							let local  = b#local a a.v_pos in
+							b#assign access local :: acc
+						else
+							acc)
+					[]
+					tf_args
+			else
+				[] in	
 		let saving =
 			IntSet.fold
 				(fun id acc ->
@@ -127,7 +143,7 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 					let local  = b#local var var.v_pos in
 					b#assign access local :: acc)
 				!set
-				[] in
+				initial in
 
 		let body = List.take ((List.length state.cs_el) - 1) state.cs_el in
 		let tail = [ List.nth state.cs_el ((List.length state.cs_el) - 1) ] in
@@ -135,8 +151,11 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 		states;
 	fields_and_decls
 	|> Hashtbl.to_seq_values
-	(* |> Seq.filter (fun (field, v) -> List.exists (fun (a, _) -> a.v_id <> v.v_id) tf_args ) *)
-	|> Seq.map (fun (field, v) -> (field, (mk (TVar(v,None)) v.v_type null_pos)))
+	|> Seq.map (fun (field, v) ->
+		if List.exists (fun (a, _) -> a.v_id = v.v_id) tf_args then
+			(field, (Builder.make_null ctx.typer.com.basic.tany null_pos))
+		else
+			(field, (mk (TVar(v,None)) v.v_type null_pos)))
 	|> List.of_seq
 
 let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs p stack_item_inserter start_exception =
