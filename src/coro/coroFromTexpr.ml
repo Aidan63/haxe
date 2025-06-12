@@ -42,7 +42,7 @@ let expr_to_coro ctx etmp_result etmp_error_unwrapped cb_root e =
 	in
 	let tmp_local cb t p =
 		let v = alloc_var VGenerated "tmp" t p in
-		add_expr cb (mk (TVar(v,None)) ctx.typer.t.tvoid p);
+		add_expr cb (mk (TVar(v, Some (Texpr.Builder.default_value t p))) ctx.typer.t.tvoid p);
 		v
 	in
 	let check_complex cb ret t p = match ret with
@@ -164,7 +164,7 @@ let expr_to_coro ctx etmp_result etmp_error_unwrapped cb_root e =
 			add_expr cb e;
 			Some (cb,e_no_value)
 		| TVar(v,Some e1) ->
-			add_expr cb {e with eexpr = TVar(v,None)};
+			add_expr cb {e with eexpr = TVar(v,Some (Texpr.Builder.default_value e1.etype e1.epos))};
 			let cb = loop_assign cb (RLocal v) e1 in
 			cb
 		(* calls *)
