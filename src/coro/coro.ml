@@ -99,33 +99,14 @@ module ContinuationClassBuilder = struct
 			| Some api ->
 				api
 			| None ->
-				let cf_state      = PMap.find "state" basic.tcoro.suspension_result_class.cl_fields in
-				let cf_result     = PMap.find "result" basic.tcoro.suspension_result_class.cl_fields in
-				let cf_error      = PMap.find "error" basic.tcoro.suspension_result_class.cl_fields in
-				let cf_completion = PMap.find "completion" basic.tcoro.base_continuation_class.cl_fields in
-				let cf_context    = PMap.find "context" basic.tcoro.base_continuation_class.cl_fields in
-				let cf_goto_label = PMap.find "gotoLabel" basic.tcoro.base_continuation_class.cl_fields in
-				let cf_recursing  = PMap.find "recursing" basic.tcoro.base_continuation_class.cl_fields in
-				let immediate_result,immediate_error =
-					let c = basic.tcoro.immediate_suspension_result_class in
-					let cf_result = PMap.find "withResult" c.cl_statics in
-					let cf_error = PMap.find "withError" c.cl_statics in
-					(fun e ->
-						CallUnification.make_static_call_better ctx.typer c cf_result [e.etype] [e] (TInst(c,[e.etype])) e.epos
-					), (fun e t ->
-						CallUnification.make_static_call_better ctx.typer c cf_error [] [e] (TInst(c,[t])) e.epos
-					)
-				in
-				let api = ContTypes.create_continuation_api immediate_result immediate_error cf_state cf_result cf_error cf_completion cf_context cf_goto_label cf_recursing in
-				ctx.typer.g.continuation_api <- Some api;
-				api
+				CoroInit.make_continuation_api ctx.typer
 		in
 
 		let param_types_inside = extract_param_types params_inside in
 		let param_types_outside = extract_param_types params_outside in
 		let subst = List.combine params_outside param_types_inside in
 		let result_type_inside = substitute_type_params subst result_type in
-		cls.cl_super <- Some (basic.tcoro.base_continuation_class, [result_type_inside]);
+		cls.cl_super <- Some (continuation_api.base_continuation_class, [result_type_inside]);
 		cf_captured |> Option.may (fun cf -> cf.cf_type <- substitute_type_params subst cf.cf_type);
 
 		{
@@ -136,14 +117,14 @@ module ContinuationClassBuilder = struct
 				param_types = param_types_inside;
 				cls_t = TInst(cls,param_types_inside);
 				result_type = result_type_inside;
-				cont_type = TInst(basic.tcoro.base_continuation_class,[result_type_inside]);
+				cont_type = TInst(continuation_api.base_continuation_class,[result_type_inside]);
 			};
 			outside = {
 				params = params_outside;
 				param_types = param_types_outside;
 				cls_t = TInst(cls,param_types_outside);
 				result_type = result_type;
-				cont_type = TInst(basic.tcoro.base_continuation_class,[result_type]);
+				cont_type = TInst(continuation_api.base_continuation_class,[result_type]);
 			};
 			type_param_subst = subst;
 			coro_type  = coro_type;
@@ -484,7 +465,7 @@ let fun_to_coro ctx coro_type =
 	let eerror = continuation_field basic.tcoro.suspension_result_class cont.error basic.texception in
 
 	let continuation_field cf t =
-		b#instance_field econtinuation basic.tcoro.base_continuation_class coro_class.outside.param_types cf t
+		b#instance_field econtinuation cont.base_continuation_class coro_class.outside.param_types cf t
 	in
 
 	let egoto  = continuation_field cont.goto_label basic.tint in
@@ -512,13 +493,13 @@ let fun_to_coro ctx coro_type =
 		let field, eargs =
 			match coro_type with
 			| ClassField (cls, field, _, _) ->
-				PMap.find "setClassFuncStackItem" basic.tcoro.base_continuation_class.cl_fields,
+				PMap.find "setClassFuncStackItem" cont.base_continuation_class.cl_fields,
 				[
 					b#string (s_class_path cls) coro_class.name_pos;
 					b#string field.cf_name coro_class.name_pos;
 				]
 			| LocalFunc (f, v) ->
-				PMap.find "setLocalFuncStackItem" basic.tcoro.base_continuation_class.cl_fields,
+				PMap.find "setLocalFuncStackItem" cont.base_continuation_class.cl_fields,
 				[
 					b#int v.v_id coro_class.name_pos;
 				]
@@ -535,7 +516,7 @@ let fun_to_coro ctx coro_type =
 		mk (TCall (eaccess, eargs)) basic.tvoid coro_class.name_pos
 	in
 	let start_exception =
-		let cf = PMap.find "startException" basic.tcoro.base_continuation_class.cl_fields in
+		let cf = PMap.find "startException" cont.base_continuation_class.cl_fields in
 		let ef = continuation_field cf cf.cf_type in
 		(fun e ->
 			mk (TCall(ef,[e])) basic.tvoid coro_class.name_pos

@@ -396,8 +396,8 @@ let block_to_texpr_coroutine ctx cb cont cls params tf_args forbidden_vars exprs
 				DynArray.add cases {case_patterns = patterns; case_expr = expr};
 		) exc_state_map;
 		let el =
-			let field         = PMap.find "buildCallStack" com.basic.tcoro.base_continuation_class.cl_fields in
-			let eaccess       = b#instance_field econtinuation com.basic.tcoro.base_continuation_class params field field.cf_type in
+			let field         = PMap.find "buildCallStack" cont.base_continuation_class.cl_fields in
+			let eaccess       = b#instance_field econtinuation cont.base_continuation_class params field field.cf_type in
 			let ewrapped_call = mk (TCall (eaccess, [ ])) com.basic.tvoid p in
 			[
 				b#assign eerror etmp_error;
