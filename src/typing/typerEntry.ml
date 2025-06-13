@@ -203,7 +203,6 @@ let load_coro ctx =
 		| _ ->
 			()
 	) m.m_types;
-
 	let m = TypeloadModule.load_module ctx (["haxe";"coro"],"SuspensionResult") null_pos in
 	List.iter (function
 		| TClassDecl({ cl_path = (["haxe";"coro"], "SuspensionResult") } as cl) ->
@@ -280,7 +279,6 @@ let create com macros =
 	load_array ctx;
 	load_enum_tools ctx;
 	load_coro ctx;
-	ignore(TypeloadModule.load_module ctx (["haxe"],"Exception") null_pos);
 	ctx.com.local_wrapper <- load_local_wrapper ctx;
 	ctx.g.complete <- true;
 	ctx
