@@ -186,8 +186,9 @@ let load_local_wrapper ctx =
 		end
 
 let load_coro ctx =
-	let m = TypeloadModule.load_module ctx (["haxe";"coro"],"Coroutine") null_pos in
 	ctx.t.tcoro.tcoro <- lazy begin
+		let m = TypeloadModule.load_module ctx (["haxe";"coro"],"Coroutine") null_pos in
+		print_endline (Printexc.raw_backtrace_to_string (Printexc.get_callstack 200));
 		ExtList.List.find_map_exn (function
 			| TAbstractDecl({a_path = (["haxe";"coro"],"Coroutine")} as a) ->
 				let mk_coro args ret =
@@ -208,7 +209,7 @@ let load_coro ctx =
 		) m.m_types;
 	end;
 	ctx.t.tcoro.suspension_result_class <- lazy begin
-	let m = TypeloadModule.load_module ctx (["haxe";"coro"],"SuspensionResult") null_pos in
+		let m = TypeloadModule.load_module ctx (["haxe";"coro"],"SuspensionResult") null_pos in
 		ExtList.List.find_map_exn (function
 			| TClassDecl({ cl_path = (["haxe";"coro"], "SuspensionResult") } as cl) ->
 				Some cl
