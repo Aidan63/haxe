@@ -121,13 +121,11 @@ class TestHoisting extends utest.Test {
         final actual   = [];
 
         CoroRun.runScoped(node -> {
-            var children = [
-                for (x in expected) {
-                    node.async(_ -> {
-                        actual.push(x);
-                    });
-                }
-            ];
+            for (x in expected) {
+                node.async(_ -> {
+                    actual.push(x);
+                });
+            }
         });
 
         Assert.same(expected, actual);

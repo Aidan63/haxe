@@ -554,6 +554,8 @@ module Builder = struct
 			mk (TConst (TFloat "0.0")) t p
 		| TAbstract({a_path = ([],"Bool")},[]) ->
 			mk (TConst (TBool false)) t p
+		| TAbstract({a_path = (["haxe"],"Int64")},[]) ->
+			mk (TConst (TInt (Int32.zero))) t p
 		| _ ->
 			mk (TConst TNull) t p
 
