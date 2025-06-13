@@ -791,7 +791,7 @@ let create timer_ctx compilation_step cs version args display_mode =
 			titerator = (fun _ -> die "Could not locate typedef Iterator<T> (was it redefined?)" __LOC__);
 			tunit = mk_mono();
 			tcoro = {
-				tcoro = (fun _ -> die "Could not locate abstract Coroutine<T> (was it redefined?)" __LOC__);
+				tcoro = lazy (fun _ -> die "Could not locate abstract Coroutine<T> (was it redefined?)" __LOC__);
 				continuation = lazy (mk_mono());
 				suspension_result_class = lazy null_class;
 			}
@@ -928,7 +928,7 @@ let clone com is_macro_context =
 			texception = mk_mono();
 			tunit = mk_mono();
 			tcoro = {
-				tcoro = (fun _ -> die "Could not locate abstract Coroutine<T> (was it redefined?)" __LOC__);
+				tcoro = lazy (fun _ -> die "Could not locate abstract Coroutine<T> (was it redefined?)" __LOC__);
 				continuation = lazy (mk_mono());
 				suspension_result_class = lazy null_class;
 			};

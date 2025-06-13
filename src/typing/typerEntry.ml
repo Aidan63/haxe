@@ -187,15 +187,17 @@ let load_local_wrapper ctx =
 
 let load_coro ctx =
 	let m = TypeloadModule.load_module ctx (["haxe";"coro"],"Coroutine") null_pos in
-	List.iter (function
-		| TAbstractDecl({a_path = (["haxe";"coro"],"Coroutine")} as a) ->
-			let mk_coro args ret =
-				TAbstract(a,[TFun(args,ret)])
-			in
-			ctx.t.tcoro.tcoro <- mk_coro
-		| _ ->
-			()
-	) m.m_types;
+	ctx.t.tcoro.tcoro <- lazy begin
+		ExtList.List.find_map_exn (function
+			| TAbstractDecl({a_path = (["haxe";"coro"],"Coroutine")} as a) ->
+				let mk_coro args ret =
+					TAbstract(a,[TFun(args,ret)])
+				in
+				Some mk_coro
+			| _ ->
+				None
+		) m.m_types;
+	end;
 	ctx.t.tcoro.continuation <- lazy begin
 		let m = TypeloadModule.load_module ctx (["haxe";"coro"],"IContinuation") null_pos in
 		ExtList.List.find_map_exn (function
