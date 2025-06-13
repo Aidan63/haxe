@@ -487,7 +487,6 @@ exception Type_exception of t
 type coro_types = {
 	mutable tcoro : (string * bool * t) list -> t -> t;
 	mutable continuation : t;
-	mutable suspension_state : t;
 	mutable suspension_result : t -> t;
 	mutable suspension_result_class : tclass;
 }

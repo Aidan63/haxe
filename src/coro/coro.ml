@@ -460,7 +460,7 @@ let fun_to_coro ctx coro_type =
 		b#instance_field econtinuation c coro_class.outside.param_types cf t
 	in
 
-	let estate = continuation_field basic.tcoro.suspension_result_class cont.state basic.tcoro.suspension_state in
+	let estate = continuation_field basic.tcoro.suspension_result_class cont.state cont.suspension_state in
 	let eresult = continuation_field basic.tcoro.suspension_result_class cont.result basic.tany in
 	let eerror = continuation_field basic.tcoro.suspension_result_class cont.error basic.texception in
 

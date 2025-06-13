@@ -793,7 +793,6 @@ let create timer_ctx compilation_step cs version args display_mode =
 			tcoro = {
 				tcoro = (fun _ -> die "Could not locate abstract Coroutine<T> (was it redefined?)" __LOC__);
 				continuation = mk_mono();
-				suspension_state = mk_mono();
 				suspension_result = (fun _ -> die "Could not locate class ContinuationResult<T> (was it redefined?)" __LOC__);
 				suspension_result_class = null_class;
 			}
@@ -932,7 +931,6 @@ let clone com is_macro_context =
 			tcoro = {
 				tcoro = (fun _ -> die "Could not locate abstract Coroutine<T> (was it redefined?)" __LOC__);
 				continuation = mk_mono();
-				suspension_state = mk_mono();
 				suspension_result = (fun _ -> die "Could not locate class ContinuationResult<T> (was it redefined?)" __LOC__);
 				suspension_result_class = null_class;
 			};

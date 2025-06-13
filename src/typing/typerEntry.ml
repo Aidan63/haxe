@@ -212,13 +212,6 @@ let load_coro ctx =
 		| _ ->
 			()
 	) m.m_types;
-	let m = TypeloadModule.load_module ctx (["haxe";"coro"],"SuspensionState") null_pos in
-	List.iter (function
-		| TAbstractDecl({a_path = (["haxe";"coro"],"SuspensionState")} as a) ->
-			ctx.t.tcoro.suspension_state <- TAbstract(a,[])
-		| _ ->
-			()
-	) m.m_types;
 	let m = TypeloadModule.load_module ctx (["haxe"],"Exception") null_pos in
 	List.iter (function
 		| TClassDecl({ cl_path = (["haxe"], "Exception") } as cl) ->
