@@ -21,13 +21,13 @@ let load_module_abstract ctx path =
 	) m.m_types
 
 let make_continuation_api ctx =
-	let basic = ctx.t in
 	let base_continuation_class = load_module_class ctx (["haxe";"coro"], "BaseContinuation") in
 	let immediate_suspension_result_class = load_module_class ctx (["haxe";"coro"],"ImmediateSuspensionResult") in
 	let suspension_state = TAbstract(load_module_abstract ctx (["haxe";"coro"],"SuspensionState"),[]) in
-	let cf_state      = PMap.find "state" basic.tcoro.suspension_result_class.cl_fields in
-	let cf_result     = PMap.find "result" basic.tcoro.suspension_result_class.cl_fields in
-	let cf_error      = PMap.find "error" basic.tcoro.suspension_result_class.cl_fields in
+	let suspension_result_class = Lazy.force ctx.t.tcoro.suspension_result_class in
+	let cf_state      = PMap.find "state" suspension_result_class.cl_fields in
+	let cf_result     = PMap.find "result" suspension_result_class.cl_fields in
+	let cf_error      = PMap.find "error" suspension_result_class.cl_fields in
 	let cf_completion = PMap.find "completion" base_continuation_class.cl_fields in
 	let cf_context    = PMap.find "context" base_continuation_class.cl_fields in
 	let cf_goto_label = PMap.find "gotoLabel" base_continuation_class.cl_fields in
@@ -42,6 +42,6 @@ let make_continuation_api ctx =
 			CallUnification.make_static_call_better ctx c cf_error [] [e] (TInst(c,[t])) e.epos
 		)
 	in
-	let api = ContTypes.create_continuation_api base_continuation_class immediate_suspension_result_class suspension_state immediate_result immediate_error cf_state cf_result cf_error cf_completion cf_context cf_goto_label cf_recursing in
+	let api = ContTypes.create_continuation_api base_continuation_class immediate_suspension_result_class suspension_state suspension_result_class (Lazy.force ctx.t.tcoro.continuation) immediate_result immediate_error cf_state cf_result cf_error cf_completion cf_context cf_goto_label cf_recursing in
 	ctx.g.continuation_api <- Some api;
 	api

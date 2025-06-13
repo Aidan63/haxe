@@ -132,13 +132,13 @@ module ContinuationClassBuilder = struct
 			captured   = cf_captured;
 		}
 
-	let mk_ctor ctx coro_class initial_state =
+	let mk_ctor ctx cont coro_class initial_state =
 		let basic = ctx.typer.t in
 		let b     = ctx.builder in
 		let name  = "completion" in
 		let ethis = mk (TConst TThis) coro_class.inside.cls_t coro_class.name_pos in
 
-		let vargcompletion    = alloc_var VGenerated name basic.tcoro.continuation coro_class.name_pos in
+		let vargcompletion    = alloc_var VGenerated name cont.continuation coro_class.name_pos in
 		let evarargcompletion = b#local vargcompletion coro_class.name_pos in
 		let einitialstate     = b#int initial_state coro_class.name_pos in
 		let esuper            = b#call (b#super coro_class.inside.cont_type coro_class.name_pos) [ evarargcompletion; einitialstate ] basic.tvoid in
@@ -171,7 +171,7 @@ module ContinuationClassBuilder = struct
 				in
 
 			b#void_block (esuper :: extra_exprs),
-			extra_tfun_args @ [ (name, false, basic.tcoro.continuation) ],
+			extra_tfun_args @ [ (name, false, cont.continuation) ],
 			extra_tfunction_args @ [ (vargcompletion, None) ]
 		in
 
@@ -235,8 +235,8 @@ module ContinuationClassBuilder = struct
 		field
 end
 
-let create_continuation_class ctx coro_class initial_state =
-	let ctor   = ContinuationClassBuilder.mk_ctor ctx coro_class initial_state in
+let create_continuation_class ctx cont coro_class initial_state =
+	let ctor   = ContinuationClassBuilder.mk_ctor ctx cont coro_class initial_state in
 	let resume = ContinuationClassBuilder.mk_invoke_resume ctx coro_class in
 	TClass.add_field coro_class.cls resume;
 	Option.may (TClass.add_field coro_class.cls) coro_class.captured;
@@ -256,7 +256,7 @@ let coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_err
 		cf.cf_type <- substitute_type_params coro_class.type_param_subst cf.cf_type;
 		TClass.add_field coro_class.cls cf
 	) fields;
-	create_continuation_class ctx coro_class initial_state;
+	create_continuation_class ctx cont coro_class initial_state;
 	let continuation_var = b#var_init_null vcontinuation in
 
 	let std_is e t =
@@ -317,12 +317,12 @@ let coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_err
 	] in
 	b#void_block el
 
-let coro_to_normal ctx coro_class cb_root exprs vcontinuation =
+let coro_to_normal ctx cont coro_class cb_root exprs vcontinuation =
 	let open ContinuationClassBuilder in
 	let open CoroToTexpr in
 	let basic = ctx.typer.t in
 	let b = ctx.builder in
-	create_continuation_class ctx coro_class 0;
+	create_continuation_class ctx cont coro_class 0;
 	let rec loop cb previous_el =
 		let bad_pos = coro_class.name_pos in
 		let loop cb el =
@@ -421,7 +421,7 @@ let coro_to_normal ctx coro_class cb_root exprs vcontinuation =
 			| NextFallThrough _ | NextGoto _ ->
 				!current_el,false
 			| NextSuspend(suspend,cb_next) ->
-				let e_sus = CoroToTexpr.make_suspending_call basic suspend {exprs.ecompletion with epos = suspend.cs_pos} in
+				let e_sus = CoroToTexpr.make_suspending_call basic cont suspend {exprs.ecompletion with epos = suspend.cs_pos} in
 				add (mk (TReturn (Some e_sus)) t_dynamic e_sus.epos);
 				!current_el,true
 		end
@@ -450,7 +450,7 @@ let fun_to_coro ctx coro_type =
 	let cont = coro_class.continuation_api in
 
 	(* Generate and assign the continuation variable *)
-	let vcompletion = alloc_var VGenerated "_hx_completion" basic.tcoro.continuation coro_class.name_pos in
+	let vcompletion = alloc_var VGenerated "_hx_completion" cont.continuation coro_class.name_pos in
 	let ecompletion = b#local vcompletion coro_class.name_pos in
 
 	let vcontinuation = alloc_var VGenerated "_hx_continuation" coro_class.outside.cls_t coro_class.name_pos in
@@ -460,9 +460,9 @@ let fun_to_coro ctx coro_type =
 		b#instance_field econtinuation c coro_class.outside.param_types cf t
 	in
 
-	let estate = continuation_field basic.tcoro.suspension_result_class cont.state cont.suspension_state in
-	let eresult = continuation_field basic.tcoro.suspension_result_class cont.result basic.tany in
-	let eerror = continuation_field basic.tcoro.suspension_result_class cont.error basic.texception in
+	let estate = continuation_field cont.suspension_result_class cont.state cont.suspension_state in
+	let eresult = continuation_field cont.suspension_result_class cont.result basic.tany in
+	let eerror = continuation_field cont.suspension_result_class cont.error basic.texception in
 
 	let continuation_field cf t =
 		b#instance_field econtinuation cont.base_continuation_class coro_class.outside.param_types cf t
@@ -526,14 +526,14 @@ let fun_to_coro ctx coro_type =
 		let cb_root = if ctx.optimize then CoroFromTexpr.optimize_cfg ctx cb_root else cb_root in
 		coro_to_state_machine ctx coro_class cb_root exprs args vtmp_result vtmp_error vtmp_error_unwrapped vcompletion vcontinuation stack_item_inserter start_exception, cb_root
 	with CoroTco cb_root ->
-		coro_to_normal ctx coro_class cb_root exprs vcontinuation,cb_root
+		coro_to_normal ctx cont coro_class cb_root exprs vcontinuation,cb_root
 	in
 
 	let tf_args = args @ [ (vcompletion,None) ] in
 	(* I'm not sure what this should be, but let's stick to the widest one for now.
 	   Cpp dies if I try to use coro_class.outside.cls_t here, which might be something
 	   to investigate independently. *)
-	let tf_type = basic.tcoro.suspension_result coro_class.outside.result_type in
+	let tf_type = cont.suspension_result coro_class.outside.result_type in
 	if ctx.coro_debug then begin
 		print_endline ("BEFORE:\n" ^ (s_expr_debug expr));
 		CoroDebug.create_dotgraph (DotGraph.get_dump_path (SafeCom.of_com ctx.typer.com) (ctx.typer.c.curclass.cl_path) name) cb_root

@@ -196,21 +196,24 @@ let load_coro ctx =
 		| _ ->
 			()
 	) m.m_types;
-	let m = TypeloadModule.load_module ctx (["haxe";"coro"],"IContinuation") null_pos in
-	List.iter (function
-		| TClassDecl({ cl_path = (["haxe";"coro"], "IContinuation") } as cl) ->
-			ctx.t.tcoro.continuation <- TInst(cl, [ ctx.t.tany ]);
-		| _ ->
-			()
-	) m.m_types;
+	ctx.t.tcoro.continuation <- lazy begin
+		let m = TypeloadModule.load_module ctx (["haxe";"coro"],"IContinuation") null_pos in
+		ExtList.List.find_map_exn (function
+			| TClassDecl({ cl_path = (["haxe";"coro"], "IContinuation") } as cl) ->
+				Some (TInst(cl, [ ctx.t.tany ]))
+			| _ ->
+				None
+		) m.m_types;
+	end;
+	ctx.t.tcoro.suspension_result_class <- lazy begin
 	let m = TypeloadModule.load_module ctx (["haxe";"coro"],"SuspensionResult") null_pos in
-	List.iter (function
-		| TClassDecl({ cl_path = (["haxe";"coro"], "SuspensionResult") } as cl) ->
-			ctx.t.tcoro.suspension_result <- (fun t -> TInst(cl, [t]));
-			ctx.t.tcoro.suspension_result_class <- cl;
-		| _ ->
-			()
-	) m.m_types;
+		ExtList.List.find_map_exn (function
+			| TClassDecl({ cl_path = (["haxe";"coro"], "SuspensionResult") } as cl) ->
+				Some cl
+			| _ ->
+				None;
+		) m.m_types;
+	end;
 	let m = TypeloadModule.load_module ctx (["haxe"],"Exception") null_pos in
 	List.iter (function
 		| TClassDecl({ cl_path = (["haxe"], "Exception") } as cl) ->

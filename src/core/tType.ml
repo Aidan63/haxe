@@ -486,9 +486,8 @@ exception Type_exception of t
    with lazy initialization from the coro code. *)
 type coro_types = {
 	mutable tcoro : (string * bool * t) list -> t -> t;
-	mutable continuation : t;
-	mutable suspension_result : t -> t;
-	mutable suspension_result_class : tclass;
+	mutable continuation : t Lazy.t;
+	mutable suspension_result_class : tclass Lazy.t;
 }
 
 type basic_types = {
