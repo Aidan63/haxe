@@ -796,7 +796,6 @@ let create timer_ctx compilation_step cs version args display_mode =
 				suspension_state = mk_mono();
 				suspension_result = (fun _ -> die "Could not locate class ContinuationResult<T> (was it redefined?)" __LOC__);
 				suspension_result_class = null_class;
-				immediate_suspension_result_class = null_class;
 			}
 		};
 		std = null_class;
@@ -936,7 +935,6 @@ let clone com is_macro_context =
 				suspension_state = mk_mono();
 				suspension_result = (fun _ -> die "Could not locate class ContinuationResult<T> (was it redefined?)" __LOC__);
 				suspension_result_class = null_class;
-				immediate_suspension_result_class = null_class;
 			};
 		};
 		local_wrapper = LocalWrapper.null_wrapper;

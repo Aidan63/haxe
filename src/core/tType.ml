@@ -490,7 +490,6 @@ type coro_types = {
 	mutable suspension_state : t;
 	mutable suspension_result : t -> t;
 	mutable suspension_result_class : tclass;
-	mutable immediate_suspension_result_class : tclass;
 }
 
 type basic_types = {

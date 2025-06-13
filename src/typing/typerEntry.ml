@@ -212,13 +212,6 @@ let load_coro ctx =
 		| _ ->
 			()
 	) m.m_types;
-	let m = TypeloadModule.load_module ctx (["haxe";"coro"],"ImmediateSuspensionResult") null_pos in
-	List.iter (function
-		| TClassDecl({ cl_path = (["haxe";"coro"], "ImmediateSuspensionResult") } as cl) ->
-			ctx.t.tcoro.immediate_suspension_result_class <- cl;
-		| _ ->
-			()
-	) m.m_types;
 	let m = TypeloadModule.load_module ctx (["haxe";"coro"],"SuspensionState") null_pos in
 	List.iter (function
 		| TAbstractDecl({a_path = (["haxe";"coro"],"SuspensionState")} as a) ->
