@@ -188,7 +188,6 @@ let load_local_wrapper ctx =
 let load_coro ctx =
 	ctx.t.tcoro.tcoro <- lazy begin
 		let m = TypeloadModule.load_module ctx (["haxe";"coro"],"Coroutine") null_pos in
-		print_endline (Printexc.raw_backtrace_to_string (Printexc.get_callstack 200));
 		ExtList.List.find_map_exn (function
 			| TAbstractDecl({a_path = (["haxe";"coro"],"Coroutine")} as a) ->
 				let mk_coro args ret =
