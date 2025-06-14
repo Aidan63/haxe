@@ -185,29 +185,6 @@ class TestBoundedWriter extends utest.Test {
 		Assert.isFalse(writeWaiters.isEmpty());
 	}
 
-	// function test_wait_for_write_prompt_cancellation() {
-	// 	final buffer        = [ ];
-	// 	final maxBufferSize = 1;
-	// 	final writeWaiters  = new PagedDeque();
-	// 	final readWaiters   = new PagedDeque();
-	// 	final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
-	// 	final scheduler     = new VirtualTimeScheduler();
-	// 	final actual        = [];
-	// 	final task          = CoroRun.with(scheduler).create(node -> {
-	// 		actual.push(writer.waitForWrite());
-	// 	});
-
-	// 	task.start();
-	// 	task.cancel();
-
-	// 	scheduler.advanceBy(1);
-
-	// 	Assert.isFalse(task.isActive());
-	// 	Assert.isOfType(task.getError(), CancellationException);
-	// 	Assert.same([], actual);
-	// 	Assert.isFalse(writeWaiters.isEmpty());
-	// }
-
 	function test_write_has_space() {
 		final buffer        = [];
 		final maxBufferSize = 1;
