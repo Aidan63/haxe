@@ -209,47 +209,47 @@ class TestMutex extends utest.Test {
 		], lines);
 	}
 
-	// function testRandomSemaphoreCancelling() {
-	// 	for (semaphoreSize in [1, 2, 4, 8]) {
-	// 		for (numTasks in [1, 2, 10, 100]) {
-	// 			var scheduler = new VirtualTimeScheduler();
-	// 			var semaphore = new CoroSemaphore(semaphoreSize);
-	// 			var semaphoreHolders = new Channel();
-	// 			var hangingMutex = new CoroMutex();
-	// 			final task = CoroRun.with(scheduler).create(node -> {
-	// 				hangingMutex.acquire();
-	// 				var numCompletedTasks = 0;
-	// 				for (_ in 0...numTasks) {
-	// 					node.async(node -> {
-	// 						delay(Std.random(15));
-	// 						semaphore.acquire();
-	// 						semaphoreHolders.write(node);
-	// 						try {
-	// 							hangingMutex.acquire(); // will never succeed
-	// 						} catch(e:CancellationException) {
-	// 							semaphore.release();
-	// 							numCompletedTasks++;
-	// 							throw e;
-	// 						}
-	// 					});
-	// 				}
-	// 				delay(1);
-	// 				while (numCompletedTasks != numTasks) {
-	// 					var holder = semaphoreHolders.read();
-	// 					holder.cancel();
-	// 					// this is weird, how do we wait here properly?
-	// 					yield();
-	// 					yield();
-	// 				}
-	// 				hangingMutex.release();
-	// 				numCompletedTasks;
-	// 			});
-	// 			task.start();
-	// 			while (task.isActive()) {
-	// 				scheduler.advanceBy(1);
-	// 			}
-	// 			Assert.equals(numTasks, task.get());
-	// 		}
-	// 	}
-	// }
+	function testRandomSemaphoreCancelling() {
+		for (semaphoreSize in [1, 2, 4, 8]) {
+			for (numTasks in [1, 2, 10, 100]) {
+				var scheduler = new VirtualTimeScheduler();
+				var semaphore = new CoroSemaphore(semaphoreSize);
+				var semaphoreHolders = new Channel();
+				var hangingMutex = new CoroMutex();
+				final task = CoroRun.with(scheduler).create(node -> {
+					hangingMutex.acquire();
+					var numCompletedTasks = 0;
+					for (_ in 0...numTasks) {
+						node.async(node -> {
+							delay(Std.random(15));
+							semaphore.acquire();
+							semaphoreHolders.write(node);
+							try {
+								hangingMutex.acquire(); // will never succeed
+							} catch(e:CancellationException) {
+								semaphore.release();
+								numCompletedTasks++;
+								throw e;
+							}
+						});
+					}
+					delay(1);
+					while (numCompletedTasks != numTasks) {
+						var holder = semaphoreHolders.read();
+						holder.cancel();
+						// this is weird, how do we wait here properly?
+						yield();
+						yield();
+					}
+					hangingMutex.release();
+					numCompletedTasks;
+				});
+				task.start();
+				while (task.isActive()) {
+					scheduler.advanceBy(1);
+				}
+				Assert.equals(numTasks, task.get());
+			}
+		}
+	}
 }

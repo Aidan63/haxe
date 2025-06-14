@@ -15,6 +15,7 @@ type coro_ret =
 let expr_to_coro ctx etmp_result etmp_error_unwrapped cb_root e =
 	let wrapper = ctx.typer.com.local_wrapper in
 	let scom = SafeCom.of_com ctx.typer.com in
+	let scom = {scom with platform_config = {scom.platform_config with pf_capture_policy = CPWrapRef}} in
 	let e = CapturedVars.captured_vars scom wrapper e in
 
 	let make_block typepos =
