@@ -8,4 +8,6 @@ interface IChannelWriter<T> {
 	@:coroutine function write(v:T):Void;
 
 	@:coroutine function waitForWrite():Bool;
+
+	function close():Void;
 }

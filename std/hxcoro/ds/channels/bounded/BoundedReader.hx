@@ -7,7 +7,7 @@ import hxcoro.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
 
-class BoundedReader<T> implements IChannelReader<T> {
+final class BoundedReader<T> implements IChannelReader<T> {
 	final buffer : Array<T>;
 
 	final maxBufferSize : Int;

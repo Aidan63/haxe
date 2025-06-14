@@ -8,13 +8,14 @@ import haxe.exceptions.CancellationException;
 import haxe.exceptions.NotImplementedException;
 import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.ds.PagedDeque;
+import hxcoro.exceptions.ChannelClosedException;
 import haxe.coro.schedulers.VirtualTimeScheduler;
 
 using hxcoro.util.Convenience;
 
 private class TestContinuation<T> implements IContinuation<Bool> {
 	final expected : Array<T>;
-	final value : T;
+	final mapper : Bool->T;
 
 	public var context (get, never) : Context;
 
@@ -22,13 +23,13 @@ private class TestContinuation<T> implements IContinuation<Bool> {
 		throw new NotImplementedException();
 	}
 
-	public function new(expected : Array<T>, value : T) {
+	public function new(expected : Array<T>, mapper : Bool->T) {
 		this.expected = expected;
-		this.value    = value;
+		this.mapper   = mapper;
 	}
 
-	public function resume(_:Bool, _:Exception) {
-		expected.push(value);
+	public function resume(result:Bool, _:Exception) {
+		expected.push(mapper(result));
 	}
 }
 
@@ -63,8 +64,8 @@ class TestBoundedWriter extends utest.Test {
 		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
 		final expected      = [];
 
-		readWaiters.push(new TestContinuation(expected, '1'));
-		readWaiters.push(new TestContinuation(expected, '2'));
+		readWaiters.push(new TestContinuation(expected, _ -> '1'));
+		readWaiters.push(new TestContinuation(expected, _ -> '2'));
 
 		Assert.isTrue(writer.tryWrite(10));
 		Assert.isTrue(readWaiters.isEmpty());
@@ -235,8 +236,8 @@ class TestBoundedWriter extends utest.Test {
 			writer.write(10);
 		});
 
-		readWaiters.push(new TestContinuation(expected, '1'));
-		readWaiters.push(new TestContinuation(expected, '2'));
+		readWaiters.push(new TestContinuation(expected, _ -> '1'));
+		readWaiters.push(new TestContinuation(expected, _ -> '2'));
 
 		task.start();
 		scheduler.advanceBy(1);
@@ -292,5 +293,106 @@ class TestBoundedWriter extends utest.Test {
 		Assert.isOfType(task.getError(), CancellationException);
 		Assert.same([ 0 ], buffer);
 		Assert.isFalse(writeWaiters.isEmpty());
+	}
+
+	function test_try_write_when_closed() {
+		final buffer        = [];
+		final maxBufferSize = 1;
+		final writeWaiters  = new PagedDeque();
+		final readWaiters   = new PagedDeque();
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+
+		writer.close();
+
+		Assert.isFalse(writer.tryWrite(10));
+		Assert.same([], buffer);
+	}
+
+	function test_wait_for_write_when_closed() {
+		final buffer        = [];
+		final maxBufferSize = 1;
+		final writeWaiters  = new PagedDeque();
+		final readWaiters   = new PagedDeque();
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final scheduler     = new VirtualTimeScheduler();
+		final actual        = [];
+		final task          = CoroRun.with(scheduler).create(node -> {
+			actual.push(writer.waitForWrite());
+		});
+
+		writer.close();
+
+		task.start();
+		scheduler.advanceBy(1);
+
+		Assert.same([ false ], actual);
+	}
+
+	function test_write_when_closed() {
+		final buffer        = [];
+		final maxBufferSize = 1;
+		final writeWaiters  = new PagedDeque();
+		final readWaiters   = new PagedDeque();
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final scheduler     = new VirtualTimeScheduler();
+		final actual        = [];
+		final task          = CoroRun.with(scheduler).create(node -> {
+			AssertAsync.raises(() -> writer.write('hello'), ChannelClosedException);
+		});
+
+		writer.close();
+
+		task.start();
+		scheduler.advanceBy(1);
+		
+		Assert.isFalse(task.isActive());
+	}
+
+	function test_closing_wakesup_write_waiters() {
+		final buffer        = [ 0 ];
+		final maxBufferSize = 1;
+		final writeWaiters  = new PagedDeque();
+		final readWaiters   = new PagedDeque();
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final scheduler     = new VirtualTimeScheduler();
+		final actual        = [];
+		final task          = CoroRun.with(scheduler).create(node -> {
+			actual.push(writer.waitForWrite());
+		});
+
+		task.start();
+
+		scheduler.advanceBy(1);
+		Assert.same([], actual);
+
+		writer.close();
+
+		scheduler.advanceBy(1);
+		Assert.same([ false ], actual);
+	}
+
+	function test_closing_wakesup_read_waiters() {
+		final buffer        = [ 0 ];
+		final maxBufferSize = 1;
+		final writeWaiters  = new PagedDeque();
+		final readWaiters   = new PagedDeque();
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final scheduler     = new VirtualTimeScheduler();
+		final actual        = [];
+		final task          = CoroRun.with(scheduler).create(node -> {
+			writer.waitForWrite();
+		});
+
+		readWaiters.push(new TestContinuation(actual, b -> b));
+
+		task.start();
+
+		scheduler.advanceBy(1);
+		Assert.same([], actual);
+
+		writer.close();
+
+		scheduler.advanceBy(1);
+		Assert.same([ false ], actual);
 	}
 }

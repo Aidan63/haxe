@@ -7,7 +7,9 @@ import hxcoro.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
 
-class BoundedWriter<T> implements IChannelWriter<T> {
+final class BoundedWriter<T> implements IChannelWriter<T> {
+	var closed : Bool;
+
 	final buffer : Array<T>;
 
 	final maxBufferSize : Int;
@@ -24,6 +26,10 @@ class BoundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	public function tryWrite(v:T):Bool {
+		if (closed) {
+			return false;
+		}
+
 		return if (buffer.length < maxBufferSize) {
 			buffer.push(v);
 
@@ -53,6 +59,10 @@ class BoundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	@:coroutine public function waitForWrite():Bool {
+		if (closed) {
+			return false;
+		}
+
 		return if (buffer.length < maxBufferSize) {
 			true;
 		} else {
@@ -68,5 +78,31 @@ class BoundedWriter<T> implements IChannelWriter<T> {
 				}
 			});
 		}
+	}
+
+	public function close() {
+		if (closed) {
+			return;
+		}
+
+		closed = true;
+
+		while (writeWaiters.isEmpty() == false) {
+			switch writeWaiters.pop() {
+				case null:
+					continue;
+				case cont:
+					cont.succeedSync(false);
+			}
+		};
+
+		while (readWaiters.isEmpty() == false) {
+			switch (readWaiters.pop()) {
+				case null:
+					continue;
+				case cont:		
+					cont.succeedSync(false);
+			}
+		};
 	}
 }
