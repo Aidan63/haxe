@@ -1,5 +1,6 @@
 package hxcoro.ds.channels.bounded;
 
+import haxe.ds.Vector;
 import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
 import hxcoro.exceptions.ChannelClosedException;
@@ -52,10 +53,11 @@ class BoundedWriter<T> implements IChannelWriter<T> {
 			return suspendCancellable(cont -> {
 				final hostPage  = writeWaiters.push(cont);
 				final hostIndex = writeWaiters.lastIndex - 1;
-				
+
 				cont.onCancellationRequested = () -> {
-					if (hostPage.data[hostIndex] == cont) {
-						hostPage.data[hostIndex] = null;
+					final data:Vector<Any> = hostPage.data;
+					if (data[hostIndex] == cont) {
+						data[hostIndex] = null;
 					}
 				}
 			});
