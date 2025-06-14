@@ -1,10 +1,34 @@
 package ds.channels;
 
+import haxe.coro.context.Context;
+import haxe.coro.IContinuation;
+import haxe.Exception;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
+import haxe.exceptions.NotImplementedException;
 import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.ds.PagedDeque;
 import haxe.coro.schedulers.VirtualTimeScheduler;
+
+private class TestContinuation<T> implements IContinuation<Bool> {
+	final expected : Array<T>;
+	final value : T;
+
+	public var context (get, never) : Context;
+
+	function get_context():Context {
+		throw new NotImplementedException();
+	}
+
+	public function new(expected : Array<T>, value : T) {
+		this.expected = expected;
+		this.value    = value;
+	}
+
+	public function resume(_:Bool, _:Exception) {
+		expected.push(value);
+	}
+}
 
 class TestBoundedWriter extends utest.Test {
 	function test_try_write_has_space() {
@@ -27,6 +51,22 @@ class TestBoundedWriter extends utest.Test {
 
 		Assert.isFalse(writer.tryWrite(10));
 		Assert.same([ 0 ], buffer);
+	}
+
+	function test_try_write_wakeup_all_readers() {
+		final buffer        = [];
+		final maxBufferSize = 1;
+		final writeWaiters  = new PagedDeque();
+		final readWaiters   = new PagedDeque();
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final expected      = [];
+
+		readWaiters.push(new TestContinuation(expected, '1'));
+		readWaiters.push(new TestContinuation(expected, '2'));
+
+		Assert.isTrue(writer.tryWrite(10));
+		Assert.isTrue(readWaiters.isEmpty());
+		Assert.same([ '1', '2' ], expected);
 	}
 
 	function test_wait_for_write_empty_buffer() {
