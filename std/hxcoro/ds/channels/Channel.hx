@@ -3,6 +3,7 @@ package hxcoro.ds.channels;
 import haxe.coro.ICancellableContinuation;
 import haxe.Exception;
 import haxe.exceptions.ArgumentException;
+import haxe.exceptions.NotImplementedException;
 import haxe.exceptions.CancellationException;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.context.Context;
@@ -13,6 +14,11 @@ import hxcoro.ds.Out;
 import hxcoro.ds.channels.bounded.BoundedReader;
 import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.ds.channels.bounded.BoundedChannel;
+
+enum ChannelKind {
+	Bounded(size : Int);
+	Unbounded;
+}
 
 abstract class Channel<T> {
 
@@ -25,18 +31,23 @@ abstract class Channel<T> {
 		this.writer = writer;
 	}
 
-	public static function createBounded<T>(size : Int):Channel<T> { 
-		if (size < 1) {
-			throw new ArgumentException("size");
-		}
-
-		final buffer       = [];
-		final readWaiters  = new PagedDeque();
-		final writeWaiters = new PagedDeque();
+	public static function create<T>(kind : ChannelKind):Channel<T> { 
+		switch kind {
+			case Bounded(size):
+				if (size < 1) {
+					throw new ArgumentException("size");
+				}
 		
-		return
-			new BoundedChannel(
-				new BoundedReader(buffer, size, writeWaiters, readWaiters),
-				new BoundedWriter(buffer, size, writeWaiters, readWaiters));
+				final buffer       = [];
+				final readWaiters  = new PagedDeque();
+				final writeWaiters = new PagedDeque();
+				
+				return
+					new BoundedChannel(
+						new BoundedReader(buffer, size, writeWaiters, readWaiters),
+						new BoundedWriter(buffer, size, writeWaiters, readWaiters));
+			case Unbounded:
+				throw new NotImplementedException();
+		}
 	}
 }
