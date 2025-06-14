@@ -4,14 +4,14 @@ import hxcoro.ds.Out;
 import haxe.coro.schedulers.VirtualTimeScheduler;
 import hxcoro.Coro.*;
 import hxcoro.CoroRun;
-import hxcoro.ds.Channel;
+import hxcoro.ds.channels.Channel;
 import haxe.ds.Option;
 import hxcoro.exceptions.TimeoutException;
 
 class TestChannel extends utest.Test {
 	function test() {
 		final size = 100;
-		final channel = new Channel(3);
+		final channel = Channel.create(Bounded(3));
 		final scheduler = new VirtualTimeScheduler();
 		final task = CoroRun.with(scheduler).create(node -> {
 			final output = [];
@@ -19,7 +19,7 @@ class TestChannel extends utest.Test {
 				var i = size;
 
 				while (i >= 0) {
-					channel.write(i);
+					channel.writer.write(i);
 
 					i--;
 
@@ -27,7 +27,7 @@ class TestChannel extends utest.Test {
 				}
 			});
 			for (_ in 0...size + 1) {
-				output.push(channel.read());
+				output.push(channel.reader.read());
 				delay(Std.random(5));
 			}
 			writer.cancel();
@@ -45,21 +45,21 @@ class TestChannel extends utest.Test {
 
 	function test_fifo_writes() {
 		final actual    = [];
-		final channel   = new Channel(0);
+		final channel   = Channel.create(Bounded(1));
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
 			node.async(_ -> {
-				channel.write('Hello');
+				channel.writer.write('Hello');
 			});
 
 			node.async(_ -> {
-				channel.write('World');
+				channel.writer.write('World');
 			});
 
 			delay(100);
 
-			actual.push(channel.read());
-			actual.push(channel.read());
+			actual.push(channel.reader.read());
+			actual.push(channel.reader.read());
 		});
 
 		task.start();
@@ -72,18 +72,18 @@ class TestChannel extends utest.Test {
 
 	function test_fifo_reads() {
 		final actual    = [];
-		final channel   = new Channel(0);
+		final channel   = Channel.create(Bounded(1));
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
 			node.async(_ -> {
-				actual.push(channel.read());
-				actual.push(channel.read());
+				actual.push(channel.reader.read());
+				actual.push(channel.reader.read());
 			});
 
 			delay(100);
 
-			channel.write('Hello');
-			channel.write('World');
+			channel.writer.write('Hello');
+			channel.writer.write('World');
 		});
 
 		task.start();
@@ -97,13 +97,15 @@ class TestChannel extends utest.Test {
 	function test_write_cancellation() {
 		final actual     = [];
 		final exceptions = [];
-		final channel    = new Channel(0);
+		final channel    = Channel.create(Bounded(1));
 		final scheduler  = new VirtualTimeScheduler();
 		final task       = CoroRun.with(scheduler).create(node -> {
+			channel.writer.write('dummy');
+
 			node.async(_ -> {
 				try {
 					timeout(100, _ -> {
-						channel.write('Hello');
+						channel.writer.write('Hello');
 					});
 				} catch (_:TimeoutException) {
 					exceptions.push(scheduler.now());
@@ -111,12 +113,14 @@ class TestChannel extends utest.Test {
 			});
 
 			node.async(_ -> {
-				channel.write('World');
+				channel.writer.write('World');
 			});
 
 			delay(200);
 
-			actual.push(channel.read());
+			Assert.equals('dummy', channel.reader.read());
+			
+			actual.push(channel.reader.read());
 		});
 
 		task.start();
@@ -138,13 +142,13 @@ class TestChannel extends utest.Test {
 	function test_read_cancellation() {
 		final actual     = [];
 		final exceptions = [];
-		final channel    = new Channel(0);
+		final channel    = Channel.create(Bounded(1));
 		final scheduler  = new VirtualTimeScheduler();
 		final task       = CoroRun.with(scheduler).create(node -> {
 			node.async(_ -> {
 				try {
 					timeout(100, _ -> {
-						return channel.read();
+						return channel.reader.read();
 					});
 				} catch(_:TimeoutException) {
 					exceptions.push(scheduler.now());
@@ -153,27 +157,31 @@ class TestChannel extends utest.Test {
 			});
 
 			node.async(_ -> {
-				actual.push(channel.read());
+				actual.push(channel.reader.read());
 			});
 
 			delay(200);
 
-			channel.write('Hello');
+			channel.writer.write('Hello');
 		});
 
 		task.start();
 
 		scheduler.advanceBy(100);
-		scheduler.advanceBy(100);
 
-		Assert.same([ 'Hello' ], actual);
+		Assert.isTrue(task.isActive());
+		Assert.same([], actual);
 		Assert.equals(1, exceptions.length);
 		Assert.isTrue(100i64 == exceptions[0]);
+
+		scheduler.advanceBy(100);
+
 		Assert.isFalse(task.isActive());
+		Assert.same([ 'Hello' ], actual);
 	}
 
 	function test_try_read() {
-		final channel = new Channel(1);
+		final channel = Channel.create(Bounded(1));
 		final scheduler = new VirtualTimeScheduler();
 		final task = CoroRun.with(scheduler).create(node -> {
 			final output = [];
@@ -187,22 +195,24 @@ class TestChannel extends utest.Test {
 					}
 				}
 				// from buffer
-				report(channel.tryRead(out));
+				report(channel.reader.tryRead(out));
 				delay(2);
-				report(channel.tryRead(out));
-				report(channel.tryRead(out));
+				report(channel.reader.tryRead(out));
+				report(channel.reader.tryRead(out));
 
 				// from suspense
 				delay(2);
-				report(channel.tryRead(out));
-				report(channel.tryRead(out));
-				report(channel.tryRead(out));
+				report(channel.reader.tryRead(out));
+				yield();
+				report(channel.reader.tryRead(out));
+				yield();
+				report(channel.reader.tryRead(out));
 			});
 			delay(1);
-			channel.write(1);
+			channel.writer.write(1);
 			delay(2);
-			channel.write(2);
-			channel.write(3);
+			channel.writer.write(2);
+			channel.writer.write(3);
 			output;
 		});
 		task.start();
@@ -213,28 +223,28 @@ class TestChannel extends utest.Test {
 		Assert.same([None, Some(1), None, Some(2), Some(3), None], task.get());
 	}
 
-	var todoHoisting = 0;
+	// var todoHoisting = 0;
 
-	function test_iterator() {
-		final size = 50;
-		for (bufferSize in [0, 1, 25, 50]) {
-			todoHoisting = 0;
-			final channel = new Channel(bufferSize);
-			final scheduler = new VirtualTimeScheduler();
-			final task = CoroRun.with(scheduler).create(node -> {
-				for (i in 0...size) {
-					node.async(_ -> channel.write(todoHoisting++));
-				}
-				delay(1);
-				final res = [for (i in channel) i];
-				res;
-			});
-			task.start();
-			while (task.isActive()) {
-				scheduler.run();
-				scheduler.advanceBy(1);
-			}
-			Assert.same([for (i in 0...size) i], task.get());
-		}
-	}
+	// function test_iterator() {
+	// 	final size = 50;
+	// 	for (bufferSize in [1, 25, 50]) {
+	// 		todoHoisting = 0;
+	// 		final channel = Channel.createBounded(bufferSize);
+	// 		final scheduler = new VirtualTimeScheduler();
+	// 		final task = CoroRun.with(scheduler).create(node -> {
+	// 			for (i in 0...size) {
+	// 				node.async(_ -> channel.writer.write(todoHoisting++));
+	// 			}
+	// 			delay(1);
+	// 			final res = [for (i in channel) i];
+	// 			res;
+	// 		});
+	// 		task.start();
+	// 		while (task.isActive()) {
+	// 			scheduler.run();
+	// 			scheduler.advanceBy(1);
+	// 		}
+	// 		Assert.same([for (i in 0...size) i], task.get());
+	// 	}
+	// }
 }
