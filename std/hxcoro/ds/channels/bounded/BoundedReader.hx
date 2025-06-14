@@ -59,8 +59,8 @@ class BoundedReader<T> implements IChannelReader<T> {
 		return suspendCancellable(cont -> {
 			final hostPage  = readWaiters.push(cont);
 			final hostIndex = readWaiters.lastIndex - 1;
-			
-			cont.onCancellationRequested = () -> {
+
+			cont.onCancellationRequested = _ -> {
 				final data:Vector<Any> = hostPage.data;
 				if (data[hostIndex] == cont) {
 					data[hostIndex] = null;

@@ -54,7 +54,7 @@ class BoundedWriter<T> implements IChannelWriter<T> {
 				final hostPage  = writeWaiters.push(cont);
 				final hostIndex = writeWaiters.lastIndex - 1;
 
-				cont.onCancellationRequested = () -> {
+				cont.onCancellationRequested = _ -> {
 					final data:Vector<Any> = hostPage.data;
 					if (data[hostIndex] == cont) {
 						data[hostIndex] = null;
