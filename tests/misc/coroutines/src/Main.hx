@@ -19,7 +19,8 @@ function main() {
 		// #if (!coroutine.throw && (jvm || cpp || eval))
 		// new TestCallStack(),
 		// #end
-		new ds.channels.TestBoundedWriter()
+		new ds.channels.TestBoundedWriter(),
+		new ds.channels.TestBoundedReader(),
 	];
 
 	var runner = new utest.Runner();
