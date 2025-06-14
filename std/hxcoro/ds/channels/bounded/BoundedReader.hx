@@ -5,6 +5,8 @@ import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
 import hxcoro.exceptions.ChannelClosedException;
 
+using hxcoro.util.Convenience;
+
 class BoundedReader<T> implements IChannelReader<T> {
 	final buffer : Array<T>;
 
@@ -25,9 +27,13 @@ class BoundedReader<T> implements IChannelReader<T> {
 		return if (buffer.length > 0) {
 			out.set(buffer.shift());
 
-			final out = new Out();
-			while (writeWaiters.tryPop(out)) {
-				out.get().resume(true, null);
+			while (writeWaiters.isEmpty() == false) {
+				switch writeWaiters.pop() {
+					case null:
+						continue;
+					case cont:
+						cont.succeedSync(true);
+				}
 			};
 
 			true;

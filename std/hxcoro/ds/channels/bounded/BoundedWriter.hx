@@ -5,6 +5,8 @@ import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
 import hxcoro.exceptions.ChannelClosedException;
 
+using hxcoro.util.Convenience;
+
 class BoundedWriter<T> implements IChannelWriter<T> {
 	final buffer : Array<T>;
 
@@ -25,9 +27,13 @@ class BoundedWriter<T> implements IChannelWriter<T> {
 		return if (buffer.length < maxBufferSize) {
 			buffer.push(v);
 
-			final out = new Out();
-			while (readWaiters.tryPop(out)) {
-				out.get().resume(true, null);
+			while (readWaiters.isEmpty() == false) {
+				switch (readWaiters.pop()) {
+					case null:
+						continue;
+					case cont:		
+						cont.succeedSync(true);
+				}
 			};
 
 			true;
