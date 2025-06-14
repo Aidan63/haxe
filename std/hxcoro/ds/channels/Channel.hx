@@ -25,7 +25,7 @@ abstract class Channel<T> {
 		this.writer = writer;
 	}
 
-	public static function createBounded(size : Int) { 
+	public static function createBounded<T>(size : Int):Channel<T> { 
 		if (size < 1) {
 			throw new ArgumentException("size");
 		}
