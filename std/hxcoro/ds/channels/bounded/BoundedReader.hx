@@ -1,5 +1,6 @@
 package hxcoro.ds.channels.bounded;
 
+import haxe.ds.Vector;
 import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
 import hxcoro.exceptions.ChannelClosedException;
@@ -60,8 +61,9 @@ class BoundedReader<T> implements IChannelReader<T> {
 			final hostIndex = readWaiters.lastIndex - 1;
 			
 			cont.onCancellationRequested = () -> {
-				if (hostPage.data[hostIndex] == cont) {
-					hostPage.data[hostIndex] = null;
+				final data:Vector<Any> = hostPage.data;
+				if (data[hostIndex] == cont) {
+					data[hostIndex] = null;
 				}
 			}
 		});
