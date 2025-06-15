@@ -2,6 +2,7 @@ package hxcoro.ds.channels;
 
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.NotImplementedException;
+import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
 import hxcoro.ds.channels.bounded.BoundedReader;
 import hxcoro.ds.channels.bounded.BoundedWriter;
@@ -33,10 +34,11 @@ abstract class Channel<T> {
 				final buffer       = [];
 				final readWaiters  = new PagedDeque();
 				final writeWaiters = new PagedDeque();
+				final closed       = new Out();
 				
 				return
 					new BoundedChannel(
-						new BoundedReader(buffer, size, writeWaiters, readWaiters),
+						new BoundedReader(buffer, size, writeWaiters, readWaiters, closed),
 						new BoundedWriter(buffer, size, writeWaiters, readWaiters));
 			case Unbounded:
 				throw new NotImplementedException();

@@ -10,6 +10,7 @@ import hxcoro.ds.channels.bounded.BoundedReader;
 import hxcoro.ds.PagedDeque;
 import hxcoro.ds.Out;
 import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
 
@@ -39,7 +40,7 @@ class TestBoundedReader extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final out           = new Out();
 
 		Assert.isTrue(reader.tryRead(out));
@@ -52,7 +53,7 @@ class TestBoundedReader extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final out           = new Out();
 
 		Assert.isFalse(reader.tryRead(out));
@@ -64,7 +65,7 @@ class TestBoundedReader extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final out           = new Out();
 		final actual        = [];
 
@@ -81,7 +82,7 @@ class TestBoundedReader extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final out           = new Out();
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
@@ -103,7 +104,7 @@ class TestBoundedReader extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final out           = new Out();
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
@@ -126,7 +127,7 @@ class TestBoundedReader extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final out           = new Out();
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
@@ -152,7 +153,7 @@ class TestBoundedReader extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final out           = new Out();
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
@@ -179,7 +180,7 @@ class TestBoundedReader extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final out           = new Out();
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
@@ -202,7 +203,7 @@ class TestBoundedReader extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final out           = new Out();
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
@@ -225,7 +226,7 @@ class TestBoundedReader extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final out           = new Out();
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
@@ -250,7 +251,7 @@ class TestBoundedReader extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final out           = new Out();
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
@@ -280,7 +281,7 @@ class TestBoundedReader extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final out           = new Out();
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
@@ -297,5 +298,123 @@ class TestBoundedReader extends utest.Test {
 		Assert.isOfType(task.getError(), CancellationException);
 		Assert.same([], buffer);
 		Assert.isFalse(readWaiters.isEmpty());
+	}
+
+	function test_wait_for_read_when_closed() {
+		final buffer        = [];
+		final maxBufferSize = 1;
+		final writeWaiters  = new PagedDeque();
+		final readWaiters   = new PagedDeque();
+		final closed        = new Out();
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, closed);
+		final actual        = [];
+		final scheduler     = new VirtualTimeScheduler();
+		final task          = CoroRun.with(scheduler).create(node -> {
+			actual.push(reader.waitForRead());
+		});
+
+		closed.set(true);
+
+		task.start();
+		scheduler.advanceBy(1);
+
+		Assert.isFalse(task.isActive());
+		Assert.same([ false ], actual);
+	}
+
+	function test_wait_for_read_when_closed_with_remaining_data() {
+		final buffer        = [ 10 ];
+		final maxBufferSize = 1;
+		final writeWaiters  = new PagedDeque();
+		final readWaiters   = new PagedDeque();
+		final closed        = new Out();
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, closed);
+		final scheduler     = new VirtualTimeScheduler();
+		final actual        = [];
+		final task          = CoroRun.with(scheduler).create(node -> {
+			actual.push(reader.waitForRead());
+		});
+
+		closed.set(true);
+
+		task.start();
+		scheduler.advanceBy(1);
+
+		Assert.isFalse(task.isActive());
+		Assert.same([ true ], actual);
+	}
+
+	function test_try_read_when_closed() {
+		final buffer        = [];
+		final maxBufferSize = 1;
+		final writeWaiters  = new PagedDeque();
+		final readWaiters   = new PagedDeque();
+		final closed        = new Out();
+		final out           = new Out();
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, closed);
+
+		closed.set(true);
+
+		Assert.isFalse(reader.tryRead(out));
+	}
+
+	function test_try_read_when_closed_with_remaining_data() {
+		final buffer        = [ 10 ];
+		final maxBufferSize = 1;
+		final writeWaiters  = new PagedDeque();
+		final readWaiters   = new PagedDeque();
+		final closed        = new Out();
+		final out           = new Out();
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, closed);
+
+		closed.set(true);
+
+		Assert.isTrue(reader.tryRead(out));
+		Assert.same([], buffer);
+		Assert.equals(10, out.get());
+	}
+
+	function test_read_when_closed() {
+		final buffer        = [];
+		final maxBufferSize = 1;
+		final writeWaiters  = new PagedDeque();
+		final readWaiters   = new PagedDeque();
+		final closed        = new Out();
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, closed);
+		final actual        = [];
+		final scheduler     = new VirtualTimeScheduler();
+		final task          = CoroRun.with(scheduler).create(node -> {
+			AssertAsync.raises(reader.read(), ChannelClosedException);
+		});
+
+		closed.set(true);
+
+		task.start();
+		scheduler.advanceBy(1);
+
+		Assert.isFalse(task.isActive());
+		Assert.same([], actual);
+	}
+
+	function test_read_when_closed_with_remaining_data() {
+		final buffer        = [ 10 ];
+		final maxBufferSize = 1;
+		final writeWaiters  = new PagedDeque();
+		final readWaiters   = new PagedDeque();
+		final closed        = new Out();
+		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, closed);
+		final actual        = [];
+		final scheduler     = new VirtualTimeScheduler();
+		final task          = CoroRun.with(scheduler).create(node -> {
+			actual.push(reader.read());
+		});
+
+		closed.set(true);
+
+		task.start();
+		scheduler.advanceBy(1);
+
+		Assert.isFalse(task.isActive());
+		Assert.same([ 10 ], actual);
 	}
 }
