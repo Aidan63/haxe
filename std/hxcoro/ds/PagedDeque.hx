@@ -33,7 +33,10 @@ class Page<T> {
 	}
 
 	function blitAt(index:Int) {
-		Vector.blit(data, index + 1, data, index, data.length - numDeleted - index - 1);
+		final toBlit = freeSpace() - index - 1;
+		if (toBlit > 0) {
+			Vector.blit(data, index + 1, data, index, toBlit);
+		}
 		numDeleted++;
 	}
 }
