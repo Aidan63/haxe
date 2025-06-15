@@ -15,27 +15,28 @@ class Issue153 extends utest.Test {
 		d.push(2);
 		d.push(3);
 		final page = d.push(4);
-		expect([0, 1, 2, 3, 4, null, null, null, null], page);
+		final nnull = #if cpp 0 #else null #end; // I don't get it though
+		expect([0, 1, 2, 3, 4, nnull, nnull, nnull, nnull], page);
 		// delete non-existing
 		Assert.isFalse(page.delete(5));
 		Assert.isFalse(d.isEmpty());
-		expect([0, 1, 2, 3, 4, null, null, null, null], page);
+		expect([0, 1, 2, 3, 4, nnull, nnull, nnull, nnull], page);
 		// delete first
 		Assert.isTrue(page.delete(0));
 		Assert.isFalse(d.isEmpty());
-		expect([1, 2, 3, 4, null, null, null, null, null], page);
+		expect([1, 2, 3, 4, nnull, nnull, nnull, nnull, nnull], page);
 		// delete last
 		Assert.isTrue(page.delete(4));
 		Assert.isFalse(d.isEmpty());
-		expect([1, 2, 3, null, null, null, null, null, null], page);
+		expect([1, 2, 3, nnull, nnull, nnull, nnull, nnull, nnull], page);
 		// delete middle
 		Assert.isTrue(page.delete(2));
 		Assert.isFalse(d.isEmpty());
-		expect([1, 3, null, null, null, null, null, null, null], page);
+		expect([1, 3, nnull, nnull, nnull, nnull, nnull, nnull, nnull], page);
 		// push afterwards
 		d.push(5);
 		Assert.isFalse(d.isEmpty());
-		expect([1, 3, 5, null, null, null, null, null, null], page);
+		expect([1, 3, 5, nnull, nnull, nnull, nnull, nnull, nnull], page);
 		// drain
 		Assert.isTrue(page.delete(1));
 		Assert.isTrue(page.delete(3));
