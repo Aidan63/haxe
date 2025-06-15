@@ -155,12 +155,12 @@ class Issue153 extends utest.Test {
 		Assert.isTrue(page1.delete(1));
 		Assert.equals(2, d.pop());
 		Assert.isTrue(d.isEmpty());
-		// again (TODO: broken)
-		// final page1 = d.push(1);
-		// d.push(2);
-		// Assert.isTrue(page1.delete(1));
-		// Assert.equals(2, d.pop());
-		// Assert.isTrue(d.isEmpty());
+		// again
+		final page1 = d.push(1);
+		d.push(2);
+		Assert.isTrue(page1.delete(1));
+		Assert.equals(2, d.pop());
+		Assert.isTrue(d.isEmpty());
 	}
 
 	public function testPopDelete() {

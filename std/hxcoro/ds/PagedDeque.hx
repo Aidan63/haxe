@@ -151,10 +151,8 @@ class PagedDeque<T> {
 
 	public function isEmpty() {
 		while (currentIndex == currentPage.freeSpace()) {
-			if (currentPage.next == null) {
+			if (currentPage.next == null || currentPage == lastPage) {
 				resetCurrent();
-				return true;
-			} else if (currentPage == lastPage) {
 				return true;
 			}
 			currentPage = currentPage.next;
