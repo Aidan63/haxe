@@ -3,11 +3,12 @@ package hxcoro.ds.channels.bounded;
 import haxe.ds.Vector;
 import haxe.coro.IContinuation;
 import hxcoro.exceptions.ChannelClosedException;
+import hxcoro.ds.Out;
 
 using hxcoro.util.Convenience;
 
 final class BoundedWriter<T> implements IChannelWriter<T> {
-	var closed : Bool;
+	var closed : Out<Bool>;
 
 	final buffer : Array<T>;
 
@@ -17,15 +18,16 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 
 	final readWaiters : PagedDeque<IContinuation<Bool>>;
 
-	public function new(buffer, maxBufferSize, writeWaiters, readWaiters) {
+	public function new(buffer, maxBufferSize, writeWaiters, readWaiters, closed) {
 		this.buffer        = buffer;
 		this.maxBufferSize = maxBufferSize;
 		this.writeWaiters  = writeWaiters;
 		this.readWaiters   = readWaiters;
+		this.closed        = closed;
 	}
 
 	public function tryWrite(v:T):Bool {
-		if (closed) {
+		if (closed.get()) {
 			return false;
 		}
 
@@ -58,7 +60,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	@:coroutine public function waitForWrite():Bool {
-		if (closed) {
+		if (closed.get()) {
 			return false;
 		}
 
@@ -80,11 +82,11 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	public function close() {
-		if (closed) {
+		if (closed.get()) {
 			return;
 		}
 
-		closed = true;
+		closed.set(true);
 
 		while (writeWaiters.isEmpty() == false) {
 			switch writeWaiters.pop() {

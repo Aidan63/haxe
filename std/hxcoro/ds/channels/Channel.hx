@@ -39,7 +39,7 @@ abstract class Channel<T> {
 				return
 					new BoundedChannel(
 						new BoundedReader(buffer, size, writeWaiters, readWaiters, closed),
-						new BoundedWriter(buffer, size, writeWaiters, readWaiters));
+						new BoundedWriter(buffer, size, writeWaiters, readWaiters, closed));
 			case Unbounded:
 				throw new NotImplementedException();
 		}

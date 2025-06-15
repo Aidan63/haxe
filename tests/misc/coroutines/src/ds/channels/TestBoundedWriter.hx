@@ -6,6 +6,7 @@ import haxe.Exception;
 import haxe.exceptions.CancellationException;
 import haxe.exceptions.NotImplementedException;
 import hxcoro.ds.channels.bounded.BoundedWriter;
+import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
 import hxcoro.exceptions.ChannelClosedException;
 import haxe.coro.schedulers.VirtualTimeScheduler;
@@ -38,7 +39,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 
 		Assert.isTrue(writer.tryWrite(10));
 		Assert.same([ 10 ], buffer);
@@ -49,7 +50,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 
 		Assert.isFalse(writer.tryWrite(10));
 		Assert.same([ 0 ], buffer);
@@ -60,7 +61,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final expected      = [];
 
 		readWaiters.push(new TestContinuation(expected, _ -> '1'));
@@ -76,7 +77,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 2;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
 		final task          = CoroRun.with(scheduler).create(node -> {
@@ -97,7 +98,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 2;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
 		final task          = CoroRun.with(scheduler).create(node -> {
@@ -118,7 +119,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 2;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
 		final task          = CoroRun.with(scheduler).create(node -> {
@@ -139,7 +140,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 2;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
 		final task          = CoroRun.with(scheduler).create(node -> {
@@ -164,7 +165,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 2;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
 		final task          = CoroRun.with(scheduler).create(node -> {
@@ -190,7 +191,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final task          = CoroRun.with(scheduler).create(node -> {
 			writer.write(10);
@@ -209,7 +210,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final task          = CoroRun.with(scheduler).create(node -> {
 			writer.write(20);
@@ -228,7 +229,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final expected      = [];
 		final task          = CoroRun.with(scheduler).create(node -> {
@@ -251,7 +252,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final task          = CoroRun.with(scheduler).create(node -> {
 			writer.write(10);
@@ -277,7 +278,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final task          = CoroRun.with(scheduler).create(node -> {
 			writer.write(10);
@@ -294,12 +295,26 @@ class TestBoundedWriter extends utest.Test {
 		Assert.isFalse(writeWaiters.isEmpty());
 	}
 
+	function test_close_sets_out() {
+		final buffer        = [];
+		final maxBufferSize = 1;
+		final writeWaiters  = new PagedDeque();
+		final readWaiters   = new PagedDeque();
+		final closed        = new Out();
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, closed);
+
+		closed.set(false);
+		writer.close();
+
+		Assert.isTrue(closed.get());
+	}
+
 	function test_try_write_when_closed() {
 		final buffer        = [];
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 
 		writer.close();
 
@@ -312,7 +327,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
 		final task          = CoroRun.with(scheduler).create(node -> {
@@ -332,7 +347,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
 		final task          = CoroRun.with(scheduler).create(node -> {
@@ -352,7 +367,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
 		final task          = CoroRun.with(scheduler).create(node -> {
@@ -375,7 +390,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
 		final task          = CoroRun.with(scheduler).create(node -> {
