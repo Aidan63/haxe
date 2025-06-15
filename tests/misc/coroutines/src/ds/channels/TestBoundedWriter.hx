@@ -3,7 +3,6 @@ package ds.channels;
 import haxe.coro.context.Context;
 import haxe.coro.IContinuation;
 import haxe.Exception;
-import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
 import haxe.exceptions.NotImplementedException;
 import hxcoro.ds.channels.bounded.BoundedWriter;

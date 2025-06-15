@@ -1,16 +1,8 @@
 package hxcoro.ds.channels;
 
-import haxe.coro.ICancellableContinuation;
-import haxe.Exception;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.NotImplementedException;
-import haxe.exceptions.CancellationException;
-import haxe.coro.cancellation.CancellationToken;
-import haxe.coro.context.Context;
-import haxe.coro.IContinuation;
-import hxcoro.Coro.suspendCancellable;
 import hxcoro.ds.PagedDeque;
-import hxcoro.ds.Out;
 import hxcoro.ds.channels.bounded.BoundedReader;
 import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.ds.channels.bounded.BoundedChannel;

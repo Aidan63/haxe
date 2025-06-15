@@ -2,7 +2,6 @@ package hxcoro.ds.channels.bounded;
 
 import haxe.ds.Vector;
 import haxe.coro.IContinuation;
-import hxcoro.ds.Out;
 import hxcoro.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;

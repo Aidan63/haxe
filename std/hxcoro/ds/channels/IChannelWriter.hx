@@ -1,7 +1,5 @@
 package hxcoro.ds.channels;
 
-import hxcoro.ds.Out;
-
 interface IChannelWriter<T> {
 	function tryWrite(out:T):Bool;
 
