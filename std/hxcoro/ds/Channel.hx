@@ -16,7 +16,8 @@ private class SuspendedWrite<T> implements IContinuation<T> {
 
 	public var context (get, never) : Context;
 
-	var hostPage:Page<Any>;
+	final suspendedWrites:PagedDeque<Any>;
+	final hostPage:Page<Any>;
 
 	inline function get_context() {
 		return continuation.context;
@@ -26,6 +27,7 @@ private class SuspendedWrite<T> implements IContinuation<T> {
 		this.continuation = continuation;
 		this.value        = value;
 		// writeMutex.acquire();
+		this.suspendedWrites = suspendedWrites;
 		hostPage = suspendedWrites.push(this);
 		// writeMutex.release();
 		continuation.onCancellationRequested = onCancellation;
@@ -42,7 +44,7 @@ private class SuspendedWrite<T> implements IContinuation<T> {
 
 	function onCancellation(cause:CancellationException) {
 		// writeMutex.acquire();
-		hostPage.delete(this);
+		suspendedWrites.remove(hostPage, this);
 		// writeMutex.release();
 		continuation.failSync(cause);
 	}
@@ -53,7 +55,8 @@ class SuspendedRead<T> implements IContinuation<T> {
 
 	public var context (get, never) : Context;
 
-	var hostPage:Page<Any>;
+	final suspendedReads:PagedDeque<Any>;
+	final hostPage:Page<Any>;
 
 	inline function get_context() {
 		return continuation.context;
@@ -63,6 +66,7 @@ class SuspendedRead<T> implements IContinuation<T> {
 		this.continuation = continuation;
 
 		// readMutex.acquire();
+		this.suspendedReads = suspendedReads;
 		hostPage = suspendedReads.push(this);
 		// readMutex.release();
 		continuation.onCancellationRequested = onCancellation;
@@ -79,7 +83,7 @@ class SuspendedRead<T> implements IContinuation<T> {
 
 	function onCancellation(cause:CancellationException) {
 		// readMutex.acquire();
-		hostPage.delete(this);
+		suspendedReads.remove(hostPage, this);
 		// readMutex.release();
 		this.failSync(cause);
 	}

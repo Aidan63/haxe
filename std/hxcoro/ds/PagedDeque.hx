@@ -13,8 +13,8 @@ class Page<T> {
 		numDeleted = 0;
 	}
 
-	public function delete(element:T) {
-		for (i in 0...data.length - numDeleted) {
+	function removeFrom(element:T, startIndex:Int) {
+		for (i in startIndex...data.length - numDeleted) {
 			if (data[i] == element) {
 				blitAt(i);
 				return true;
@@ -149,6 +149,14 @@ class PagedDeque<T> {
 			return getPageDataAt(currentPage, currentPage.freeSpace() - 1);
 		} else {
 			return getPageDataAt(currentPage, currentIndex++);
+		}
+	}
+
+	public function remove(page:Page<T>, element:T) {
+		return if (page == currentPage) {
+			@:privateAccess page.removeFrom(element, currentIndex);
+		} else {
+			@:privateAccess page.removeFrom(element, 0);
 		}
 	}
 
