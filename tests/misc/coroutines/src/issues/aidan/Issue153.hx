@@ -1,5 +1,6 @@
 package issues.aidan;
 
+import haxe.ds.ArraySort;
 import hxcoro.ds.PagedDeque;
 
 class Issue153 extends utest.Test {
@@ -117,7 +118,7 @@ class Issue153 extends utest.Test {
 		final page2 = pages[100];
 		final d = data.deque;
 		final values = [for (i in 0...200) i];
-		values.sort((_, _) -> Math.random() > 0.5 ? 1 : -1);
+		ArraySort.sort(values, (_, _) -> Math.random() > 0.5 ? 1 : -1);
 		Assert.isFalse(d.isEmpty());
 		for (i in values) {
 			switch [page1.delete(i), page2.delete(i)] {
