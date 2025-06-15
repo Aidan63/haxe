@@ -229,6 +229,36 @@ class TestBoundedChannel extends utest.Test {
 		Assert.same([None, Some(1), None, Some(2), Some(3), None], task.get());
 	}
 
+	function test_single_writer_multiple_reader() {
+		final channel  = Channel.create(Bounded(3));
+		final expected = [ for (i in 0...100) i ];
+		final actual   = [];
+
+		CoroRun.runScoped(node -> {
+			node.async(_ -> {
+				for (v in expected) {
+					channel.writer.write(v);
+				}
+
+				channel.writer.close();
+			});
+
+			for (_ in 0...5) {
+				node.async(_ -> {
+					final out = new Out();
+
+					while (channel.reader.waitForRead()) {
+						if (channel.reader.tryRead(out)) {
+							actual.push(out.get());
+						}
+					}
+				});
+			}
+		});
+
+		Assert.same(expected, actual);
+	}
+
 	// var todoHoisting = 0;
 
 	// function test_iterator() {
