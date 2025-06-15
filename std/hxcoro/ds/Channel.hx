@@ -17,7 +17,6 @@ private class SuspendedWrite<T> implements IContinuation<T> {
 	public var context (get, never) : Context;
 
 	var hostPage:Page<Any>;
-	var hostIndex:Int;
 
 	inline function get_context() {
 		return continuation.context;
@@ -28,7 +27,6 @@ private class SuspendedWrite<T> implements IContinuation<T> {
 		this.value        = value;
 		// writeMutex.acquire();
 		hostPage = suspendedWrites.push(this);
-		hostIndex = suspendedWrites.lastIndex - 1;
 		// writeMutex.release();
 		continuation.onCancellationRequested = onCancellation;
 	}
@@ -44,9 +42,7 @@ private class SuspendedWrite<T> implements IContinuation<T> {
 
 	function onCancellation(cause:CancellationException) {
 		// writeMutex.acquire();
-		if (hostPage.data[hostIndex] == this) {
-			hostPage.data[hostIndex] = null;
-		}
+		hostPage.delete(this);
 		// writeMutex.release();
 		continuation.failSync(cause);
 	}
@@ -58,7 +54,6 @@ class SuspendedRead<T> implements IContinuation<T> {
 	public var context (get, never) : Context;
 
 	var hostPage:Page<Any>;
-	var hostIndex:Int;
 
 	inline function get_context() {
 		return continuation.context;
@@ -69,7 +64,6 @@ class SuspendedRead<T> implements IContinuation<T> {
 
 		// readMutex.acquire();
 		hostPage = suspendedReads.push(this);
-		hostIndex = suspendedReads.lastIndex - 1;
 		// readMutex.release();
 		continuation.onCancellationRequested = onCancellation;
 	}
@@ -85,9 +79,7 @@ class SuspendedRead<T> implements IContinuation<T> {
 
 	function onCancellation(cause:CancellationException) {
 		// readMutex.acquire();
-		if (hostPage.data[hostIndex] == this) {
-			hostPage.data[hostIndex] = null;
-		}
+		hostPage.delete(this);
 		// readMutex.release();
 		this.failSync(cause);
 	}
@@ -127,12 +119,8 @@ class Channel<T> {
 				break;
 			} else {
 				final suspendedRead = suspendedReads.pop();
-				if (suspendedRead == null) {
-					continue;
-				} else {
-					suspendedRead.succeedAsync(v);
-					break;
-				}
+				suspendedRead.succeedAsync(v);
+				break;
 			}
 		}
 	}
@@ -142,11 +130,8 @@ class Channel<T> {
 		execution is suspended. It can be resumed by a later call to `write`.
 	**/
 	@:coroutine public function read():T {
-		while ((bufferSize == 0 || writeQueue.length < bufferSize) && !suspendedWrites.isEmpty()) {
+		if ((bufferSize == 0 || writeQueue.length < bufferSize) && !suspendedWrites.isEmpty()) {
 			final resuming = suspendedWrites.pop();
-			if (resuming == null) {
-				continue;
-			}
 			resuming.callSync();
 			if (writeQueue.length == 0) {
 				return resuming.value;
