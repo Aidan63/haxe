@@ -67,7 +67,7 @@ final class BoundedReader<T> implements IChannelReader<T> {
 					case null:
 						continue;
 					case cont:
-						cont.succeedSync(true);
+						cont.succeedAsync(true);
 				}
 			};
 

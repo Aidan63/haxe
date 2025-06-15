@@ -19,7 +19,7 @@ private class TestContinuation<T> implements IContinuation<Bool> {
 	public var context (get, never) : Context;
 
 	function get_context():Context {
-		throw new NotImplementedException();
+		return Context.create(new ImmediateScheduler());
 	}
 
 	public function new(expected : Array<T>, mapper : Bool->T) {

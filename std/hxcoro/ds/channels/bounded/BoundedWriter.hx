@@ -37,7 +37,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 					case null:
 						continue;
 					case cont:		
-						cont.succeedSync(true);
+						cont.succeedAsync(true);
 				}
 			};
 
@@ -91,7 +91,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				case null:
 					continue;
 				case cont:
-					cont.succeedSync(false);
+					cont.succeedAsync(false);
 			}
 		};
 
@@ -100,7 +100,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				case null:
 					continue;
 				case cont:		
-					cont.succeedSync(false);
+					cont.succeedAsync(false);
 			}
 		};
 	}

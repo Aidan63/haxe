@@ -1,16 +1,16 @@
 package ds.channels;
 
-import haxe.coro.context.Context;
-import haxe.coro.IContinuation;
 import haxe.Exception;
+import haxe.coro.IContinuation;
+import haxe.coro.context.Context;
+import haxe.coro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
 import haxe.exceptions.NotImplementedException;
-import hxcoro.ds.channels.bounded.BoundedReader;
-import hxcoro.ds.PagedDeque;
-import hxcoro.ds.Out;
-import haxe.coro.schedulers.VirtualTimeScheduler;
 import hxcoro.exceptions.ChannelClosedException;
+import hxcoro.ds.Out;
+import hxcoro.ds.PagedDeque;
+import hxcoro.ds.channels.bounded.BoundedReader;
 
 using hxcoro.util.Convenience;
 
@@ -21,7 +21,7 @@ private class TestContinuation<T> implements IContinuation<Bool> {
 	public var context (get, never) : Context;
 
 	function get_context():Context {
-		throw new NotImplementedException();
+		return Context.create(new ImmediateScheduler());
 	}
 
 	public function new(actual : Array<T>, value : T) {
