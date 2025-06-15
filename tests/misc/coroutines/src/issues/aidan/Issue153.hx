@@ -128,7 +128,54 @@ class Issue153 extends utest.Test {
 					Assert.fail('Couldn\'t delete $i from any page');
 			}
 		}
-		// Assert.isTrue(d.isEmpty()); // this is still broken
-		Assert.pass();
+		Assert.isTrue(d.isEmpty());
+	}
+
+	public function testDeleteDelete() {
+		// delete + delete
+		final d = new PagedDeque(1);
+		final page1 = d.push(1);
+		final page2 = d.push(2);
+		Assert.isTrue(page1.delete(1));
+		Assert.isTrue(page2.delete(2));
+		Assert.isTrue(d.isEmpty());
+		// again
+		final page1 = d.push(1);
+		final page2 = d.push(2);
+		Assert.isTrue(page1.delete(1));
+		Assert.isTrue(page2.delete(2));
+		Assert.isTrue(d.isEmpty());
+	}
+
+	public function testDeletePop() {
+		// delete + pop
+		final d = new PagedDeque(1);
+		final page1 = d.push(1);
+		d.push(2);
+		Assert.isTrue(page1.delete(1));
+		Assert.equals(2, d.pop());
+		Assert.isTrue(d.isEmpty());
+		// again (TODO: broken)
+		// final page1 = d.push(1);
+		// d.push(2);
+		// Assert.isTrue(page1.delete(1));
+		// Assert.equals(2, d.pop());
+		// Assert.isTrue(d.isEmpty());
+	}
+
+	public function testPopDelete() {
+		// delete + pop
+		final d = new PagedDeque(1);
+		d.push(1);
+		final page1 = d.push(2);
+		Assert.equals(1, d.pop());
+		Assert.isTrue(page1.delete(2));
+		Assert.isTrue(d.isEmpty());
+		// again
+		d.push(1);
+		final page1 = d.push(2);
+		Assert.equals(1, d.pop());
+		Assert.isTrue(page1.delete(2));
+		Assert.isTrue(d.isEmpty());
 	}
 }

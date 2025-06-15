@@ -25,6 +25,7 @@ class Page<T> {
 
 	public function reset() {
 		numDeleted = 0;
+		next = null;
 	}
 
 	public inline function freeSpace() {
@@ -141,9 +142,7 @@ class PagedDeque<T> {
 			return getPageDataAt(currentPage, 0);
 		} else if (currentIndex == currentPage.freeSpace() - 1 && currentPage.next == null) {
 			// deque is empty, reset to reuse current page
-			currentIndex = 0;
-			lastIndex = 0;
-			currentPage.reset();
+			resetCurrent();
 			return getPageDataAt(currentPage, currentPage.freeSpace() - 1);
 		} else {
 			return getPageDataAt(currentPage, currentIndex++);
@@ -151,6 +150,23 @@ class PagedDeque<T> {
 	}
 
 	public function isEmpty() {
+		while (currentIndex == currentPage.freeSpace()) {
+			if (currentPage.next == null) {
+				resetCurrent();
+				return true;
+			} else if (currentPage == lastPage) {
+				return true;
+			}
+			currentPage = currentPage.next;
+			currentIndex = 0;
+		}
+
 		return currentPage == lastPage && currentIndex == lastIndex - currentPage.numDeleted;
+	}
+
+	function resetCurrent() {
+		currentIndex = 0;
+		lastIndex = 0;
+		currentPage.reset();
 	}
 }
