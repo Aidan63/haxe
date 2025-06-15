@@ -16,7 +16,7 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 
 	final closed : Out<Bool>;
 
-	public final context (get, never) : Context;
+	public var context (get, never) : Context;
 
 	function get_context() {
 		return cont.context;
