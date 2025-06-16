@@ -183,7 +183,7 @@ class TestBoundedWriter extends utest.Test {
 		Assert.isFalse(task.isActive());
 		Assert.isOfType(task.getError(), CancellationException);
 		Assert.same([], actual);
-		Assert.isFalse(writeWaiters.isEmpty());
+		Assert.isTrue(writeWaiters.isEmpty());
 	}
 
 	function test_write_has_space() {
@@ -292,7 +292,7 @@ class TestBoundedWriter extends utest.Test {
 		Assert.isFalse(task.isActive());
 		Assert.isOfType(task.getError(), CancellationException);
 		Assert.same([ 0 ], buffer);
-		Assert.isFalse(writeWaiters.isEmpty());
+		Assert.isTrue(writeWaiters.isEmpty());
 	}
 
 	function test_close_sets_out() {
@@ -358,7 +358,7 @@ class TestBoundedWriter extends utest.Test {
 
 		task.start();
 		scheduler.advanceBy(1);
-		
+
 		Assert.isFalse(task.isActive());
 	}
 

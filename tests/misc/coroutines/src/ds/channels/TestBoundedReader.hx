@@ -172,7 +172,7 @@ class TestBoundedReader extends utest.Test {
 		Assert.isFalse(task.isActive());
 		Assert.isOfType(task.getError(), CancellationException);
 		Assert.same([], actual);
-		Assert.isFalse(readWaiters.isEmpty());
+		Assert.isTrue(readWaiters.isEmpty());
 	}
 
 	function test_read_has_data() {
@@ -297,7 +297,7 @@ class TestBoundedReader extends utest.Test {
 		Assert.isFalse(task.isActive());
 		Assert.isOfType(task.getError(), CancellationException);
 		Assert.same([], buffer);
-		Assert.isFalse(readWaiters.isEmpty());
+		Assert.isTrue(readWaiters.isEmpty());
 	}
 
 	function test_wait_for_read_when_closed() {

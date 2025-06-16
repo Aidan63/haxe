@@ -38,7 +38,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				switch (readWaiters.pop()) {
 					case null:
 						continue;
-					case cont:		
+					case cont:
 						cont.succeedAsync(true);
 				}
 			};
@@ -69,13 +69,9 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 		} else {
 			return suspendCancellable(cont -> {
 				final hostPage  = writeWaiters.push(cont);
-				final hostIndex = writeWaiters.lastIndex - 1;
 
 				cont.onCancellationRequested = _ -> {
-					final data:Vector<Any> = hostPage.data;
-					if (data[hostIndex] == cont) {
-						data[hostIndex] = null;
-					}
+					writeWaiters.remove(hostPage, cont);
 				}
 			});
 		}
@@ -101,7 +97,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 			switch (readWaiters.pop()) {
 				case null:
 					continue;
-				case cont:		
+				case cont:
 					cont.succeedAsync(false);
 			}
 		};
