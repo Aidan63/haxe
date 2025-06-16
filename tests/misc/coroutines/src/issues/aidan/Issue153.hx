@@ -204,4 +204,22 @@ class Issue153 extends utest.Test {
 		Assert.equals(5, d.pop());
 		Assert.isTrue(d.isEmpty());
 	}
+
+	public function testDeleteMiddlePage() {
+		final d = new PagedDeque(2);
+		final pages = [for (i in 0...6) {
+			d.push(i);
+		}];
+		final middlePage = pages[2];
+		d.remove(middlePage, 2);
+		d.remove(middlePage, 3);
+		Assert.equals(0, d.pop());
+		Assert.isFalse(d.isEmpty());
+		Assert.equals(1, d.pop());
+		Assert.isFalse(d.isEmpty());
+		Assert.equals(4, d.pop());
+		Assert.isFalse(d.isEmpty());
+		Assert.equals(5, d.pop());
+		Assert.isTrue(d.isEmpty());
+	}
 }
