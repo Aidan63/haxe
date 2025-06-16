@@ -1,9 +1,9 @@
-package issues.aidan;
+package ds;
 
 import haxe.ds.ArraySort;
 import hxcoro.ds.PagedDeque;
 
-class Issue153 extends utest.Test {
+class TestPagedDeque extends utest.Test {
 	public function test() {
 		function expect<T>(expected:Array<T>, d:Page<Any>, ?pos:haxe.PosInfos) {
 			final actual = [for (x in d.data) x];
@@ -207,9 +207,11 @@ class Issue153 extends utest.Test {
 
 	public function testDeleteMiddlePage() {
 		final d = new PagedDeque(2);
-		final pages = [for (i in 0...6) {
-			d.push(i);
-		}];
+		final pages = [
+			for (i in 0...6) {
+				d.push(i);
+			}
+		];
 		final middlePage = pages[2];
 		d.remove(middlePage, 2);
 		d.remove(middlePage, 3);
