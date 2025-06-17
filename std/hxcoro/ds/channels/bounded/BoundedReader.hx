@@ -62,14 +62,10 @@ final class BoundedReader<T> implements IChannelReader<T> {
 		return if (buffer.length > 0) {
 			out.set(buffer.shift());
 
-			while (writeWaiters.isEmpty() == false) {
-				switch writeWaiters.pop() {
-					case null:
-						continue;
-					case cont:
-						cont.succeedAsync(true);
-				}
-			};
+			final cont = new Out();
+			while (writeWaiters.tryPop(cont)) {
+				cont.get().succeedAsync(true);
+			}
 
 			true;
 		} else {

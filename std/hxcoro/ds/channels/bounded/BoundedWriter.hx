@@ -34,14 +34,10 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 		return if (buffer.length < maxBufferSize) {
 			buffer.push(v);
 
-			while (readWaiters.isEmpty() == false) {
-				switch (readWaiters.pop()) {
-					case null:
-						continue;
-					case cont:
-						cont.succeedAsync(true);
-				}
-			};
+			final cont = new Out();
+			while (readWaiters.tryPop(cont)) {
+				cont.get().succeedAsync(true);
+			}
 
 			true;
 		} else {
