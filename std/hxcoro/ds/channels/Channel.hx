@@ -13,6 +13,19 @@ enum ChannelKind {
 	Unbounded;
 }
 
+enum abstract FullBehaviour(Int) {
+	var Wait;
+	var DropNewest;
+	var DropOldest;
+	var DropWrite;
+}
+
+typedef ChannelOptions = {
+	var kind : ChannelKind;
+
+	var ?writeBehaviour : FullBehaviour;
+}
+
 abstract class Channel<T> {
 
 	public final reader : IChannelReader<T>;
@@ -24,8 +37,8 @@ abstract class Channel<T> {
 		this.writer = writer;
 	}
 
-	public static function create<T>(kind : ChannelKind):Channel<T> { 
-		switch kind {
+	public static function create<T>(options : ChannelOptions):Channel<T> { 
+		switch options.kind {
 			case Bounded(size):
 				if (size < 1) {
 					throw new ArgumentException("size");
@@ -39,7 +52,7 @@ abstract class Channel<T> {
 				return
 					new BoundedChannel(
 						new BoundedReader(buffer, size, writeWaiters, readWaiters, closed),
-						new BoundedWriter(buffer, size, writeWaiters, readWaiters, closed));
+						new BoundedWriter(buffer, size, writeWaiters, readWaiters, closed, options.writeBehaviour ?? Wait));
 			case Unbounded:
 				throw new NotImplementedException();
 		}

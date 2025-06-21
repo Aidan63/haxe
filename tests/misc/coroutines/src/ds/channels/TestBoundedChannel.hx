@@ -9,16 +9,16 @@ import hxcoro.exceptions.TimeoutException;
 
 class TestBoundedChannel extends utest.Test {
 	public function test_creating() {
-		Assert.notNull(Channel.create(Bounded(3)));
+		Assert.notNull(Channel.create({ kind : Bounded(3) }));
 	}
 
 	public function test_invalid_size() {
-		Assert.raises(() -> Channel.create(Bounded(0)), ArgumentException);
+		Assert.raises(() -> Channel.create({ kind : Bounded(0) }), ArgumentException);
 	}
 
 	public function test_general() {
 		final size = 100;
-		final channel = Channel.create(Bounded(3));
+		final channel = Channel.create({ kind : Bounded(3) });
 		final scheduler = new VirtualTimeScheduler();
 		final task = CoroRun.with(scheduler).create(node -> {
 			final output = [];
@@ -52,7 +52,7 @@ class TestBoundedChannel extends utest.Test {
 
 	public function test_fifo_buffered_read_writes() {
 		final actual    = [];
-		final channel   = Channel.create(Bounded(2));
+		final channel   = Channel.create({ kind : Bounded(2) });
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
 			channel.writer.write('Hello');
@@ -72,7 +72,7 @@ class TestBoundedChannel extends utest.Test {
 
 	public function test_fifo_suspended_read_writes() {
 		final actual    = [];
-		final channel   = Channel.create(Bounded(1));
+		final channel   = Channel.create({ kind : Bounded(1) });
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
 			channel.writer.write('dummy');
@@ -103,7 +103,7 @@ class TestBoundedChannel extends utest.Test {
 		function test_write_cancellation() {
 		final actual     = [];
 		final exceptions = [];
-		final channel    = Channel.create(Bounded(1));
+		final channel    = Channel.create({ kind : Bounded(1) });
 		final scheduler  = new VirtualTimeScheduler();
 		final task       = CoroRun.with(scheduler).create(node -> {
 			channel.writer.write('dummy');
@@ -148,7 +148,7 @@ class TestBoundedChannel extends utest.Test {
 	function test_read_cancellation() {
 		final actual     = [];
 		final exceptions = [];
-		final channel    = Channel.create(Bounded(1));
+		final channel    = Channel.create({ kind : Bounded(1) });
 		final scheduler  = new VirtualTimeScheduler();
 		final task       = CoroRun.with(scheduler).create(node -> {
 			node.async(_ -> {
@@ -187,7 +187,7 @@ class TestBoundedChannel extends utest.Test {
 	}
 
 		function test_try_read() {
-		final channel = Channel.create(Bounded(1));
+		final channel = Channel.create({ kind : Bounded(1) });
 		final scheduler = new VirtualTimeScheduler();
 		final task = CoroRun.with(scheduler).create(node -> {
 			final output = [];
@@ -230,7 +230,7 @@ class TestBoundedChannel extends utest.Test {
 	}
 
 	function test_single_writer_multiple_reader() {
-		final channel  = Channel.create(Bounded(3));
+		final channel  = Channel.create({ kind : Bounded(3) });
 		final expected = [ for (i in 0...100) i ];
 		final actual   = [];
 

@@ -1,14 +1,14 @@
 package hxcoro.ds.channels.bounded;
 
-import haxe.ds.Vector;
 import haxe.coro.IContinuation;
-import hxcoro.exceptions.ChannelClosedException;
 import hxcoro.ds.Out;
+import hxcoro.ds.channels.Channel;
+import hxcoro.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
 
 final class BoundedWriter<T> implements IChannelWriter<T> {
-	var closed : Out<Bool>;
+	final closed : Out<Bool>;
 
 	final buffer : Array<T>;
 
@@ -18,12 +18,15 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 
 	final readWaiters : PagedDeque<IContinuation<Bool>>;
 
-	public function new(buffer, maxBufferSize, writeWaiters, readWaiters, closed) {
+	final behaviour : FullBehaviour;
+
+	public function new(buffer, maxBufferSize, writeWaiters, readWaiters, closed, behaviour) {
 		this.buffer        = buffer;
 		this.maxBufferSize = maxBufferSize;
 		this.writeWaiters  = writeWaiters;
 		this.readWaiters   = readWaiters;
 		this.closed        = closed;
+		this.behaviour     = behaviour;
 	}
 
 	public function tryWrite(v:T):Bool {
@@ -46,10 +49,27 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	@:coroutine public function write(v:T) {
-		while (waitForWrite()) {
-			if (tryWrite(v)) {
+		if (tryWrite(v)) {
+			return;
+		}
+
+		switch behaviour {
+			case Wait:
+				while (waitForWrite()) {
+					if (tryWrite(v)) {
+						return;
+					}
+				}
+			case DropNewest:
+				while (tryWrite(v) == false) {
+					buffer.pop();
+				}
+			case DropOldest:
+				while (tryWrite(v) == false) {
+					buffer.shift();
+				}
+			case DropWrite:
 				return;
-			}
 		}
 
 		throw new ChannelClosedException();

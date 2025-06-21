@@ -214,7 +214,7 @@ class TestMutex extends utest.Test {
 			for (numTasks in [1, 2, 10, 100]) {
 				var scheduler = new VirtualTimeScheduler();
 				var semaphore = new CoroSemaphore(semaphoreSize);
-				var semaphoreHolders = Channel.create(Bounded(1));
+				var semaphoreHolders = Channel.create({ kind : Bounded(1) });
 				var hangingMutex = new CoroMutex();
 				final task = CoroRun.with(scheduler).create(node -> {
 					hangingMutex.acquire();
