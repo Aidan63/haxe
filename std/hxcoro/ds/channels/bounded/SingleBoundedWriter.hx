@@ -19,7 +19,7 @@ final class SingleBoundedWriter<T> implements IChannelWriter<T> {
 
 	final readWaiter : AtomicObject<IContinuation<Bool>>;
 
-	final behaviour : FullBehaviour;
+	final behaviour : FullBehaviour<T>;
 
 	final writeOut : Out<T>;
 
@@ -59,7 +59,9 @@ final class SingleBoundedWriter<T> implements IChannelWriter<T> {
 						return;
 					}
 				}
-			case DropWrite:
+			case DropWrite(f):
+				f(v);
+
 				return;
 			case _:
 				throw new Exception("Unsupported behaviour mode");

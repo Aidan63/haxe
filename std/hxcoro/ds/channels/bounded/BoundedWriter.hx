@@ -18,7 +18,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 
 	final readWaiters : PagedDeque<IContinuation<Bool>>;
 
-	final behaviour : FullBehaviour;
+	final behaviour : FullBehaviour<T>;
 
 	public function new(buffer, maxBufferSize, writeWaiters, readWaiters, closed, behaviour) {
 		this.buffer        = buffer;
@@ -60,15 +60,21 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 						return;
 					}
 				}
-			case DropNewest:
+			case DropNewest(f):
 				while (tryWrite(v) == false) {
-					buffer.pop();
+					f(buffer.pop());
 				}
-			case DropOldest:
+
+				return;
+			case DropOldest(f):
 				while (tryWrite(v) == false) {
-					buffer.shift();
+					f(buffer.shift());
 				}
-			case DropWrite:
+				
+				return;
+			case DropWrite(f):
+				f(v);
+
 				return;
 		}
 

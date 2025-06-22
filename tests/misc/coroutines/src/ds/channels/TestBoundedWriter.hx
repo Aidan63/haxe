@@ -226,10 +226,11 @@ class TestBoundedWriter extends utest.Test {
 
 	function test_write_drop_write_full_buffer() {
 		final buffer        = [ 10 ];
+		final dropped       = [];
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out(), DropWrite);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out(), DropWrite(v -> dropped.push(v)));
 		final scheduler     = new VirtualTimeScheduler();
 		final task          = CoroRun.with(scheduler).create(node -> {
 			writer.write(20);
@@ -240,15 +241,17 @@ class TestBoundedWriter extends utest.Test {
 
 		Assert.isFalse(task.isActive());
 		Assert.same([ 10 ], buffer);
+		Assert.same([ 20 ], dropped);
 		Assert.isTrue(writeWaiters.isEmpty());
 	}
 
 	function test_write_drop_newest_full_buffer() {
 		final buffer        = [ 1, 2, 3 ];
+		final dropped       = [];
 		final maxBufferSize = 3;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out(), DropNewest);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out(), DropNewest(v -> dropped.push(v)));
 		final scheduler     = new VirtualTimeScheduler();
 		final task          = CoroRun.with(scheduler).create(node -> {
 			writer.write(20);
@@ -259,15 +262,17 @@ class TestBoundedWriter extends utest.Test {
 
 		Assert.isFalse(task.isActive());
 		Assert.same([ 1, 2, 20 ], buffer);
+		Assert.same([ 3 ], dropped);
 		Assert.isTrue(writeWaiters.isEmpty());
 	}
 
 	function test_write_drop_oldest_full_buffer() {
 		final buffer        = [ 1, 2, 3 ];
+		final dropped       = [];
 		final maxBufferSize = 3;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out(), DropOldest);
+		final writer        = new BoundedWriter(buffer, maxBufferSize, writeWaiters, readWaiters, new Out(), DropOldest(v -> dropped.push(v)));
 		final scheduler     = new VirtualTimeScheduler();
 		final task          = CoroRun.with(scheduler).create(node -> {
 			writer.write(20);
@@ -278,6 +283,7 @@ class TestBoundedWriter extends utest.Test {
 
 		Assert.isFalse(task.isActive());
 		Assert.same([ 2, 3, 20 ], buffer);
+		Assert.same([ 1 ], dropped);
 		Assert.isTrue(writeWaiters.isEmpty());
 	}
 

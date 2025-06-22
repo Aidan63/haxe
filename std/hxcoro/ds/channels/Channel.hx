@@ -12,22 +12,24 @@ import hxcoro.ds.channels.bounded.SingleBoundedWriter;
 import hxcoro.ds.channels.bounded.BoundedChannel;
 import hxcoro.concurrent.AtomicObject;
 
+typedef DropCallback<T> = (dropped : T)->Void;
+
 enum ChannelKind {
 	Bounded(size : Int);
 	Unbounded;
 }
 
-enum abstract FullBehaviour(Int) {
-	var Wait;
-	var DropNewest;
-	var DropOldest;
-	var DropWrite;
+enum FullBehaviour<T> {
+	Wait;
+	DropNewest(f : DropCallback<T>);
+	DropOldest(f : DropCallback<T>);
+	DropWrite(f : DropCallback<T>);
 }
 
-typedef ChannelOptions = {
+typedef ChannelOptions<T> = {
 	var kind : ChannelKind;
 
-	var ?writeBehaviour : FullBehaviour;
+	var ?writeBehaviour : FullBehaviour<T>;
 
 	var ?singleReader : Bool;
 
@@ -45,19 +47,19 @@ abstract class Channel<T> {
 		this.writer = writer;
 	}
 
-	public static function create<T>(options : ChannelOptions):Channel<T> { 
+	public static function create<T>(options : ChannelOptions<T>):Channel<T> { 
 		switch options.kind {
 			case Bounded(size):
 				if (size < 1) {
 					throw new ArgumentException("size");
 				}
-				
+
 				final closed         = new Out();
 				final singleReader   = options.singleReader ?? false;
 				final singleWriter   = options.singleWriter ?? false;
 				final writeBehaviour = options.writeBehaviour ?? Wait;
 
-				if (singleReader && singleWriter && writeBehaviour != DropNewest && writeBehaviour != DropOldest) {
+				if (singleReader && singleWriter && writeBehaviour.match(DropNewest(_)) == false && writeBehaviour.match(DropOldest(_)) == false) {
 					final buffer      = new ConcurrentCircularBuffer(size);
 					final readWaiter  = new AtomicObject<IContinuation<Bool>>(null);
 					final writeWaiter = new AtomicObject<IContinuation<Bool>>(null);
