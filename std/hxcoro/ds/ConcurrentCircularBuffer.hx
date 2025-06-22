@@ -18,8 +18,6 @@ class ConcurrentCircularBuffer<T> {
 	final tail : AtomicInt;
 
 	public function new(capacity : Int) {
-		trace(capacity);
-
 		if (capacity < 1) {
 			throw new ArgumentException("capacity", "Capacity must be greater than zero");
 		}
@@ -66,6 +64,16 @@ class ConcurrentCircularBuffer<T> {
 		head.store(increment(currentHead));
 
 		return true;
+	}
+
+	public function wasEmpty() {
+		return head.load() == tail.load();
+	}
+
+	public function wasFull() {
+		final nextTail = increment(tail.load());
+
+		return nextTail == head.load();
 	}
 
 	function increment(v : Int) {
