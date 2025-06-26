@@ -28,7 +28,7 @@ final class ThreadPoolScheduler extends Scheduler {
 
 	public function schedule(ms:Int64, func:()->Void):ISchedulerHandle {
 		if (ms < 0) {
-			throw new ArgumentException('ms');
+			throw new ArgumentException("Time must be greater or equal to zero");
 		}
 
 		if (0 == ms) {
