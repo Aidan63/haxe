@@ -1,9 +1,9 @@
 package haxe.coro.schedulers;
 
+#if sys
 import sys.thread.Thread;
 import sys.thread.IThreadPool;
 import haxe.Int64;
-import haxe.Timer;
 import haxe.exceptions.ArgumentException;
 
 private class NoOpHandle implements ISchedulerHandle {
@@ -54,3 +54,4 @@ final class ThreadPoolScheduler extends Scheduler {
 		}
 	}
 }
+#end
