@@ -45,7 +45,7 @@ final class ThreadPoolScheduler extends Scheduler {
 	}
 
 	public function now() {
-		return Timer.milliseconds();
+		return eventLoop.now();
 	}
 
 	function keepAlive() {
