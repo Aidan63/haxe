@@ -1,8 +1,10 @@
 package hxcoro.ds.channels.unbounded;
 
+import haxe.coro.IContinuation;
+import hxcoro.Coro;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
-import haxe.coro.IContinuation;
+import hxcoro.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
 
@@ -35,11 +37,9 @@ final class UnboundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	@:coroutine public function waitForWrite():Bool {
-		if (closed.get()) {
-			return false;
-		}
-
-		return true;
+		return Coro.suspendCancellable(cont -> {
+			cont.succeedAsync(closed.get() == false);
+		});
 	}
 
 	@:coroutine public function write(v:T) {
