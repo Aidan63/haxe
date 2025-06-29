@@ -48,6 +48,8 @@ final class UnboundedWriter<T> implements IChannelWriter<T> {
 				return;
 			}
 		}
+
+		throw new ChannelClosedException();
 	}
 
 	public function close() {
