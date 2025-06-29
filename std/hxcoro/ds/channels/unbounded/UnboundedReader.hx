@@ -1,8 +1,6 @@
 package hxcoro.ds.channels.unbounded;
 
-import hxcoro.ds.Out;
 import haxe.Exception;
-import haxe.ds.Vector;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 import hxcoro.ds.Out;

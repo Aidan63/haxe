@@ -2,7 +2,6 @@ package hxcoro.ds.channels;
 
 import haxe.coro.IContinuation;
 import haxe.exceptions.ArgumentException;
-import haxe.exceptions.NotImplementedException;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
 import hxcoro.ds.channels.bounded.BoundedReader;
