@@ -37,9 +37,13 @@ final class UnboundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	@:coroutine public function waitForWrite():Bool {
-		return Coro.suspendCancellable(cont -> {
-			cont.succeedAsync(closed.get() == false);
-		});
+		checkCancellation();
+
+		if (closed.get()) {
+			return false;
+		}
+
+		return true;
 	}
 
 	@:coroutine public function write(v:T) {
@@ -63,5 +67,11 @@ final class UnboundedWriter<T> implements IChannelWriter<T> {
 		while (readWaiters.tryPop(cont)) {
 			cont.get().succeedAsync(false);
 		}
+	}
+
+	@:coroutine function checkCancellation() {
+		return Coro.suspendCancellable(cont -> {
+			cont.succeedAsync(null);
+		});
 	}
 }
