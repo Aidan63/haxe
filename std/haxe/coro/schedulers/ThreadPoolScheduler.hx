@@ -1,6 +1,6 @@
 package haxe.coro.schedulers;
 
-#if sys
+#if target.threaded
 import sys.thread.Thread;
 import sys.thread.IThreadPool;
 import haxe.Int64;
