@@ -18,6 +18,7 @@
  *)
 open Ast
 open Type
+open Error
 open Globals
 open Lookup
 open Define
@@ -39,6 +40,8 @@ let const_type basic const default =
 
 type stats = {
 	s_files_parsed : int ref;
+	s_modules_typed : int ref;
+	s_modules_restored : int ref;
 	s_classes_built : int ref;
 	s_methods_typed : int ref;
 	s_macros_called : int ref;
@@ -476,6 +479,8 @@ let short_platform_name = function
 let stats =
 	{
 		s_files_parsed = ref 0;
+		s_modules_typed = ref 0;
+		s_modules_restored = ref 0;
 		s_classes_built = ref 0;
 		s_methods_typed = ref 0;
 		s_macros_called = ref 0;
@@ -773,7 +778,7 @@ let create timer_ctx compilation_step cs version args display_mode =
 		info = (fun ?depth ?from_macro _ _ -> die "" __LOC__);
 		warning = (fun ?depth ?from_macro _ _ _ -> die "" __LOC__);
 		warning_options = [List.map (fun w -> {wo_warning = w;wo_mode = WMDisable}) WarningList.disabled_warnings];
-		error = (fun ?depth _ _ -> die "" __LOC__);
+		error = (fun _ _ -> die "" __LOC__);
 		error_ext = (fun _ -> die "" __LOC__);
 		get_messages = (fun() -> []);
 		filter_messages = (fun _ -> ());
@@ -1106,8 +1111,8 @@ let display_error_ext com err =
 	end else
 		com.error_ext err
 
-let display_error com ?(depth = 0) msg p =
-	display_error_ext com (Error.make_error ~depth (Custom msg) p)
+let display_error com ?(sub:macro_error list = []) msg pos =
+	display_error_ext com (convert_error {msg; pos; sub})
 
 let adapt_defines_to_macro_context defines =
 	let to_remove = "java" :: List.map Globals.platform_name Globals.platforms in

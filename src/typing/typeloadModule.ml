@@ -77,7 +77,7 @@ module ModuleLevel = struct
 			DeprecationCheck.check_is com ctx_m.m.curmod meta [] name meta p;
 			let error prev_pos =
 				raise_typing_error_ext (make_error (Custom ("Name " ^ name ^ " is already defined in this module")) ~sub:[
-					make_error ~depth:1 (Custom (compl_msg "Previous declaration here")) prev_pos
+					make_error (Custom (compl_msg "Previous declaration here")) prev_pos
 				] p);
 			in
 			DynArray.iter (fun t2 ->
@@ -718,6 +718,7 @@ let type_module com g mpath file ?(dont_check_path=false) ?(is_extern=false) tde
 	let tdecls = ModuleLevel.handle_import_hx com g m tdecls p in
 	let ctx_m = type_types_into_module com g m tdecls p in
 	if is_extern then m.m_extra.m_kind <- MExtern else if not dont_check_path then Naming.check_module_path ctx_m.com m.m_path p;
+	incr stats.s_modules_typed;
 	m
 
 class hxb_reader_api_typeload
