@@ -10,6 +10,8 @@ type coro_state = {
 	cs_id : int;
 	mutable cs_el : texpr list;
 	mutable cs_declarations : tvar list;
+
+	(* a "foreign" variable is one which is not declared in this state but is accessed in it *)
 	cs_foreign_vars : (int, tvar) Hashtbl.t;
 }
 
@@ -46,8 +48,11 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 
 	let fst_state     = List.hd states in
 	let arg_state_set = IntSet.of_list [ fst_state.cs_id ] in
-	let var_usages    = tf_args |> List.map (fun (v, _) -> v.v_id, arg_state_set) |> List.to_seq |> Hashtbl.of_seq in
 
+	(* Keep an extra table of all vars and what states they appear in, easier check if a var is used across states this way. *)
+	let var_usages = tf_args |> List.map (fun (v, _) -> v.v_id, arg_state_set) |> List.to_seq |> Hashtbl.of_seq in
+
+	(* Treat arguments as "declared" in the initial state, this way they aren't spilled if accessed before the first suspension. *)
 	fst_state.cs_declarations <- List.map (fun (a, _) -> a) tf_args;
 
 	List.iter (fun state ->
@@ -69,6 +74,11 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 		List.iter loop state.cs_el
 	) states;
 
+	(*
+	 * Each variable which is used across multiple states is given a field in the continuation class to store it's value
+	 * during suspension.
+	 * TODO : Instead of giving each variable a field have a set of "slots" which can be used by a field if no other variable is currently using it.
+	 *)
 	let fields = Hashtbl.create 0 in
 	let is_used_across_multiple_states id =
 		match Hashtbl.find_opt var_usages id with
@@ -81,6 +91,8 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 		| _ ->
 			false
 	in
+
+	(* Again, treat function arguments as the special case that they are *)
 	List.iter (fun (v, _) ->
 		if is_used_across_multiple_states v.v_id then begin
 			let field = mk_field (Printf.sprintf "_hx_hoisted%i" v.v_id) v.v_type null_pos null_pos in
@@ -101,6 +113,8 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 				
 				{ e with eexpr = TVar (v, Option.map mapper eo) }
 			| TLocal v when is_used_across_multiple_states v.v_id && is_not_declared_in_state v.v_id ->
+				(* Each state generates new local variables for variables which are used across states. *)
+				(* Here we generate and store those new variables and remap local access to them *)
 				let new_v =
 					match Hashtbl.find_opt state.cs_foreign_vars v.v_id with
 					| Some v -> v
