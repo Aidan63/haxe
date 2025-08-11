@@ -85,6 +85,7 @@ let expr_to_coro ctx etmp_result etmp_error_unwrapped cb_root e =
 					let vt = v.v_type in
 					v.v_type <- impl#captured_type vt;
 					add_var_flag v VCoroCaptured;
+					add_var_flag v VCaptured;
 					vt
 				) used in
 				wrap used e
@@ -156,7 +157,7 @@ let expr_to_coro ctx etmp_result etmp_error_unwrapped cb_root e =
 			local_usage collect_vars e;
 
 			(* mark all capture variables - also used in rename_local_vars at later stage *)
-			PMap.iter (fun _ v -> add_var_flag v VCoroCaptured) !used;
+			PMap.iter (fun _ v -> add_var_flag v VCoroCaptured; add_var_flag v VCaptured) !used;
 
 			!assigned
 		in
