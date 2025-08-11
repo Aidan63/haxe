@@ -217,6 +217,8 @@ let captured_vars scom impl e =
 			incr depth;
 			f collect_vars;
 			decr depth;
+		| Declare v when has_var_flag v VCoroCaptured ->
+			()
 		| Declare v ->
 			vars := PMap.add v.v_id !depth !vars;
 		| Use v ->
