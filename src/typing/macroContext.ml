@@ -469,7 +469,7 @@ let make_macro_api ctx mctx p =
 					let m = ctx.com.module_lut#find mpath in
 					let pos = { pfile = (Path.UniqueKey.lazy_path m.m_extra.m_file); pmin = 0; pmax = 0 } in
 					Interp.compiler_error (make_error ~sub:[
-						make_error ~depth:1 (Custom "Previously defined here") pos
+						make_error (Custom "Previously defined here") pos
 					] (Custom (Printf.sprintf "Cannot redefine module %s" (s_type_path mpath))) p);
 				with Not_found ->
 					ctx.com.cs#taint_module mpath DefineType;
@@ -506,7 +506,7 @@ let make_macro_api ctx mctx p =
 				if m != ctx.m.curmod then begin
 					let pos = { pfile = (Path.UniqueKey.lazy_path m.m_extra.m_file); pmin = 0; pmax = 0 } in
 					Interp.compiler_error (make_error ~sub:[
-						make_error ~depth:1 (Custom "Previously defined here") pos
+						make_error (Custom "Previously defined here") pos
 					] (Custom (Printf.sprintf "Cannot redefine module %s" (s_type_path mpath))) p);
 				end else
 					ignore(TypeloadModule.type_types_into_module ctx.com ctx.g ctx.m.curmod types pos)
@@ -656,8 +656,8 @@ and flush_macro_context mint mctx =
 		let expr_filters = [
 			"handle_abstract_casts",AbstractCast.handle_abstract_casts;
 			"local_statics",LocalStatic.run;
-			"Exceptions",(fun _ -> Exceptions.filter ectx);
-			"captured_vars",(fun scom -> CapturedVars.captured_vars scom mctx.com.local_wrapper false);
+			"Exceptions",Exceptions.filter ectx;
+			"captured_vars",(fun scom -> CapturedVars.captured_vars scom mctx.com.local_wrapper);
 		] in
 		let type_filters = [
 			(fun _ -> FiltersCommon.remove_generic_base);

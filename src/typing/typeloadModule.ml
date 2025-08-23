@@ -77,7 +77,7 @@ module ModuleLevel = struct
 			DeprecationCheck.check_is com ctx_m.m.curmod meta [] name meta p;
 			let error prev_pos =
 				raise_typing_error_ext (make_error (Custom ("Name " ^ name ^ " is already defined in this module")) ~sub:[
-					make_error ~depth:1 (Custom (compl_msg "Previous declaration here")) prev_pos
+					make_error (Custom (compl_msg "Previous declaration here")) prev_pos
 				] p);
 			in
 			DynArray.iter (fun t2 ->
@@ -172,6 +172,19 @@ module ModuleLevel = struct
 					let priv = List.mem AbPrivate d.d_flags in
 					let path = make_path name priv d.d_meta p in
 					let p_enum_meta = Meta.maybe_get_pos Meta.Enum d.d_meta in
+					let a_default = try
+						begin match Meta.get Meta.DefaultValue d.d_meta with
+						| (_,[e],_) ->
+							Some (Lazy.from_fun (fun () ->
+								let ctx = TyperManager.clone_for_expr ctx_m FunStatic FunNotFunction in
+								type_expr ctx e WithType.value
+							))
+						| _ ->
+							raise Not_found
+						end
+					with Not_found ->
+						None
+					in
 					let a = {
 						a_path = path;
 						a_private = priv;
@@ -198,6 +211,7 @@ module ModuleLevel = struct
 						a_constructor = None;
 						a_extern = List.mem AbExtern d.d_flags;
 						a_enum = List.mem AbEnum d.d_flags || p_enum_meta <> None;
+						a_default;
 					} in
 					begin match p_enum_meta with
 						| None when a.a_enum -> a.a_meta <- (Meta.Enum,[],null_pos) :: a.a_meta; (* HAXE5: remove *)
@@ -718,6 +732,7 @@ let type_module com g mpath file ?(dont_check_path=false) ?(is_extern=false) tde
 	let tdecls = ModuleLevel.handle_import_hx com g m tdecls p in
 	let ctx_m = type_types_into_module com g m tdecls p in
 	if is_extern then m.m_extra.m_kind <- MExtern else if not dont_check_path then Naming.check_module_path ctx_m.com m.m_path p;
+	incr stats.s_modules_typed;
 	m
 
 class hxb_reader_api_typeload
