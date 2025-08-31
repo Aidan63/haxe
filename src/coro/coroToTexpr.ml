@@ -127,18 +127,26 @@ let handle_locals ctx b cls states tf_args forbidden_vars econtinuation =
 				Hashtbl.replace state.cs_mapped_local v.v_id v;
 				
 				{ e with eexpr = TVar (v, Option.map mapper eo) }
-			| TBinop ((OpAssign | OpAssignOp _) as op, ({ eexpr = TLocal v; } as elhs), erhs) when is_used_across_multiple_states v.v_id ->
-				state.cs_writes <- IntSet.add v.v_id state.cs_writes;
+			| TBinop ((OpAssign | OpAssignOp _) as op, elhs, erhs) ->
+				(match Texpr.skip elhs with
+				| { eexpr = TLocal v } when is_used_across_multiple_states v.v_id ->
+					state.cs_writes <- IntSet.add v.v_id state.cs_writes;
 
-				let new_local = { elhs with eexpr = TLocal (get_or_create_local_mapping v) } in
-				let new_rhs   = mapper erhs in
+					let new_local = { elhs with eexpr = TLocal (get_or_create_local_mapping v) } in
+					let new_rhs   = mapper erhs in
 
-				{ e with eexpr = TBinop (op, new_local, new_rhs) }
-			| TUnop ((Increment | Decrement) as mode, flag, ({ eexpr = TLocal v} as rhs)) when is_used_across_multiple_states v.v_id ->
-				state.cs_writes <- IntSet.add v.v_id state.cs_writes;
+					{ e with eexpr = TBinop (op, new_local, new_rhs) }
+				| _ ->
+					Type.map_expr mapper e)
+			| TUnop ((Increment | Decrement) as mode, flag, erhs) ->
+				(match Texpr.skip erhs with
+				| { eexpr = TLocal v  } when is_used_across_multiple_states v.v_id ->
+					state.cs_writes <- IntSet.add v.v_id state.cs_writes;
 
-				let new_rhs = { rhs with eexpr = TLocal (get_or_create_local_mapping v) } in
-				{ e with eexpr = TUnop (mode, flag, new_rhs) }
+					let new_rhs = { erhs with eexpr = TLocal (get_or_create_local_mapping v) } in
+					{ e with eexpr = TUnop (mode, flag, new_rhs) }
+				| _ ->
+					Type.map_expr mapper e)
 			| TLocal v when is_used_across_multiple_states v.v_id ->
 				(* Each state generates new local variables for variables which are used across states. *)
 				(* Here we generate and store those new variables and remap local access to them *)
