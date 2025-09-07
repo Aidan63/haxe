@@ -62,13 +62,17 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				}
 			case DropNewest(f):
 				while (tryWrite(v) == false) {
-					f(buffer.pop());
+					final toDrop = buffer.pop();
+
+					f(toDrop);
 				}
 
 				return;
 			case DropOldest(f):
 				while (tryWrite(v) == false) {
-					f(buffer.shift());
+					final toDrop = buffer.shift();
+
+					f(toDrop);
 				}
 				
 				return;
