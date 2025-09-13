@@ -83,7 +83,6 @@ class TestBoundedReader extends utest.Test {
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
 		final reader        = new BoundedReader(buffer, maxBufferSize, writeWaiters, readWaiters, new Out());
-		final out           = new Out();
 		final scheduler     = new VirtualTimeScheduler();
 		final actual        = [];
 		final task          = CoroRun.with(scheduler).create(node -> {
@@ -221,7 +220,7 @@ class TestBoundedReader extends utest.Test {
 		Assert.isFalse(readWaiters.isEmpty());
 	}
 
-	function test_read_wakup_all_writers() {
+	function test_read_wakeup_all_writers() {
 		final buffer        = [ 10 ];
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
