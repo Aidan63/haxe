@@ -72,6 +72,16 @@ final class BoundedReader<T> implements IChannelReader<T> {
 		}
 	}
 
+	public function tryPeek(out:Out<T>):Bool {
+		if (buffer.length == 0) {
+			return false;
+		}
+
+		out.set(buffer[buffer.length - 1]);
+
+		return true;
+	}
+
 	@:coroutine public function read():T {
 		final out = new Out();
 

@@ -77,6 +77,33 @@ class TestBoundedReader extends utest.Test {
 		Assert.same([ '1', '2' ], actual);
 	}
 
+	function test_try_peek_has_data() {
+		final buffer = [ 10 ];
+		final reader = new BoundedReader(buffer, buffer.length, new PagedDeque(), new PagedDeque(), new Out());
+		final out    = new Out();
+
+		Assert.isTrue(reader.tryPeek(out));
+		Assert.equals(10, out.get());
+		Assert.same([ 10 ], buffer);
+	}
+
+	function test_try_peek_many_data() {
+		final buffer = [ 1, 2, 3, 4, 5 ];
+		final reader = new BoundedReader(buffer, buffer.length, new PagedDeque(), new PagedDeque(), new Out());
+		final out    = new Out();
+
+		Assert.isTrue(reader.tryPeek(out));
+		Assert.equals(5, out.get());
+	}
+
+	function test_try_peek_empty() {
+		final buffer = [];
+		final reader = new BoundedReader(buffer, buffer.length, new PagedDeque(), new PagedDeque(), new Out());
+		final out    = new Out();
+
+		Assert.isFalse(reader.tryPeek(out));
+	}
+
 	function test_wait_for_read_has_data() {
 		final buffer        = [ 10 ];
 		final maxBufferSize = 1;

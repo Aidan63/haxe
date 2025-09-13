@@ -53,6 +53,10 @@ final class UnboundedReader<T> implements IChannelReader<T> {
 		return buffer.tryPop(out);
 	}
 
+	public function tryPeek(out:Out<T>):Bool {
+		return buffer.tryPeek(out);
+	}
+
 	@:coroutine public function read():T {
 		final out = new Out();
 

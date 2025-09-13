@@ -70,6 +70,10 @@ final class SingleBoundedReader<T> implements IChannelReader<T> {
 		}
 	}
 
+	public function tryPeek(out:Out<T>):Bool {
+		throw new haxe.exceptions.NotImplementedException();
+	}
+
 	@:coroutine public function read():T {
 		final out = new Out();
 

@@ -35,6 +35,41 @@ class TestUnboundedReader extends utest.Test {
 		Assert.isTrue(buffer.isEmpty());
 	}
 
+	function test_try_peek_has_data() {
+		final out    = new Out();
+		final buffer = new PagedDeque();
+		final reader = new UnboundedReader(buffer, new PagedDeque(), new Out());
+
+		buffer.push(10);
+
+		Assert.isTrue(reader.tryPeek(out));
+		Assert.equals(10, out.get());
+		if (Assert.isFalse(buffer.isEmpty())) {
+			Assert.equals(10, buffer.pop());
+		}
+	}
+
+	function test_try_peek_many_data() {
+		final out    = new Out();
+		final buffer = new PagedDeque();
+		final reader = new UnboundedReader(buffer, new PagedDeque(), new Out());
+
+		for (i in 0...10) {
+			buffer.push(i + 1);
+		}
+
+		Assert.isTrue(reader.tryPeek(out));
+		Assert.equals(10, out.get());
+		Assert.isFalse(buffer.isEmpty());
+	}
+
+	function test_try_peek_empty() {
+		final reader = new UnboundedReader(new PagedDeque(), new PagedDeque(), new Out());
+		final out    = new Out();
+
+		Assert.isFalse(reader.tryPeek(out));
+	}
+
 	function test_wait_for_read_has_data() {
 		final out     = new Out();
 		final buffer  = new PagedDeque();

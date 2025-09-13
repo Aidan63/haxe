@@ -190,6 +190,16 @@ class PagedDeque<T> {
 		}
 	}
 
+	public function tryPeek(out:Out<T>) {
+		if (isEmpty()) {
+			return false;
+		}
+
+		out.set(getPageDataAt(lastPage, lastIndex - 1));
+
+		return true;
+	}
+
 	public function isEmpty() {
 		while (currentIndex == currentPage.freeSpace()) {
 			if (currentPage.next == null || currentPage == lastPage) {
