@@ -10,7 +10,7 @@ import hxcoro.concurrent.AtomicInt;
  * This buffer supports at most a single producer and a single consumer at any one time,
  * the behaviour when multiple produces and consumers act on the buffer is undefined.
  */
-class ConcurrentCircularBuffer<T> {
+final class ConcurrentCircularBuffer<T> {
 	final storage : Vector<T>;
 
 	final head : AtomicInt;
@@ -76,7 +76,7 @@ class ConcurrentCircularBuffer<T> {
 		return nextTail == head.load();
 	}
 
-	function increment(v : Int) {
+	inline function increment(v : Int) {
 		return (v + 1) % storage.length;
 	}
 }

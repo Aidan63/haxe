@@ -4,6 +4,7 @@ import haxe.coro.IContinuation;
 import haxe.exceptions.ArgumentException;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
+import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.bounded.BoundedReader;
 import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.ds.channels.bounded.SingleBoundedReader;
@@ -68,14 +69,14 @@ abstract class Channel<T> {
 		// 			new SingleBoundedWriter(buffer, writeWaiter, readWaiter, closed, writeBehaviour));
 		// }
 
-		final buffer       = [];
+		final buffer       = new CircularBuffer(options.size);
 		final readWaiters  = new PagedDeque();
 		final writeWaiters = new PagedDeque();
 
 		return
 			new BoundedChannel(
-				new BoundedReader(buffer, options.size, writeWaiters, readWaiters, closed),
-				new BoundedWriter(buffer, options.size, writeWaiters, readWaiters, closed, writeBehaviour));
+				new BoundedReader(buffer, writeWaiters, readWaiters, closed),
+				new BoundedWriter(buffer, writeWaiters, readWaiters, closed, writeBehaviour));
 	}
 
 	public static function createUnbounded<T>(options : ChannelOptions):Channel<T> {

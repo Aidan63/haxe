@@ -1,7 +1,9 @@
 package hxcoro.ds.channels.bounded;
 
+import haxe.Exception;
 import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
+import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.Channel;
 import hxcoro.exceptions.ChannelClosedException;
 
@@ -10,9 +12,7 @@ using hxcoro.util.Convenience;
 final class BoundedWriter<T> implements IChannelWriter<T> {
 	final closed : Out<Bool>;
 
-	final buffer : Array<T>;
-
-	final maxBufferSize : Int;
+	final buffer : CircularBuffer<T>;
 
 	final writeWaiters : PagedDeque<IContinuation<Bool>>;
 
@@ -20,9 +20,8 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 
 	final behaviour : FullBehaviour<T>;
 
-	public function new(buffer, maxBufferSize, writeWaiters, readWaiters, closed, behaviour) {
+	public function new(buffer, writeWaiters, readWaiters, closed, behaviour) {
 		this.buffer        = buffer;
-		this.maxBufferSize = maxBufferSize;
 		this.writeWaiters  = writeWaiters;
 		this.readWaiters   = readWaiters;
 		this.closed        = closed;
@@ -34,9 +33,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 			return false;
 		}
 
-		return if (buffer.length < maxBufferSize) {
-			buffer.push(v);
-
+		return if (buffer.tryPush(v)) {
 			final cont = new Out();
 			while (readWaiters.tryPop(cont)) {
 				cont.get().succeedAsync(true);
@@ -61,18 +58,26 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 					}
 				}
 			case DropNewest(f):
-				while (tryWrite(v) == false) {
-					final toDrop = buffer.pop();
+				final out = new Out();
 
-					f(toDrop);
+				while (tryWrite(v) == false) {
+					if (buffer.tryPopHead(out)) {
+						f(out.get());
+					} else {
+						throw new Exception('Failed to drop newest item');
+					}
 				}
 
 				return;
 			case DropOldest(f):
-				while (tryWrite(v) == false) {
-					final toDrop = buffer.shift();
+				final out = new Out();
 
-					f(toDrop);
+				while (tryWrite(v) == false) {
+					if (buffer.tryPopTail(out)) {
+						f(out.get());
+					} else {
+						throw new Exception('Failed to drop oldest item');
+					}
 				}
 				
 				return;
@@ -90,9 +95,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 			return false;
 		}
 
-		return if (buffer.length < maxBufferSize) {
-			true;
-		} else {
+		return if (buffer.wasFull()) {
 			return suspendCancellable(cont -> {
 				final hostPage  = writeWaiters.push(cont);
 
@@ -100,6 +103,8 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 					writeWaiters.remove(hostPage, cont);
 				}
 			});
+		} else {
+			true;
 		}
 	}
 

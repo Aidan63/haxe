@@ -4,6 +4,7 @@ import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 import hxcoro.ds.Out;
+import hxcoro.ds.CircularBuffer;
 import hxcoro.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
@@ -11,7 +12,7 @@ using hxcoro.util.Convenience;
 private final class WaitContinuation<T> implements IContinuation<Bool> {
 	final cont : IContinuation<Bool>;
 
-	final buffer : Array<T>;
+	final buffer : CircularBuffer<T>;
 
 	final closed : Out<Bool>;
 
@@ -31,7 +32,7 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 		if (false == result) {
 			closed.set(false);
 
-			cont.succeedAsync(buffer.length == 0);
+			cont.succeedAsync(buffer.wasEmpty());
 		} else {
 			cont.succeedAsync(true);
 		}
@@ -39,9 +40,7 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 }
 
 final class BoundedReader<T> implements IChannelReader<T> {
-	final buffer : Array<T>;
-
-	final maxBufferSize : Int;
+	final buffer : CircularBuffer<T>;
 
 	final writeWaiters : PagedDeque<IContinuation<Bool>>;
 
@@ -49,18 +48,15 @@ final class BoundedReader<T> implements IChannelReader<T> {
 
 	final closed : Out<Bool>;
 
-	public function new(buffer, maxBufferSize, writeWaiters, readWaiters, closed) {
+	public function new(buffer, writeWaiters, readWaiters, closed) {
 		this.buffer        = buffer;
-		this.maxBufferSize = maxBufferSize;
 		this.writeWaiters  = writeWaiters;
 		this.readWaiters   = readWaiters;
 		this.closed        = closed;
 	}
 
 	public function tryRead(out:Out<T>):Bool {
-		return if (buffer.length > 0) {
-			out.set(buffer.shift());
-
+		return if (buffer.tryPopTail(out)) {
 			final cont = new Out();
 			while (writeWaiters.tryPop(cont)) {
 				cont.get().succeedAsync(true);
@@ -73,13 +69,7 @@ final class BoundedReader<T> implements IChannelReader<T> {
 	}
 
 	public function tryPeek(out:Out<T>):Bool {
-		if (buffer.length == 0) {
-			return false;
-		}
-
-		out.set(buffer[buffer.length - 1]);
-
-		return true;
+		return buffer.tryPeekHead(out);
 	}
 
 	@:coroutine public function read():T {
@@ -98,7 +88,7 @@ final class BoundedReader<T> implements IChannelReader<T> {
 	}
 
 	@:coroutine public function waitForRead():Bool {
-		if (buffer.length > 0) {
+		if (buffer.wasEmpty() == false) {
 			return true;
 		}
 
