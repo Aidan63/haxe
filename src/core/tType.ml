@@ -398,6 +398,7 @@ and tabstract = {
 	mutable a_constructor : tclass_field option;
 	mutable a_extern : bool;
 	mutable a_enum : bool;
+	mutable a_default : texpr Lazy.t option;
 }
 
 and module_type =
@@ -558,6 +559,7 @@ type flag_tvar =
 	| VStatic
 	| VUsedByTyper (* Set if the typer looked up this variable *)
 	| VHxb (* Flag used by hxb *)
+	| VCoroCaptured
 
 let flag_tvar_names = [
 	"VCaptured";"VFinal";"VAnalyzed";"VAssigned";"VCaught";"VStatic";"VUsedByTyper"
